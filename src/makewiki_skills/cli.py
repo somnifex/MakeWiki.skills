@@ -1,7 +1,12 @@
-"""Typer-based CLI for MakeWiki.skills."""
+"""Typer-based internal CLI for MakeWiki.skills.
+
+This CLI serves the skill layer only. It is NOT a user-facing interface.
+Skills invoke it via ``python -m makewiki_skills <command>``.
+"""
 
 from __future__ import annotations
 
+import json as json_lib
 from pathlib import Path
 from typing import Optional
 
@@ -13,7 +18,7 @@ from makewiki_skills.config import MakeWikiConfig
 
 app = typer.Typer(
     name="makewiki",
-    help="Generate multilingual user-facing wiki documentation for any software project.",
+    help="Internal toolkit CLI for MakeWiki skills.",
     add_completion=False,
 )
 console = Console()
@@ -87,6 +92,7 @@ def generate(
 def scan(
     target: Path = typer.Argument(..., help="Target project directory"),
     config_path: Optional[Path] = typer.Option(None, "--config", "-c"),
+    output_format: str = typer.Option("human", "--format", "-f", help="Output format: human | json"),
 ) -> None:
     """Scan a project and output evidence summary (stages 1-2 only)."""
     from makewiki_skills.pipeline.pipeline import Pipeline
@@ -100,6 +106,21 @@ def scan(
     pipeline = Pipeline(cfg)
     ctx = pipeline.run_until("collect_evidence")
 
+    if output_format == "json":
+        if ctx.detection and ctx.evidence_registry:
+            files_read: list[str] = []
+            if ctx.collected_evidence:
+                files_read = ctx.collected_evidence.raw_files_read
+            bundle = ctx.evidence_registry.to_evidence_bundle(
+                detection=ctx.detection,
+                files_read=files_read,
+            )
+            typer.echo(json_lib.dumps(bundle.model_dump(), indent=2, ensure_ascii=False))
+        else:
+            typer.echo(json_lib.dumps({"error": "No evidence collected"}, indent=2))
+        return
+
+    # Human-readable output (default)
     if ctx.detection:
         console.print(f"[bold]Project:[/bold] {ctx.detection.project_name}")
         console.print(f"[bold]Type:[/bold] {ctx.detection.project_type.value}")
@@ -232,6 +253,116 @@ def init_config(
     config_path = target / "makewiki.config.yaml"
     config_path.write_text(cfg.to_yaml(), encoding="utf-8")
     console.print(f"[green]Created[/green] {config_path}")
+
+
+@app.command(name="semantic-review")
+def semantic_review(
+    wiki_dir: Path = typer.Argument(..., help="Path to makewiki/ output directory"),
+    langs: list[str] = typer.Option(["en", "zh-CN"], "--lang", "-l"),
+    output_format: str = typer.Option("json", "--format", "-f", help="Output format: json | human"),
+) -> None:
+    """Output parallel passages from all language versions for LLM semantic review.
+
+    Structures document content by section so the AI skill can compare
+    semantics across languages. This is a data preparation tool, not an
+    automated reviewer.
+    """
+    import re
+
+    wiki_dir = Path(wiki_dir).resolve()
+    if not wiki_dir.is_dir():
+        console.print(f"[red]Error:[/red] Directory not found: {wiki_dir}")
+        raise typer.Exit(1)
+
+    from makewiki_skills.languages.registry import LanguageRegistry
+    LanguageRegistry.load_builtins()
+
+    pages: dict[str, dict[str, str]] = {}
+    default_lang = langs[0] if langs else "en"
+
+    for md_file in sorted(wiki_dir.rglob("*.md")):
+        if md_file.name == "index.md":
+            continue
+        rel = str(md_file.relative_to(wiki_dir)).replace("\\", "/")
+
+        detected_lang = default_lang
+        base = rel
+        for lang_code in langs:
+            if lang_code == default_lang:
+                continue
+            if LanguageRegistry.has(lang_code):
+                profile = LanguageRegistry.get(lang_code)
+                if profile.file_suffix and profile.file_suffix in rel:
+                    detected_lang = lang_code
+                    base = rel.replace(profile.file_suffix, "")
+                    break
+
+        content = md_file.read_text(encoding="utf-8", errors="replace")
+        pages.setdefault(base, {})[detected_lang] = content
+
+    review_pairs: list[dict[str, object]] = []
+    for base_name, lang_contents in sorted(pages.items()):
+        if len(lang_contents) < 2:
+            continue
+
+        ref_lang = next(iter(lang_contents))
+        ref_sections = _split_by_h2(lang_contents[ref_lang])
+
+        for section_heading in ref_sections:
+            passages: dict[str, str] = {}
+            for lang_code, content in lang_contents.items():
+                sections = _split_by_h2(content)
+                # Try to match by section index (headings differ across languages)
+                section_idx = list(ref_sections.keys()).index(section_heading)
+                other_sections = list(sections.values())
+                if section_idx < len(other_sections):
+                    passages[lang_code] = other_sections[section_idx][:500]
+                else:
+                    passages[lang_code] = ""
+
+            if any(p.strip() for p in passages.values()):
+                review_pairs.append({
+                    "document": base_name,
+                    "section_index": list(ref_sections.keys()).index(section_heading),
+                    "reference_heading": section_heading,
+                    "passages": passages,
+                })
+
+    if output_format == "json":
+        typer.echo(json_lib.dumps({"review_pairs": review_pairs}, indent=2, ensure_ascii=False))
+    else:
+        console.print(f"[bold]Semantic Review Data[/bold]")
+        console.print(f"  Documents with multiple languages: {len(pages)}")
+        console.print(f"  Section pairs for review: {len(review_pairs)}")
+        for pair in review_pairs[:10]:
+            console.print(f"\n  [cyan]{pair['document']}[/cyan] — {pair['reference_heading']}")
+            for lang, text in pair["passages"].items():  # type: ignore[union-attr]
+                preview = str(text)[:80].replace("\n", " ")
+                console.print(f"    [{lang}] {preview}...")
+
+
+def _split_by_h2(content: str) -> dict[str, str]:
+    """Split markdown content into sections by H2 headings."""
+    import re
+
+    sections: dict[str, str] = {}
+    current_heading = "(intro)"
+    current_lines: list[str] = []
+
+    for line in content.splitlines():
+        match = re.match(r"^##\s+(.+)$", line)
+        if match:
+            if current_lines:
+                sections[current_heading] = "\n".join(current_lines)
+            current_heading = match.group(1).strip()
+            current_lines = []
+        else:
+            current_lines.append(line)
+
+    if current_lines:
+        sections[current_heading] = "\n".join(current_lines)
+
+    return sections
 
 def _load_config(config_path: Path | None, target: Path) -> MakeWikiConfig:
     if config_path and config_path.is_file():

@@ -16,12 +16,15 @@ class ScanConfig(BaseModel):
     )
     max_depth: int = 6
     max_file_size_kb: int = 512
+    enable_source_intelligence: bool = True
+    source_intelligence_max_files: int = 50
 
 class ReviewConfig(BaseModel):
     """Controls cross-language and grounding review behaviour."""
 
     enable_cross_language_review: bool = True
     enable_code_grounding_verification: bool = True
+    enable_semantic_review: bool = True
     min_page_alignment_ratio: float = 0.9
 
 class DocumentationPolicyConfig(BaseModel):

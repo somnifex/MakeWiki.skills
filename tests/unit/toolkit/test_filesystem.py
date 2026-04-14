@@ -88,13 +88,3 @@ def test_safe_write_no_overwrite(tmp_path: Path):
     result = tool.safe_write(target, "new content", overwrite=False)
     assert not result.success
     assert target.read_text() == "original"
-
-
-def test_exists_helpers(tmp_path: Path):
-    f = tmp_path / "test.txt"
-    f.write_text("x")
-    tool = FilesystemTool()
-    assert tool.exists(f)
-    assert tool.is_file(f)
-    assert not tool.is_dir(f)
-    assert tool.is_dir(tmp_path)

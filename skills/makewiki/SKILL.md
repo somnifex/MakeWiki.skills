@@ -2,7 +2,7 @@
 name: makewiki
 description: "Generate multilingual user-facing wiki documentation for the current project inside Claude Code or Codex. Scans project structure, collects evidence from configs/scripts/docs, builds a language-neutral semantic model, then independently generates documentation in each specified language with cross-language verification and code-evidence grounding. Use when: user asks to generate wiki, docs, documentation, or multilingual docs for a project."
 argument-hint: "[--lang <code>...] [--output <dir>]"
-allowed-tools: Bash(python *) Bash(uv run *) Read Write Edit Glob Grep
+allowed-tools: Bash(python *) Read Write Edit Glob Grep
 ---
 
 # MakeWiki - Multilingual Wiki Documentation Generator
@@ -170,44 +170,97 @@ Supported language codes: `en`, `zh-CN`, `ja`, `de`, `fr` (and any BCP-47 code y
 Check if the MakeWiki toolkit is available:
 
 ```!
-python -c "import makewiki_skills; print(makewiki_skills.__version__)" 2>/dev/null || echo "NOT_INSTALLED"
+python -c “import makewiki_skills; print(makewiki_skills.__version__)” 2>/dev/null || echo “NOT_INSTALLED”
 ```
 
-If not installed, install it:
+If not installed, install it from the skill's parent directory:
 
 ```bash
 cd ${CLAUDE_SKILL_DIR}/../.. && uv sync 2>/dev/null || pip install -e . 2>/dev/null
 ```
 
-### Step 2: Understand the project (NOT just scan it)
+### Step 2: Collect structured evidence
 
-Run the toolkit's scan stage to collect structured evidence:
+Run the toolkit's scan stage with structured JSON output:
 
 ```bash
-uv run makewiki scan . 2>/dev/null || python -m makewiki_skills.cli scan .
+python -m makewiki_skills scan . --format json
 ```
 
-Then **read the project yourself as a first-time user would**:
+This produces a JSON evidence bundle containing every individual fact the scanner found — commands, config keys, file paths, version strings, config comments, CLI help text, and error messages — each with source file locations and confidence levels.
+
+Parse the JSON output. Identify **evidence gaps** — areas where the toolkit could not extract enough information:
+- Config keys with no `config_comment` facts → you need to read the config file to understand what they do
+- Commands with no `cli_help` facts → you need to read the entry point source to understand usage
+- Few or no `error_message` facts → check source code for error handling patterns
+
+Then **read the project yourself**, targeting the gaps:
 
 1. **Read the README** - What does this project claim to do? Who is the audience?
-2. **Read config/manifest files** - `pyproject.toml`, `package.json`, `Cargo.toml`, `go.mod` - extract name, version, dependencies, scripts.
-3. **Read build/task files** - `Makefile`, npm scripts, Taskfile - what commands can the user run?
+2. **Read config files the scanner flagged** - especially any with missing comment context
+3. **Read build/task files** - `Makefile`, npm scripts, Taskfile - for commands the scanner might have missed
 4. **Read example configs** - `.env.example`, `config.example.yaml` - what does the user need to configure?
 5. **Read entry points** - main files, CLI entry points - what does running the program actually do?
 6. **Read existing docs** - Are there already docs, tutorials, or usage examples?
 
-**After reading, answer these questions before writing anything:**
-- In one sentence, what does this project do?
-- Who would use this? (developer tool? end-user app? library? CLI tool? web service?)
-- What is the install -> first-run path?
-- What are the 3-5 things a user would do with this daily?
-- What could go wrong, and how would a user fix it?
+### Step 3: Build project brief (required — do not skip)
 
-These answers determine your document structure. Do NOT proceed to writing until you can answer all of them.
+Based on all evidence collected, produce a **project brief** as a YAML code block in the conversation. This is your authoritative reference for all subsequent document generation. Do NOT proceed to writing documentation until this brief is complete.
 
-### Step 3: Decide document structure
+```yaml
+project_brief:
+  name: “”               # from toolkit detection / manifest
+  version: “”            # from pyproject.toml / package.json / Cargo.toml
+  purpose: “”            # ONE sentence: what does this tool do for the user?
+  target_users:          # who uses this? (list, inferred from README + CLI design)
+    - “”
+  project_type: “”       # python-cli | node-react | rust-cli | go-cli | etc.
 
-Based on your understanding (NOT from the directory tree), decide which pages to create. The default set is:
+install_path:            # the exact sequence a new user runs
+  prerequisites:
+    - name: “”
+      version_constraint: “”
+  commands:
+    - “”
+  verify: “”             # command to confirm install worked
+
+key_workflows:           # 3-7 things users actually DO with this tool
+  - title: “”
+    user_goal: “”        # finish the sentence: “so that I can...”
+    commands:
+      - “”
+    config_keys: []      # which config keys affect this workflow
+    expected_output: “”  # what the user sees after running these commands
+
+config_semantics:        # for each non-obvious config key, what does it DO?
+  - key: “”
+    effect: “”           # user-visible effect of changing this key
+    source_file: “”
+    default_value: “”
+    comment_text: “”     # verbatim comment from the config file, if any
+
+common_pitfalls:         # things that go wrong and how to fix them
+  - symptom: “”          # what the user sees (error message, unexpected behavior)
+    cause: “”
+    fix: “”
+    evidence_source: “”  # where you found this (error message in code, README warning, etc.)
+
+uncertainty_flags:       # things you're NOT sure about — be explicit
+  - claim: “”
+    reason: “”           # why you're uncertain
+    evidence_gaps: “”    # what would resolve the uncertainty
+```
+
+**Rules for the project brief:**
+- Every `purpose` statement must be verifiable from README or source entry point behavior.
+- Every workflow `command` must appear in the evidence bundle OR in a file you personally read.
+- `config_semantics` must only include keys where you found the comment or can infer the effect from usage context.
+- `uncertainty_flags` is **mandatory**. If you have zero uncertainties, that itself is a red flag — re-examine your understanding. Every project has ambiguities.
+- Do NOT populate fields with guesses. Leave them empty and add the gap to `uncertainty_flags` instead.
+
+### Step 4: Decide document structure
+
+Based on the project brief (NOT from the directory tree), decide which pages to create. The default set is:
 
 | Base file | Purpose |
 |---|---|
@@ -221,13 +274,22 @@ Based on your understanding (NOT from the directory tree), decide which pages to
 
 You may **add** pages if the project warrants it (e.g., a `deployment.md` for a web service, a `plugins.md` for an extensible tool). You may **skip** pages if the project is too simple to warrant them (e.g., skip `configuration.md` if the tool has no configuration). Do not generate empty or near-empty pages.
 
-### Step 4: Generate documentation for each language
+### Step 5: Generate documentation for each language
+
+Use the project brief from Step 3 as your authoritative source. The brief overrides any heuristic defaults for all interpretive decisions. The toolkit evidence (commands, config keys, paths) remains the ground truth for factual claims.
 
 For each requested language, **independently** generate the full documentation set.
 
 **Critical: You are NOT translating. You are writing each language version from scratch, from your understanding of the project.** A native Chinese speaker and a native English speaker reading the same project would emphasize different things, use different idioms, structure explanations differently. That is correct and expected.
 
 Work through the requested languages **sequentially in the current conversation**. Do not spawn a helper agent per language.
+
+**How the brief drives generation:**
+- `project_brief.purpose` → project overview (not the README's full text verbatim)
+- `key_workflows` → Usage and Getting Started sections
+- `config_semantics` → config table descriptions (use `effect` and `comment_text`, not just key names)
+- `common_pitfalls` → Troubleshooting section (real symptoms and fixes, not generic advice)
+- `uncertainty_flags` → explicit hedging in output (every uncertain claim must be hedged)
 
 #### Output structure
 
@@ -263,17 +325,17 @@ Before writing each paragraph, verify:
 
 - [ ] Does this describe something the user can see, do, or experience?
 - [ ] If I removed this paragraph, would the user miss anything actionable?
-- [ ] Does every "supports X" have a concrete "you can do Y" follow-up?
+- [ ] Does every “supports X” have a concrete “you can do Y” follow-up?
 - [ ] Are all commands verified against evidence (files, scripts, configs)?
 - [ ] Am I hedging appropriately for uncertain capabilities?
 - [ ] Am I free of banned marketing words?
 
-### Step 5: Cross-language verification
+### Step 6: Cross-language verification
 
-After generating all languages, run the review:
+After generating all languages, run the structural review:
 
 ```bash
-uv run makewiki review . --lang en --lang zh-CN 2>/dev/null || python -m makewiki_skills.cli review . --lang en --lang zh-CN
+python -m makewiki_skills review . --lang en --lang zh-CN
 ```
 
 Also manually verify:
@@ -285,10 +347,32 @@ Also manually verify:
 
 If inconsistencies are found, fix them.
 
-### Step 6: Validate output
+#### Step 6b: Semantic consistency review (LLM analysis)
+
+After the structural check above, perform a **semantic pass** across all language versions:
+
+**Hedging consistency check:**
+For each uncertain claim in one language that uses hedging language (“may”, “appears to”, “suggests”, “the repository contains X which suggests Y”):
+1. Find the equivalent passage in each other language
+2. Verify the hedge is preserved with equivalent epistemic force
+3. A hedge removed in translation is a documentation accuracy failure — fix it
+
+**Semantic drift check:**
+For each observable-behavior description (e.g., “After running the command, you'll see X”):
+1. Find the equivalent in other languages
+2. Verify the described observable outcome matches
+3. Different prose is acceptable; different observable outcomes are not
+
+**Cultural appropriateness check:**
+For any examples that use:
+- Personal names as example values → are they culturally appropriate for the locale?
+- Currency or date format examples → do they match the locale's conventions?
+- Humor or idiomatic expressions → are they natural in the target language?
+
+### Step 7: Validate output
 
 ```bash
-uv run makewiki validate <output_dir> 2>/dev/null || python -m makewiki_skills.cli validate <output_dir>
+python -m makewiki_skills validate <output_dir>
 ```
 
 Also check:
@@ -297,14 +381,15 @@ Also check:
 - No empty pages
 - Heading hierarchy is correct (no skipped levels)
 
-### Step 7: Report
+### Step 8: Report
 
 After completion, report:
 - Number of files generated per language
-- Cross-language consistency score
+- Cross-language consistency score (structural + semantic)
 - Any grounding warnings (claims without strong evidence)
 - Any validation issues
 - Any sections you chose to skip and why
+- Summary of uncertainty flags from the project brief
 
 ---
 

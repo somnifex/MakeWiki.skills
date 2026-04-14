@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from makewiki_skills.scanner.evidence_bundle import EvidenceBundle
+from makewiki_skills.scanner.project_detector import ProjectDetectionResult
 from makewiki_skills.toolkit.evidence import EvidenceFact
 
 class EvidenceRegistry:
@@ -47,3 +49,15 @@ class EvidenceRegistry:
 
     def __len__(self) -> int:
         return len(self._facts)
+
+    def to_evidence_bundle(
+        self,
+        detection: ProjectDetectionResult,
+        files_read: list[str] | None = None,
+    ) -> EvidenceBundle:
+        """Build a structured evidence bundle for AI skill consumption."""
+        return EvidenceBundle.from_registry(
+            detection=detection,
+            facts=self.all_facts(),
+            files_read=files_read,
+        )

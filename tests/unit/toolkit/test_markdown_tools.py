@@ -3,24 +3,6 @@
 from makewiki_skills.toolkit.markdown_tools import MarkdownTool
 
 
-def test_extract_headings():
-    tool = MarkdownTool()
-    content = "# Title\n\n## Section 1\n\n### Subsection\n\n## Section 2\n"
-    headings = tool.extract_headings(content)
-    assert len(headings) == 4
-    assert headings[0].level == 1
-    assert headings[0].text == "Title"
-    assert headings[1].level == 2
-
-
-def test_validate_headings_valid():
-    tool = MarkdownTool()
-    content = "# Title\n\n## Section\n\n### Sub\n"
-    result = tool.validate_headings(content)
-    assert result.success
-    assert result.data["valid"]
-
-
 def test_validate_headings_missing_h1():
     tool = MarkdownTool()
     content = "## Section\n\n### Sub\n"

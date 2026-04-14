@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git -C \"c:/Users/HowieWu/Desktop/MakeWiki.skills\" log --oneline --all)",
+      "Read(//c/Users/HowieWu/.claude/**)",
+      "Bash(pip install:*)",
+      "Bash(echo \"EXIT_CODE=$?\")"
+    ]
+  }
+}

@@ -11,8 +11,11 @@ from pydantic import BaseModel, Field
 from makewiki_skills.config import MakeWikiConfig
 from makewiki_skills.scanner.evidence_registry import EvidenceRegistry
 from makewiki_skills.scanner.project_detector import ProjectDetectionResult, ProjectType
+from makewiki_skills.toolkit.cli_help_extractor import CLIHelpExtractor
 from makewiki_skills.toolkit.command_probe import CommandProbeTool
+from makewiki_skills.toolkit.comment_extractor import CommentExtractor
 from makewiki_skills.toolkit.config_reader import ConfigReaderTool
+from makewiki_skills.toolkit.error_extractor import ErrorStringExtractor
 from makewiki_skills.toolkit.evidence import EvidenceFact, EvidenceLink, EvidenceTool
 from makewiki_skills.toolkit.filesystem import FilesystemTool
 
@@ -35,6 +38,9 @@ class EvidenceCollector:
         self._cfg_reader = ConfigReaderTool()
         self._cmd_probe = CommandProbeTool()
         self._evidence = EvidenceTool()
+        self._comment_extractor = CommentExtractor()
+        self._cli_help_extractor = CLIHelpExtractor()
+        self._error_extractor = ErrorStringExtractor()
 
     def collect(
         self,
@@ -59,6 +65,11 @@ class EvidenceCollector:
         script_facts, script_cmds = self._collect_scripts(root, detection)
         all_facts.extend(script_facts)
         commands.extend(script_cmds)
+
+        if self._config.scan.enable_source_intelligence:
+            si_facts, si_files = self._collect_source_intelligence(root, detection)
+            all_facts.extend(si_facts)
+            files_read.extend(si_files)
 
         all_facts = EvidenceTool.merge_facts(all_facts)
 
@@ -230,3 +241,57 @@ class EvidenceCollector:
                 )
             ]
         return []
+
+    def _collect_source_intelligence(
+        self, root: Path, detection: ProjectDetectionResult
+    ) -> tuple[list[EvidenceFact], list[str]]:
+        facts: list[EvidenceFact] = []
+        files_read: list[str] = []
+        max_files = self._config.scan.source_intelligence_max_files
+
+        config_patterns = ["*.yaml", "*.yml", "*.toml", ".env", ".env.example", "*.cfg", "*.ini"]
+        for pattern in config_patterns:
+            for p in root.glob(pattern):
+                if p.is_file() and p.stat().st_size < self._config.scan.max_file_size_kb * 1024:
+                    comments = self._comment_extractor.extract_comments(p)
+                    if comments:
+                        rel = str(p.relative_to(root)).replace("\\", "/")
+                        for c in comments:
+                            c.source_path = rel
+                        facts.extend(self._comment_extractor.to_evidence_facts(comments))
+
+
+        is_python = detection.project_type in (
+            ProjectType.PYTHON_CLI,
+            ProjectType.PYTHON_LIBRARY,
+            ProjectType.PYTHON_SERVICE,
+        )
+        if is_python:
+            py_files_scanned = 0
+            for py_file in sorted(root.rglob("*.py")):
+                rel = str(py_file.relative_to(root)).replace("\\", "/")
+                if any(part in self._config.scan.ignore_dirs for part in py_file.relative_to(root).parts):
+                    continue
+                if py_file.stat().st_size > self._config.scan.max_file_size_kb * 1024:
+                    continue
+                if py_files_scanned >= max_files:
+                    break
+
+                cli_help_facts = self._cli_help_extractor.extract_from_file(py_file)
+                if cli_help_facts:
+                    for f in cli_help_facts:
+                        f.source_path = rel
+                    facts.extend(self._cli_help_extractor.to_evidence_facts(cli_help_facts))
+                    files_read.append(rel)
+
+                error_facts = self._error_extractor.extract_from_file(py_file)
+                if error_facts:
+                    for f in error_facts:
+                        f.source_path = rel
+                    facts.extend(self._error_extractor.to_evidence_facts(error_facts))
+                    if rel not in files_read:
+                        files_read.append(rel)
+
+                py_files_scanned += 1
+
+        return facts, files_read

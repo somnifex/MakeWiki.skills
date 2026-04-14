@@ -26,15 +26,6 @@ claude --plugin-dir /path/to/MakeWiki.skills
 /makewiki-init                       # 生成默认配置文件
 ```
 
-### Codex 及其他助手
-
-读取仓库根目录的 `AGENTS.md`，通过 CLI 完成相同工作：
-
-```bash
-cd /path/to/MakeWiki.skills && uv sync
-uv run makewiki generate /path/to/target --lang en --lang zh-CN
-```
-
 ### 安装
 
 Python 3.11+，用 `uv` 或 `pip`：

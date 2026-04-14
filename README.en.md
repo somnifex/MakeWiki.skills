@@ -26,15 +26,6 @@ claude --plugin-dir /path/to/MakeWiki.skills
 /makewiki-init                       # Generate default config
 ```
 
-### Codex and other assistants
-
-Read `AGENTS.md` at the repo root, then drive the same workflow through the CLI:
-
-```bash
-cd /path/to/MakeWiki.skills && uv sync
-uv run makewiki generate /path/to/target --lang en --lang zh-CN
-```
-
 ### Installation
 
 Python 3.11+, via `uv` or `pip`:

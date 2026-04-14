@@ -8,58 +8,39 @@ __pycache__/
 dist/
 build/
 .eggs/
-__pypackages__/
-pip-wheel-metadata/
-.python-version
-.pdm-python
 
 # Virtual environments
 .venv/
 venv/
-ENV/
-
-# uv
-uv.lock
 
 # IDE
-.history/
 .idea/
 .vscode/
 *.swp
 *.swo
 *~
-.claude/
 
 # Testing
 .pytest_cache/
 .coverage
-.coverage.*
-coverage.xml
 htmlcov/
 .mypy_cache/
 .ruff_cache/
-.hypothesis/
-.nox/
-.tox/
-.pyre/
-.pytype/
-.cache/
 
 # OS
 .DS_Store
 Thumbs.db
 
-# Local config and logs
+# Secrets
 .env
 .env.*
 !.env.example
-!.env.*.example
-*.log
-*.tmp
-tmp/
-temp/
 
 # Generated output
 **/makewiki/
 !skills/makewiki/
 !skills/makewiki/**
+
+# other
+.history
+uv.lock

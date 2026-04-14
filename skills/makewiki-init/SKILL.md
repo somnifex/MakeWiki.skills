@@ -2,7 +2,7 @@
 name: makewiki-init
 description: "Generate a default makewiki.config.yaml configuration file in the current project. Use when: user wants to customize MakeWiki behavior before generating docs."
 argument-hint: "[--lang <code>...]"
-allowed-tools: Bash(python *) Bash(uv run *) Write
+allowed-tools: Bash(python *) Write
 ---
 
 # MakeWiki Init - Generate Configuration
@@ -14,7 +14,7 @@ Create a default `makewiki.config.yaml` in the current project root.
 Try the toolkit first:
 
 ```bash
-uv run makewiki init-config . $ARGUMENTS 2>/dev/null || python -m makewiki_skills.cli init-config . $ARGUMENTS
+python -m makewiki_skills init-config . $ARGUMENTS
 ```
 
 If the toolkit is not available, create the file manually with this content:
@@ -42,9 +42,12 @@ scan:
     - venv
   max_depth: 6
   max_file_size_kb: 512
+  enable_source_intelligence: true
+  source_intelligence_max_files: 50
 review:
   enable_cross_language_review: true
   enable_code_grounding_verification: true
+  enable_semantic_review: true
   min_page_alignment_ratio: 0.9
 documentation_policy:
   audience: end-user

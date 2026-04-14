@@ -4,9 +4,9 @@ Instructions for AI coding assistants using MakeWiki.skills.
 
 ## What this is
 
-A skill set that generates multilingual user documentation. Load it as a Claude Code plugin and call `/makewiki`, or use the CLI from this repo.
+A skill set that generates multilingual user documentation. Load it as a Claude Code plugin and invoke the skills. The Python toolkit is internal infrastructure — do not expose CLI commands to end users.
 
-## Skills (Claude Code)
+## Skills
 
 ```bash
 claude --plugin-dir /path/to/MakeWiki.skills
@@ -18,14 +18,15 @@ claude --plugin-dir /path/to/MakeWiki.skills
 /makewiki-init
 ```
 
-## CLI (Codex / other assistants)
+## Internal toolkit (for skills only)
+
+Skills call the Python toolkit via `python -m makewiki_skills <command>`. This is an internal interface — not a user-facing CLI.
 
 ```bash
-cd /path/to/MakeWiki.skills && uv sync
-uv run makewiki generate /path/to/target --lang en --lang zh-CN
-uv run makewiki scan /path/to/target
-uv run makewiki review /path/to/target --lang en --lang zh-CN
-uv run makewiki validate /path/to/target/makewiki
+python -m makewiki_skills scan <target>
+python -m makewiki_skills review <target> --lang en --lang zh-CN
+python -m makewiki_skills validate <target>/makewiki
+python -m makewiki_skills init-config <target>
 ```
 
 ## Rules

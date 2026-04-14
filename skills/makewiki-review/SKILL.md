@@ -1,13 +1,13 @@
 ---
 name: makewiki-review
-description: "Run cross-language consistency review on existing makewiki documentation. Compares structured facts (commands, config keys, paths, versions) across all language versions to find inconsistencies. Use when: user has generated multilingual docs and wants to verify consistency."
+description: "Run cross-language consistency review on existing makewiki documentation. Compares structured facts (commands, config keys, paths, versions) and semantic meaning across all language versions to find inconsistencies. Use when: user has generated multilingual docs and wants to verify consistency."
 argument-hint: "[--lang <code>...]"
-allowed-tools: Bash(python *) Bash(uv run *) Read Glob Grep
+allowed-tools: Bash(python *) Read Glob Grep
 ---
 
 # MakeWiki Review - Cross-Language Consistency Check
 
-Review existing makewiki documentation for cross-language consistency.
+Review existing makewiki documentation for cross-language consistency — both structural and semantic.
 
 ## Arguments
 
@@ -19,10 +19,10 @@ Parse `$ARGUMENTS` for:
 ### Step 1: Run the toolkit reviewer
 
 ```bash
-uv run makewiki review . $ARGUMENTS 2>/dev/null || python -m makewiki_skills.cli review . $ARGUMENTS
+python -m makewiki_skills review . $ARGUMENTS
 ```
 
-### Step 2: Manual deep review
+### Step 2: Structural review
 
 Read the generated docs yourself and compare across languages:
 
@@ -34,13 +34,38 @@ Read the generated docs yourself and compare across languages:
 6. **Information drift** - Does any language add or omit facts compared to others?
 7. **Link correctness** - Do internal links use correct language-suffixed filenames?
 
-### Step 3: Report
+### Step 3: Semantic review (LLM analysis)
 
-Report findings as a table:
+Go beyond structural comparison. For each page, read the corresponding versions in all languages and check:
+
+**Hedging consistency:**
+- For each uncertain claim that uses hedging ("may", "appears to", "suggests"), verify the hedge is preserved in all languages with equivalent epistemic force.
+- A hedge removed in another language is a documentation accuracy failure.
+
+**Semantic drift:**
+- For each observable-behavior description ("After running X, you'll see Y"), verify all languages describe the same observable outcome.
+- Different prose is acceptable; different observable outcomes are not.
+
+**Cultural appropriateness:**
+- Example values (personal names, dates, currencies) should be appropriate for each locale.
+- Idiomatic expressions should be natural in each language, not literal translations.
+
+### Step 4: Report
+
+Report findings in two sections:
+
+**Structural issues:**
 
 | Issue Type | Value | Present In | Missing From | Severity |
 |---|---|---|---|---|
 | command | `make test` | en | zh-CN | critical |
 | page | faq.md | en, zh-CN | ja | major |
+
+**Semantic issues:**
+
+| Review Type | File | Description | Languages Affected | Severity |
+|---|---|---|---|---|
+| hedging | config.md | Hedge "may support" removed in zh-CN | en, zh-CN | major |
+| semantic_drift | usage.md | English says "dashboard", Chinese says "homepage" | en, zh-CN | minor |
 
 Provide specific fix instructions for each issue.

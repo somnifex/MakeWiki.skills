@@ -2,7 +2,7 @@
 name: makewiki-validate
 description: "Validate existing makewiki output directory for Markdown quality: heading hierarchy, broken links, empty pages, and language alignment. Use when: user wants to check quality of generated documentation."
 argument-hint: "[path-to-makewiki-dir]"
-allowed-tools: Bash(python *) Bash(uv run *) Read Glob Grep
+allowed-tools: Bash(python *) Read Glob Grep
 ---
 
 # MakeWiki Validate - Output Quality Check
@@ -18,7 +18,7 @@ Validate the generated makewiki documentation.
 ### Step 1: Run the toolkit validator
 
 ```bash
-uv run makewiki validate ${1:-./makewiki} 2>/dev/null || python -m makewiki_skills.cli validate ${1:-./makewiki}
+python -m makewiki_skills validate ${1:-./makewiki}
 ```
 
 ### Step 2: Manual quality checks

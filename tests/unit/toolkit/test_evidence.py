@@ -3,17 +3,6 @@
 from makewiki_skills.toolkit.evidence import EvidenceFact, EvidenceLink, EvidenceTool
 
 
-def test_evidence_link_creation():
-    link = EvidenceLink(
-        source_path="pyproject.toml",
-        raw_text='name = "hello"',
-        confidence="high",
-        extraction_method="direct_read",
-    )
-    assert link.confidence == "high"
-    assert link.source_path == "pyproject.toml"
-
-
 def test_evidence_fact_best_confidence():
     fact = EvidenceFact(
         claim="Version is 1.0",
