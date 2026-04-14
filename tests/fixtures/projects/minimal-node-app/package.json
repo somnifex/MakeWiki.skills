@@ -1,0 +1,10 @@
+{
+  "name": "mini-node-app",
+  "version": "1.0.0",
+  "description": "A minimal Node app for testing.",
+  "scripts": {
+    "dev": "node src/index.js",
+    "test": "echo \"no tests\"",
+    "build": "echo \"no build\""
+  }
+}
