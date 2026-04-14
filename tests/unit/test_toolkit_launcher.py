@@ -1,4 +1,4 @@
-"""Tests for the repo-local toolkit launcher."""
+"""Tests for the home-scoped toolkit launcher."""
 
 from __future__ import annotations
 
@@ -9,16 +9,32 @@ from pathlib import Path
 from makewiki_skills import toolkit_launcher
 
 
-def build_test_context(tmp_path: Path) -> toolkit_launcher.LaunchContext:
+def build_test_context(
+    tmp_path: Path,
+    toolkit_root: Path | None = None,
+) -> toolkit_launcher.LaunchContext:
     (tmp_path / "pyproject.toml").write_text("[project]\nname = 'demo'\nversion = '0.1.0'\n", encoding="utf-8")
     (tmp_path / "uv.lock").write_text("version = 1\n", encoding="utf-8")
-    return toolkit_launcher.build_launch_context(tmp_path)
+    kwargs: dict[str, Path] = {}
+    if toolkit_root is not None:
+        kwargs["toolkit_root"] = toolkit_root
+    return toolkit_launcher.build_launch_context(tmp_path, **kwargs)
+
+
+def test_build_launch_context_defaults_to_home_makewiki(tmp_path: Path, monkeypatch) -> None:
+    fake_toolkit_root = tmp_path / "home" / ".makewiki"
+    monkeypatch.setattr(toolkit_launcher, "default_toolkit_root", lambda: fake_toolkit_root)
+
+    context = build_test_context(tmp_path, toolkit_root=None)
+
+    assert context.toolkit_root == fake_toolkit_root.resolve()
+    assert context.venv_dir == fake_toolkit_root.resolve() / ".venv"
 
 
 def test_toolkit_is_ready_requires_matching_state_and_import_probe(
     tmp_path: Path, monkeypatch
 ) -> None:
-    context = build_test_context(tmp_path)
+    context = build_test_context(tmp_path, toolkit_root=tmp_path / "toolkit-home")
     context.python_path.parent.mkdir(parents=True, exist_ok=True)
     context.python_path.write_text("", encoding="utf-8")
     toolkit_launcher._write_state(context.state_file, toolkit_launcher.project_state(context.project_root))
@@ -28,7 +44,7 @@ def test_toolkit_is_ready_requires_matching_state_and_import_probe(
 
 
 def test_ensure_toolkit_environment_prefers_uv(tmp_path: Path, monkeypatch) -> None:
-    context = build_test_context(tmp_path)
+    context = build_test_context(tmp_path, toolkit_root=tmp_path / "toolkit-home")
     commands: list[list[str]] = []
 
     monkeypatch.setattr(toolkit_launcher, "toolkit_is_ready", lambda _context: False)
@@ -58,7 +74,7 @@ def test_ensure_toolkit_environment_prefers_uv(tmp_path: Path, monkeypatch) -> N
 def test_ensure_toolkit_environment_falls_back_to_venv_without_uv(
     tmp_path: Path, monkeypatch
 ) -> None:
-    context = build_test_context(tmp_path)
+    context = build_test_context(tmp_path, toolkit_root=tmp_path / "toolkit-home")
     commands: list[list[str]] = []
 
     monkeypatch.setattr(toolkit_launcher, "toolkit_is_ready", lambda _context: False)
@@ -85,8 +101,8 @@ def test_ensure_toolkit_environment_falls_back_to_venv_without_uv(
 
 
 def test_main_dispatches_to_repo_local_python(tmp_path: Path, monkeypatch) -> None:
-    context = build_test_context(tmp_path)
-    fake_python = context.project_root / ".venv" / "Scripts" / "python.exe"
+    context = build_test_context(tmp_path, toolkit_root=tmp_path / "toolkit-home")
+    fake_python = context.toolkit_root / ".venv" / "Scripts" / "python.exe"
     captured: list[list[str]] = []
 
     monkeypatch.setattr(
@@ -104,6 +120,7 @@ def test_main_dispatches_to_repo_local_python(tmp_path: Path, monkeypatch) -> No
     exit_code = toolkit_launcher.main(
         args=["scan", ".", "--format", "json"],
         project_root=context.project_root,
+        toolkit_root=context.toolkit_root,
     )
 
     assert exit_code == 7

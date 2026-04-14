@@ -61,7 +61,7 @@ class FilesystemTool:
         max_depth: int = 4,
         exclude: list[str] | None = None,
     ) -> ToolResult:
-        exclude = exclude or [".git", "node_modules", "__pycache__", ".venv", "venv"]
+        exclude = exclude or [".git", ".makewiki", "node_modules", "__pycache__", ".venv", "venv"]
         try:
             root = Path(path).resolve()
             if not root.is_dir():

@@ -1,4 +1,4 @@
-"""Thin script wrapper that bootstraps the repo-local MakeWiki toolkit."""
+"""Thin script wrapper that bootstraps the home-scoped MakeWiki toolkit."""
 
 # ruff: noqa: E402
 

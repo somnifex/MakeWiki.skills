@@ -1,4 +1,4 @@
-"""Repo-local launcher for invoking the internal toolkit from skill docs."""
+"""Launcher for invoking the internal toolkit from skill docs."""
 
 from __future__ import annotations
 
@@ -24,22 +24,30 @@ TOOLKIT_PROBE = (
 
 @dataclass(frozen=True)
 class LaunchContext:
-    """Computed paths for the repo-local toolkit environment."""
+    """Computed paths for the source checkout and home-scoped toolkit environment."""
 
     project_root: Path
+    toolkit_root: Path
     venv_dir: Path
     python_path: Path
     state_file: Path
 
 
-def build_launch_context(project_root: Path) -> LaunchContext:
-    """Build the filesystem context for the repo-local launcher."""
+def default_toolkit_root() -> Path:
+    """Return the default cross-platform toolkit root under the user's home directory."""
+    return Path.home() / ".makewiki"
+
+
+def build_launch_context(project_root: Path, toolkit_root: Path | None = None) -> LaunchContext:
+    """Build the filesystem context for the launcher."""
     root = project_root.resolve()
-    venv_dir = root / ".venv"
+    home_root = (toolkit_root or default_toolkit_root()).resolve()
+    venv_dir = home_root / ".venv"
     python_path = venv_python_path(venv_dir)
     state_file = venv_dir / STATE_FILENAME
     return LaunchContext(
         project_root=root,
+        toolkit_root=home_root,
         venv_dir=venv_dir,
         python_path=python_path,
         state_file=state_file,
@@ -65,7 +73,7 @@ def project_state(project_root: Path) -> dict[str, Any]:
 
 
 def toolkit_is_ready(context: LaunchContext) -> bool:
-    """Return True when the repo-local venv already points at this project."""
+    """Return True when the home-scoped venv already points at this project."""
     if not context.python_path.is_file():
         return False
 
@@ -77,7 +85,7 @@ def toolkit_is_ready(context: LaunchContext) -> bool:
 
 
 def ensure_toolkit_environment(context: LaunchContext) -> Path:
-    """Create or refresh the repo-local venv, then return its Python executable."""
+    """Create or refresh the home-scoped venv, then return its Python executable."""
     if toolkit_is_ready(context):
         return context.python_path
 
@@ -92,7 +100,7 @@ def ensure_toolkit_environment(context: LaunchContext) -> Path:
     if not _probe_toolkit_import(context):
         raise RuntimeError(
             f"Failed to bootstrap MakeWiki toolkit in {context.venv_dir}. "
-            "The repo-local environment was created, but makewiki_skills is still not importable."
+            "The home-scoped environment was created, but makewiki_skills is still not importable."
         )
 
     _write_state(context.state_file, project_state(context.project_root))
@@ -100,17 +108,21 @@ def ensure_toolkit_environment(context: LaunchContext) -> Path:
 
 
 def dispatch_to_toolkit(python_path: Path, args: Sequence[str]) -> int:
-    """Run the internal CLI inside the repo-local environment."""
+    """Run the internal CLI inside the home-scoped environment."""
     command = [str(python_path), "-m", "makewiki_skills", *args]
     result = subprocess.run(command, check=False)
     return result.returncode
 
 
-def main(args: Sequence[str] | None = None, project_root: Path | None = None) -> int:
+def main(
+    args: Sequence[str] | None = None,
+    project_root: Path | None = None,
+    toolkit_root: Path | None = None,
+) -> int:
     """Entry point for the thin launcher script used by SKILL.md files."""
     argv = list(args if args is not None else sys.argv[1:])
     root = project_root.resolve() if project_root is not None else Path(__file__).resolve().parents[2]
-    context = build_launch_context(root)
+    context = build_launch_context(root, toolkit_root=toolkit_root)
     python_path = ensure_toolkit_environment(context)
     return dispatch_to_toolkit(python_path, argv)
 

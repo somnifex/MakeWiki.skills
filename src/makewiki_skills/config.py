@@ -12,7 +12,16 @@ class ScanConfig(BaseModel):
     """Controls which files and directories are scanned."""
 
     ignore_dirs: list[str] = Field(
-        default_factory=lambda: ["node_modules", "dist", "build", ".git", "__pycache__", ".venv", "venv"]
+        default_factory=lambda: [
+            "node_modules",
+            "dist",
+            "build",
+            ".git",
+            ".makewiki",
+            "__pycache__",
+            ".venv",
+            "venv",
+        ]
     )
     max_depth: int = 6
     max_file_size_kb: int = 512

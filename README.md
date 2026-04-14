@@ -69,7 +69,7 @@ default_language: en
 overwrite: true
 strict_grounding: true
 scan:
-  ignore_dirs: [node_modules, dist, build, .git]
+  ignore_dirs: [node_modules, dist, build, .git, .makewiki]
   max_depth: 6
 review:
   enable_cross_language_review: true
