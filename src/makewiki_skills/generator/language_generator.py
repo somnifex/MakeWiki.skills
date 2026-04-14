@@ -35,6 +35,43 @@ DOCUMENT_TEMPLATES: list[tuple[str, str]] = [
     ("usage/basic-usage.md", "base/usage/basic-usage.md.j2"),
 ]
 
+
+def _resolve_templates(
+    model: SemanticModel,
+    config: MakeWikiConfig,
+) -> list[tuple[str, str, dict[str, Any]]]:
+    """Build the page list dynamically based on model complexity.
+
+    Returns (base_name, template_path, extra_context) triples.
+    When command_groups are present the usage section is split into an
+    overview page plus one sub-page per group.
+    """
+    pages: list[tuple[str, str, dict[str, Any]]] = []
+
+    for base_name, template_path in DOCUMENT_TEMPLATES:
+        if base_name == "faq.md" and not config.generate_faq:
+            continue
+        if base_name == "troubleshooting.md" and not config.generate_troubleshooting:
+            continue
+        # When command_groups exist, replace the single basic-usage page
+        # with an overview + per-group sub-pages
+        if base_name == "usage/basic-usage.md" and model.command_groups:
+            pages.append((
+                "usage/overview.md",
+                "base/usage/overview.md.j2",
+                {},
+            ))
+            for group in model.command_groups:
+                pages.append((
+                    f"usage/{group.slug}.md",
+                    "base/usage/module-page.md.j2",
+                    {"current_group": group.model_dump()},
+                ))
+            continue
+        pages.append((base_name, template_path, {}))
+
+    return pages
+
 class LanguageGenerator:
     """Generate a full document set for a single language.
 
@@ -62,13 +99,9 @@ class LanguageGenerator:
         context = self._build_context(model, profile, config)
         documents: list[GeneratedDocument] = []
 
-        for base_name, template_path in DOCUMENT_TEMPLATES:
-            if base_name == "faq.md" and not config.generate_faq:
-                continue
-            if base_name == "troubleshooting.md" and not config.generate_troubleshooting:
-                continue
-
-            content = self._render(template_path, context)
+        for base_name, template_path, extra_ctx in _resolve_templates(model, config):
+            merged = {**context, **extra_ctx}
+            content = self._render(template_path, merged)
             content = self._apply_formatting(content, profile)
             filename = profile.get_filename(base_name)
 
@@ -142,7 +175,11 @@ class LanguageGenerator:
                 "getting_started_link": _link("getting-started.md"),
                 "installation_link": _link("installation.md"),
                 "configuration_link": _link("configuration.md"),
-                "usage_link": "usage/" + _link("basic-usage.md"),
+                "usage_link": (
+                    "usage/" + _link("overview.md")
+                    if model.command_groups
+                    else "usage/" + _link("basic-usage.md")
+                ),
                 "faq_link": _link("faq.md"),
                 "troubleshooting_link": _link("troubleshooting.md"),
                 "readme_link": _link("README.md"),
@@ -152,6 +189,16 @@ class LanguageGenerator:
                 and len(model.troubleshooting) > 0,
                 "has_usage_examples": len(model.usage_examples) > 0,
                 "has_platform_notes": len(model.platform_notes) > 0,
+                "has_command_groups": len(model.command_groups) > 0,
+                "command_groups": [g.model_dump() for g in model.command_groups],
+                "command_group_links": [
+                    {
+                        "name": g.name,
+                        "slug": g.slug,
+                        "link": "usage/" + _link(f"{g.slug}.md"),
+                    }
+                    for g in model.command_groups
+                ],
                 "quick_start_example": quick_start_example,
                 "uncertainty_no_prereqs": self._uncertainty(
                     profile, "No specific prerequisites were identified from the project evidence."

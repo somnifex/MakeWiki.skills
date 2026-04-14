@@ -42,8 +42,25 @@ class OutputManager:
             if not docs:
                 continue
             lines.append(f"## {lang}\n\n")
+
+            # Separate top-level docs from sub-pages (e.g. usage/*)
+            top_level: list[GeneratedDocument] = []
+            by_dir: dict[str, list[GeneratedDocument]] = {}
             for doc in sorted(docs, key=lambda item: item.base_name):
+                parts = doc.base_name.split("/", 1)
+                if len(parts) == 2:
+                    by_dir.setdefault(parts[0], []).append(doc)
+                else:
+                    top_level.append(doc)
+
+            for doc in top_level:
                 lines.append(f"- [{doc.base_name}]({doc.filename})\n")
+
+            for dirname, sub_docs in sorted(by_dir.items()):
+                lines.append(f"- **{dirname}/**\n")
+                for doc in sub_docs:
+                    lines.append(f"  - [{doc.base_name.split('/', 1)[1]}]({doc.filename})\n")
+
             lines.append("\n")
 
         content = "".join(lines)

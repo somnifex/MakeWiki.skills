@@ -109,6 +109,23 @@ class TroubleshootingItem(BaseModel):
     commands: list[str] = Field(default_factory=list)
     evidence: list[EvidenceLink] = Field(default_factory=list)
 
+
+class CommandGroup(BaseModel):
+    """A logical grouping of commands/tasks for modular documentation.
+
+    When a project is complex enough, commands are organized into groups
+    so each group can be documented on its own sub-page under usage/.
+    """
+
+    name: str
+    slug: str  # used for filename: usage/<slug>.md
+    description: str | None = None
+    commands: list[Command] = Field(default_factory=list)
+    user_tasks: list[UserTask] = Field(default_factory=list)
+    usage_examples: list[UsageExample] = Field(default_factory=list)
+    config_sections: list[ConfigSection] = Field(default_factory=list)
+    evidence: list[EvidenceLink] = Field(default_factory=list)
+
 class SemanticModel(BaseModel):
     """The complete, language-neutral document model."""
 
@@ -124,6 +141,7 @@ class SemanticModel(BaseModel):
     faq: list[FAQItem] = Field(default_factory=list)
     platform_notes: list[PlatformNote] = Field(default_factory=list)
     troubleshooting: list[TroubleshootingItem] = Field(default_factory=list)
+    command_groups: list[CommandGroup] = Field(default_factory=list)
 
     project_type: ProjectType = ProjectType.GENERIC
     evidence_summary: dict[str, int] = Field(default_factory=dict)

@@ -27,6 +27,16 @@ class ReviewConfig(BaseModel):
     enable_semantic_review: bool = True
     min_page_alignment_ratio: float = 0.9
 
+class ContentDepthConfig(BaseModel):
+    """Controls how much detail is generated and when pages are split into sub-pages."""
+
+    mode: str = "auto"  # "compact" | "detailed" | "auto"
+    max_faq_items: int = 10
+    max_usage_examples: int = 8
+    max_troubleshooting_items: int = 8
+    split_usage_threshold: int = 6  # split usage into sub-pages when commands exceed this
+
+
 class DocumentationPolicyConfig(BaseModel):
     """Controls how conservative and user-facing the generated docs should be."""
 
@@ -74,6 +84,7 @@ class MakeWikiConfig(BaseModel):
     emit_uncertainty_notes: bool = True
     scan: ScanConfig = Field(default_factory=ScanConfig)
     review: ReviewConfig = Field(default_factory=ReviewConfig)
+    content_depth: ContentDepthConfig = Field(default_factory=ContentDepthConfig)
     documentation_policy: DocumentationPolicyConfig = Field(default_factory=DocumentationPolicyConfig)
     language_profiles: dict[str, LanguageProfileConfig] = Field(default_factory=dict)
 

@@ -14,6 +14,7 @@ from makewiki_skills.generator.language_generator import GeneratedDocument, Lang
 from makewiki_skills.languages.registry import LanguageRegistry
 from makewiki_skills.model.semantic_model import (
     Command,
+    CommandGroup,
     ConfigItem,
     ConfigSection,
     FAQItem,
@@ -95,6 +96,22 @@ def stage_build_semantic_model(ctx: PipelineContext) -> PipelineContext:
     faq = _build_faq(installation, configuration, platform_notes)
     troubleshooting = _build_troubleshooting(installation, platform_notes)
 
+    depth = ctx.config.content_depth
+    is_detailed = _is_detailed_mode(depth.mode, commands, configuration, user_tasks)
+
+    max_faq = depth.max_faq_items if is_detailed else min(depth.max_faq_items, 4)
+    max_examples = depth.max_usage_examples if is_detailed else min(depth.max_usage_examples, 4)
+    max_trouble = depth.max_troubleshooting_items if is_detailed else min(depth.max_troubleshooting_items, 3)
+
+    faq = faq[:max_faq]
+    usage_examples = usage_examples[:max_examples]
+    troubleshooting = troubleshooting[:max_trouble]
+
+    command_groups = _build_command_groups(
+        commands, user_tasks, usage_examples, depth.split_usage_threshold, is_detailed,
+        configuration=configuration,
+    )
+
     ctx.semantic_model = SemanticModel(
         model_id=uuid.uuid4().hex[:12],
         identity=identity,
@@ -106,6 +123,7 @@ def stage_build_semantic_model(ctx: PipelineContext) -> PipelineContext:
         faq=faq,
         platform_notes=platform_notes,
         troubleshooting=troubleshooting,
+        command_groups=command_groups,
         project_type=ctx.detection.project_type,
         evidence_summary=registry.to_summary(),
     )
@@ -395,7 +413,7 @@ def _build_usage_examples(
         )
 
     if examples:
-        return examples[:4]
+        return examples
 
     for task in user_tasks[:2]:
         if not task.commands:
@@ -461,7 +479,7 @@ def _build_faq(
             )
         )
 
-    return items[:4]
+    return items
 
 
 def _build_platform_notes(commands: list[Command]) -> list[PlatformNote]:
@@ -558,7 +576,168 @@ def _build_troubleshooting(
             )
         )
 
-    return items[:3]
+    return items
+
+
+def _is_detailed_mode(
+    mode: str,
+    commands: list[Command],
+    configuration: list[ConfigSection],
+    user_tasks: list[UserTask],
+) -> bool:
+    """Decide whether to use detailed content depth.
+
+    In "auto" mode, activate detailed using a multi-dimensional heuristic:
+    if at least two of the three dimensions (commands, config items, tasks)
+    exceed their individual thresholds, or the combined total is large enough.
+    """
+    if mode == "detailed":
+        return True
+    if mode == "compact":
+        return False
+    # auto: multi-dimensional heuristic
+    cmd_count = len(commands)
+    cfg_count = sum(len(s.items) for s in configuration)
+    task_count = len(user_tasks)
+    exceeded = sum([cmd_count >= 5, cfg_count >= 10, task_count >= 8])
+    return exceeded >= 2 or (cmd_count + cfg_count + task_count) >= 15
+
+
+def _build_command_groups(
+    commands: list[Command],
+    user_tasks: list[UserTask],
+    usage_examples: list[UsageExample],
+    split_threshold: int,
+    is_detailed: bool,
+    configuration: list[ConfigSection] | None = None,
+) -> list[CommandGroup]:
+    """Group commands by source file into logical modules.
+
+    Only produces groups when there are enough commands to warrant splitting,
+    the content depth allows it, AND commands originate from multiple distinct
+    source files. A single README with many sections is not enough to split —
+    the project needs genuinely separate documentation sources (e.g. README
+    + Makefile + separate docs files).
+
+    Each group is enriched with related config sections (matched via
+    task.related_config) and a generated description summarising the
+    user tasks it covers.
+
+    Returns an empty list when the project is simple enough for a single
+    basic-usage page.
+    """
+    if not is_detailed or len(commands) < split_threshold:
+        return []
+
+    # Group by source file (not section) to avoid splitting one README
+    # into multiple "modules"
+    by_source: dict[str, list[Command]] = {}
+    ungrouped: list[Command] = []
+
+    for cmd in commands:
+        source = cmd.source_file
+        if source:
+            by_source.setdefault(source, []).append(cmd)
+        else:
+            ungrouped.append(cmd)
+
+    # Need at least 2 distinct source files to justify splitting
+    if len(by_source) < 2:
+        return []
+
+    # Build config lookup: config item key -> ConfigSection
+    config_by_key: dict[str, ConfigSection] = {}
+    if configuration:
+        for section in configuration:
+            for item in section.items:
+                config_by_key[item.key] = section
+
+    groups: list[CommandGroup] = []
+    task_by_cmd: dict[str, UserTask] = {}
+    for task in user_tasks:
+        for cmd_name in task.commands:
+            task_by_cmd[cmd_name] = task
+
+    example_by_cmd: dict[str, UsageExample] = {}
+    for ex in usage_examples:
+        for cmd_name in ex.commands:
+            example_by_cmd[cmd_name] = ex
+
+    for source_name, cmds in sorted(by_source.items()):
+        display_name = Path(source_name).stem.replace("_", " ").replace("-", " ").title()
+        slug = re.sub(r"[^a-z0-9]+", "-", Path(source_name).stem.lower()).strip("-") or "general"
+        group_tasks = [task_by_cmd[c.name] for c in cmds if c.name in task_by_cmd]
+        group_examples = [example_by_cmd[c.name] for c in cmds if c.name in example_by_cmd]
+
+        # Collect config sections related to this group's tasks
+        group_configs = _collect_group_configs(group_tasks, config_by_key)
+
+        # Generate a description from the group's tasks
+        description = _generate_group_description(group_tasks)
+
+        groups.append(
+            CommandGroup(
+                name=display_name,
+                slug=slug,
+                description=description,
+                commands=cmds,
+                user_tasks=group_tasks,
+                usage_examples=group_examples,
+                config_sections=group_configs,
+                evidence=[link for c in cmds for link in c.evidence],
+            )
+        )
+
+    if ungrouped:
+        group_tasks = [task_by_cmd[c.name] for c in ungrouped if c.name in task_by_cmd]
+        group_examples = [example_by_cmd[c.name] for c in ungrouped if c.name in example_by_cmd]
+        group_configs = _collect_group_configs(group_tasks, config_by_key)
+        description = _generate_group_description(group_tasks)
+        groups.append(
+            CommandGroup(
+                name="General",
+                slug="general",
+                description=description,
+                commands=ungrouped,
+                user_tasks=group_tasks,
+                usage_examples=group_examples,
+                config_sections=group_configs,
+                evidence=[link for c in ungrouped for link in c.evidence],
+            )
+        )
+
+    return groups
+
+
+def _collect_group_configs(
+    group_tasks: list[UserTask],
+    config_by_key: dict[str, ConfigSection],
+) -> list[ConfigSection]:
+    """Collect unique ConfigSections referenced by a group's tasks."""
+    related_keys: set[str] = set()
+    for task in group_tasks:
+        related_keys.update(task.related_config)
+    # Deduplicate by section identity (use id to handle duplicate references)
+    seen: dict[int, ConfigSection] = {}
+    for key in related_keys:
+        section = config_by_key.get(key)
+        if section is not None and id(section) not in seen:
+            seen[id(section)] = section
+    return list(seen.values())
+
+
+def _generate_group_description(
+    group_tasks: list[UserTask],
+) -> str | None:
+    """Generate a brief description for a command group based on its tasks."""
+    if not group_tasks:
+        return None
+    goals = [t.user_goal for t in group_tasks if t.user_goal]
+    if not goals:
+        return None
+    if len(goals) == 1:
+        return goals[0]
+    return f"{goals[0]} This section also covers: {goals[1]}."
 
 
 def _commands_from_sections(

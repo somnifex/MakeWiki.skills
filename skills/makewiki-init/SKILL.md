@@ -62,6 +62,12 @@ review:
   enable_code_grounding_verification: true
   enable_semantic_review: true
   min_page_alignment_ratio: 0.9
+content_depth:
+  mode: auto                      # auto | detailed | compact
+  max_faq_items: 10               # max FAQ entries (detailed mode)
+  max_usage_examples: 8           # max usage examples (detailed mode)
+  max_troubleshooting_items: 8    # max troubleshooting entries (detailed mode)
+  split_usage_threshold: 6        # split usage into sub-pages when commands exceed this
 documentation_policy:
   audience: end-user
   structure_strategy: user-journey

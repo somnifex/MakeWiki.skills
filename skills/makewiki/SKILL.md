@@ -25,6 +25,28 @@ Run this skill **serially in the main Claude Code conversation**.
 
 You are writing a **user guide for an open-source project**, not an architecture document, not an API reference, not a sales pitch. Every sentence you write must answer one question: **"What can the user do with this, and how?"**
 
+### A.0 - Two-Phase Understanding: Architect First, Then User
+
+Before writing documentation, build understanding in two mandatory phases:
+
+**Phase 1 — Architect lens** (understand the project's functional surface):
+- What distinct functional areas does this project expose to its users? (Not internal modules — user-visible capability groups.)
+- Which capabilities naturally cluster because users invoke them in the same workflow?
+- Where are the natural seams — operations a user can perform independently of others?
+- What is the dependency graph between user-visible features? (e.g., "you must configure auth before using the API client")
+
+**Phase 2 — User lens** (convert each area to user value):
+- For each functional area: what problem does a user solve with it?
+- What does the user type, click, or configure to use it?
+- What does success look like (observable output, state change, file produced)?
+- What goes wrong and how does the user recover?
+
+Phase 1 prevents "flat list of commands" documentation. Phase 2 prevents "architecture explanation" documentation. Together they produce docs organized around what users actually do, grouped by the logical areas they work in.
+
+For **simple projects** (< 5 commands, < 10 config keys): Phase 1 is a mental note only — proceed to the standard structure.
+
+For **complex projects** (multiple thresholds exceeded — see Step 4a): Phase 1 drives the `feature_modules` section of the project brief (Step 3), and the hub-and-spoke document layout (Step 4c).
+
 ### A.1 - Understand First, Then Decide Structure
 
 **Do NOT open the directory listing and start writing section-by-section.** Instead:
@@ -241,6 +263,20 @@ key_workflows:           # 3-7 things users actually DO with this tool
     config_keys: []      # which config keys affect this workflow
     expected_output: “”  # what the user sees after running these commands
 
+# Only populate when the project exceeds the complexity threshold
+# (at least 2 of: tasks >= 8, commands >= 5, config keys >= 10).
+# Leave as [] for simple projects.
+feature_modules:
+  - slug: “”               # URL-safe identifier: “data-pipeline”, “auth”, “reporting”
+    title: “”              # user-facing heading: “Data Pipeline”, “Authentication”
+    user_description: “”   # one sentence: what can the user DO in this area?
+    task_titles:           # which key_workflows belong here?
+      - “”
+    primary_commands:      # which commands are central to this module?
+      - “”
+    related_config_keys:   # which config keys affect this module's behavior?
+      - “”
+
 config_semantics:        # for each non-obvious config key, what does it DO?
   - key: “”
     effect: “”           # user-visible effect of changing this key
@@ -283,6 +319,77 @@ Based on the project brief (NOT from the directory tree), decide which pages to 
 
 You may **add** pages if the project warrants it (e.g., a `deployment.md` for a web service, a `plugins.md` for an extensible tool). You may **skip** pages if the project is too simple to warrant them (e.g., skip `configuration.md` if the tool has no configuration). Do not generate empty or near-empty pages.
 
+#### Step 4a: Assess complexity
+
+Count from your project brief:
+- **T** = number of distinct `key_workflows`
+- **C** = number of primary user-facing commands (excluding install/test/lint/format/build)
+- **K** = number of user-facing config keys (from `config_semantics`)
+
+**Simple project** (fewer than 2 thresholds exceeded among T >= 8, C >= 5, K >= 10):
+→ Use the default 7-page layout from the table above. Skip to Step 5.
+
+**Complex project** (2 or more thresholds exceeded):
+→ Use the hub-and-spoke layout described in Step 4b below.
+
+#### Step 4b: Hub-and-spoke layout for complex projects
+
+When a project has many commands, multiple distinct user-facing functional areas, or diverse workflows, a single `usage/basic-usage.md` page cannot adequately cover everything. In this case, **split the usage section into a hub page plus module sub-pages**.
+
+**Hub-and-spoke layout:**
+
+| Base file | Purpose |
+|---|---|
+| `README.md` | Unchanged |
+| `getting-started.md` | Unchanged |
+| `installation.md` | Unchanged |
+| `configuration.md` | All config sections (module pages cross-reference back here for relevant keys) |
+| `usage/overview.md` | **Hub page**: table of functional areas with descriptions, links to each module page, shared cross-module tasks |
+| `usage/<slug>.md` | One page per `feature_module`: tasks, commands, examples, and related config for that area |
+| `faq.md` | Unchanged |
+| `troubleshooting.md` | Unchanged |
+
+**How to build the hub-and-spoke structure:**
+1. Identify logical groups from the project brief's `feature_modules` — each module becomes a sub-page under `usage/`
+2. Create `usage/overview.md` as the entry point: briefly describe each functional area, show its top 2 user tasks as bullet points, and link to its dedicated page
+3. Create `usage/<slug>.md` for each module, containing:
+   - The module's commands with full explanations and parameter documentation
+   - Related user tasks with step-by-step workflows and expected output
+   - Worked usage examples specific to that functional area
+   - Related configuration keys (subset of the global config table, showing only keys relevant to this module)
+   - Links back to the overview, sibling module pages, and the global configuration page
+4. Update the README navigation to list the sub-pages under the Usage section
+
+**Example structure for a complex project:**
+```
+usage/
+  overview.md           # Entry point: what each module does, links to sub-pages
+  scanning.md           # Commands and workflows for the scanning module
+  generation.md         # Commands and workflows for the generation module
+  review.md             # Commands and workflows for the review module
+```
+
+**Rules for module pages:**
+1. Each module page covers ONE functional area, answering: "I want to do X — how?"
+2. A module page needs **>= 2 tasks OR >= 3 commands** to justify its existence. Otherwise merge it into the hub.
+3. Tasks that span multiple modules go on `usage/overview.md` (the hub), not duplicated across modules.
+4. Each sub-page must be self-contained — a reader landing on it from a search engine should understand context.
+5. Every sub-page links back to the overview and to sibling pages.
+6. Code blocks, config keys, and file paths remain identical across languages.
+7. **The same grouping structure must be used for ALL languages** — do not split in one language but not another. All languages get the same set of module slugs.
+
+**Content depth:** When using modular documentation, you may include more detail per topic:
+- Up to 10 FAQ items (vs 4 for simple projects)
+- Up to 8 usage examples (vs 4 for simple projects)
+- Up to 8 troubleshooting entries (vs 3 for simple projects)
+- Full command parameter documentation within each module sub-page
+- Related configuration keys rendered as tables within each module page
+
+The `content_depth` field in `makewiki.config.yaml` controls this behavior:
+- `auto` (default): automatically detect based on project complexity
+- `detailed`: always use modular documentation with higher content caps
+- `compact`: always use a single basic-usage page with lower content caps
+
 ### Step 5: Generate documentation for each language
 
 Use the project brief from Step 3 as your authoritative source. The brief overrides any heuristic defaults for all interpretive decisions. The toolkit evidence (commands, config keys, paths) remains the ground truth for factual claims.
@@ -314,7 +421,16 @@ Create `<project_root>/<output_dir>/` with files per language:
 | faq.md | faq.md | faq.zh-CN.md | faq.ja.md |
 | troubleshooting.md | troubleshooting.md | troubleshooting.zh-CN.md | troubleshooting.ja.md |
 
-Plus an `index.md` linking all language versions.
+For complex projects using modular documentation, the usage section expands:
+
+| Base file | Default (en) | zh-CN |
+|---|---|---|
+| usage/overview.md | usage/overview.md | usage/overview.zh-CN.md |
+| usage/scanning.md | usage/scanning.md | usage/scanning.zh-CN.md |
+| usage/generation.md | usage/generation.md | usage/generation.zh-CN.md |
+| ... | ... | ... |
+
+Plus an `index.md` linking all language versions with hierarchical sub-page navigation.
 
 #### Language style guidelines
 
@@ -348,11 +464,14 @@ python <makewiki_root>/scripts/run_toolkit.py review . --lang en --lang zh-CN
 ```
 
 Always manually verify:
-1. **All languages have the same pages** - no missing pages
+1. **All languages have the same pages** - no missing pages, including all sub-pages under `usage/`
 2. **Commands are identical** across all languages (code blocks must match exactly)
 3. **Config keys are identical** - same keys, same defaults
 4. **File paths are identical** - same paths referenced
 5. **No information drift** - one language doesn't add unsupported facts
+6. **Module page symmetry** - if hub-and-spoke layout is used, all languages must have the exact same module slugs under `usage/`
+7. **Hub page links** - every module slug referenced in `usage/overview.md` must have a corresponding `usage/<slug>.md` file
+8. **No architecture content in module pages** - module pages describe user actions and workflows, not internal system design
 
 If inconsistencies are found, fix them.
 
