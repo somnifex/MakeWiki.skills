@@ -31,7 +31,7 @@ claude --plugin-dir /path/to/MakeWiki.skills
 Python 3.11+，用 `uv` 或 `pip`：
 
 ```bash
-git clone https://github.com/HowieWood/MakeWiki.skills.git
+git clone https://github.com/somnifex/MakeWiki.skills.git
 cd MakeWiki.skills
 uv sync          # 或 pip install -e .
 ```

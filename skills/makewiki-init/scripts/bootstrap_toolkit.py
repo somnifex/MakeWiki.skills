@@ -8,8 +8,8 @@ import urllib.request
 import zipfile
 from pathlib import Path
 
-REPO_URL = "https://github.com/HowieWood/MakeWiki.skills.git"
-ARCHIVE_URL = "https://github.com/HowieWood/MakeWiki.skills/archive/refs/heads/main.zip"
+REPO_URL = "https://github.com/somnifex/MakeWiki.skills.git"
+ARCHIVE_URL = "https://github.com/somnifex/MakeWiki.skills/archive/refs/heads/main.zip"
 REQUIRED_PATHS = (
     "pyproject.toml",
     "scripts/run_toolkit.py",
