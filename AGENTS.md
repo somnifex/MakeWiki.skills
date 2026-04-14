@@ -20,13 +20,13 @@ claude --plugin-dir /path/to/MakeWiki.skills
 
 ## Internal toolkit (for skills only)
 
-Skills call the Python toolkit via `python -m makewiki_skills <command>`. This is an internal interface — not a user-facing CLI.
+Skills should call the repo-local launcher `scripts/run_toolkit.py`. It bootstraps `<skills-root>/.venv` in place, preferring `uv` and falling back to `python -m venv`, then dispatches to the internal toolkit via `python -m makewiki_skills <command>`. This is internal infrastructure — not a user-facing CLI.
 
 ```bash
-python -m makewiki_skills scan <target>
-python -m makewiki_skills review <target> --lang en --lang zh-CN
-python -m makewiki_skills validate <target>/makewiki
-python -m makewiki_skills init-config <target>
+python /path/to/MakeWiki.skills/scripts/run_toolkit.py scan <target>
+python /path/to/MakeWiki.skills/scripts/run_toolkit.py review <target> --lang en --lang zh-CN
+python /path/to/MakeWiki.skills/scripts/run_toolkit.py validate <target>/makewiki
+python /path/to/MakeWiki.skills/scripts/run_toolkit.py init-config <target>
 ```
 
 ## Rules

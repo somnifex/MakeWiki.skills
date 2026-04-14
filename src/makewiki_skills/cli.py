@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import json as json_lib
 from pathlib import Path
-from typing import Optional
+from typing import Any, Optional, cast
 
 import typer
 from rich.console import Console
@@ -217,7 +217,7 @@ def review(
     reviewer = CrossLanguageReviewer()
     result = reviewer.review(documents)
 
-    console.print(f"[bold]Cross-Language Review[/bold]")
+    console.print("[bold]Cross-Language Review[/bold]")
     console.print(f"  Languages: {', '.join(result.languages_reviewed)}")
     console.print(f"  Consistency: {result.consistency_score:.1%}")
     console.print(f"  Issues: {len(result.fact_deltas)}")
@@ -267,8 +267,6 @@ def semantic_review(
     semantics across languages. This is a data preparation tool, not an
     automated reviewer.
     """
-    import re
-
     wiki_dir = Path(wiki_dir).resolve()
     if not wiki_dir.is_dir():
         console.print(f"[red]Error:[/red] Directory not found: {wiki_dir}")
@@ -300,7 +298,7 @@ def semantic_review(
         content = md_file.read_text(encoding="utf-8", errors="replace")
         pages.setdefault(base, {})[detected_lang] = content
 
-    review_pairs: list[dict[str, object]] = []
+    review_pairs: list[dict[str, Any]] = []
     for base_name, lang_contents in sorted(pages.items()):
         if len(lang_contents) < 2:
             continue
@@ -331,12 +329,13 @@ def semantic_review(
     if output_format == "json":
         typer.echo(json_lib.dumps({"review_pairs": review_pairs}, indent=2, ensure_ascii=False))
     else:
-        console.print(f"[bold]Semantic Review Data[/bold]")
+        console.print("[bold]Semantic Review Data[/bold]")
         console.print(f"  Documents with multiple languages: {len(pages)}")
         console.print(f"  Section pairs for review: {len(review_pairs)}")
         for pair in review_pairs[:10]:
             console.print(f"\n  [cyan]{pair['document']}[/cyan] — {pair['reference_heading']}")
-            for lang, text in pair["passages"].items():  # type: ignore[union-attr]
+            passages = cast(dict[str, str], pair["passages"])
+            for lang, text in passages.items():
                 preview = str(text)[:80].replace("\n", " ")
                 console.print(f"    [{lang}] {preview}...")
 

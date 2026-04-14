@@ -16,7 +16,7 @@ MakeWiki.skills provides 5 skills for AI coding assistants:
 The project has two layers:
 
 1. **Skills layer** (`skills/`) - Skill definitions (SKILL.md files) that drive the AI assistant to generate documentation. The AI is the generation engine, producing genuinely fluent text in each language.
-2. **Toolkit layer** (`src/makewiki_skills/`) - Python supporting infrastructure for project scanning, evidence collection, semantic model building, cross-language review, and validation. Skills call into the toolkit via `python -m makewiki_skills <command>`. The CLI is internal-only — the AI agent (via `/makewiki` skills) is the sole user interface.
+2. **Toolkit layer** (`src/makewiki_skills/`) - Python supporting infrastructure for project scanning, evidence collection, semantic model building, cross-language review, and validation. Skills should enter through `scripts/run_toolkit.py`, which bootstraps a repo-local `.venv` (prefer `uv`, fall back to `python -m venv`) and then dispatches to `python -m makewiki_skills <command>`. The CLI is internal-only — the AI agent (via `/makewiki` skills) is the sole user interface.
 
 ## Key Design Principle
 

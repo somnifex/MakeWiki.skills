@@ -165,26 +165,29 @@ Parse `$ARGUMENTS` for:
 
 Supported language codes: `en`, `zh-CN`, `ja`, `de`, `fr` (and any BCP-47 code you can write fluently)
 
-### Step 1: Ensure the toolkit is importable
+### Step 1: Locate the repo-local launcher
 
-Check whether the MakeWiki toolkit is already importable:
+Locate the MakeWiki skill repository. The launcher at `<makewiki_root>/scripts/run_toolkit.py` always bootstraps `<makewiki_root>/.venv`, preferring `uv` and falling back to `python -m venv`, then runs the internal toolkit inside that environment.
 
-```bash
-python -c "import makewiki_skills; print(makewiki_skills.__version__)"
-```
-
-If Python reports `No module named makewiki_skills`, install the toolkit from the skill repository with a Python-only command, then rerun the import check:
+Use this locator:
 
 ```bash
-python -c "import os, pathlib, subprocess, sys; skill_dir = pathlib.Path(os.environ['CLAUDE_SKILL_DIR']).resolve(); repo_root = skill_dir.parents[1]; subprocess.check_call([sys.executable, '-m', 'pip', 'install', '-e', str(repo_root)])"
+python -c "import os, pathlib; cwd = pathlib.Path.cwd().resolve(); candidates = [cwd, *cwd.parents]; roots = [pathlib.Path(value) for value in (os.environ.get('CLAUDE_CONFIG_DIR'), os.environ.get('CODEX_HOME'), os.environ.get('OPENCODE_HOME')) if value]; home = pathlib.Path.home(); roots += [home / '.claude', home / '.codex', home / '.opencode', home / '.config' / 'claude', home / '.config' / 'codex', home / '.config' / 'opencode']; roots += [pathlib.Path(value) / name for value in (os.environ.get('APPDATA'), os.environ.get('LOCALAPPDATA')) if value for name in ('Claude', 'Codex', 'OpenCode')]; search_dirs = [candidate for root in roots if root.exists() for candidate in (root, root / 'plugins', root / 'skills') if candidate.exists()]; candidates.extend(path.parents[2] for search_dir in search_dirs for path in search_dir.rglob('__init__.py') if path.match('*/src/makewiki_skills/__init__.py')); root = next((path for path in candidates if (path / 'pyproject.toml').exists() and (path / 'scripts' / 'run_toolkit.py').exists() and (path / 'src' / 'makewiki_skills' / '__init__.py').exists()), None); print(root if root else 'NOT_FOUND')"
 ```
+
+If the locator prints a path, refer to it as `<makewiki_root>` and continue to Step 2.
+
+If it prints `NOT_FOUND`, do **not** stop. Continue in manual mode:
+- skip all `python <makewiki_root>/scripts/run_toolkit.py ...` commands
+- gather evidence with `Read`, `Grep`, and ordinary file inspection instead
+- make it explicit in your notes that the repo-local launcher was unavailable
 
 ### Step 2: Collect structured evidence
 
-Run the toolkit's scan stage with structured JSON output:
+If the launcher is available, run the scan stage with structured JSON output:
 
 ```bash
-python -m makewiki_skills scan . --format json
+python <makewiki_root>/scripts/run_toolkit.py scan . --format json
 ```
 
 This produces a JSON evidence bundle containing every individual fact the scanner found — commands, config keys, file paths, version strings, config comments, CLI help text, and error messages — each with source file locations and confidence levels.
@@ -193,6 +196,12 @@ Parse the JSON output. Identify **evidence gaps** — areas where the toolkit co
 - Config keys with no `config_comment` facts → you need to read the config file to understand what they do
 - Commands with no `cli_help` facts → you need to read the entry point source to understand usage
 - Few or no `error_message` facts → check source code for error handling patterns
+
+If the toolkit is unavailable, build the same evidence set manually from the project:
+- commands from `README`, `Makefile`, task files, scripts, and entry points
+- config keys from config files, `.env.example`, and comments
+- file paths, version strings, and install steps from manifests and existing docs
+- error messages from source code, tests, and troubleshooting notes
 
 Then **read the project yourself**, targeting the gaps:
 
@@ -332,13 +341,13 @@ Before writing each paragraph, verify:
 
 ### Step 6: Cross-language verification
 
-After generating all languages, run the structural review:
+If the launcher is available, run the structural review:
 
 ```bash
-python -m makewiki_skills review . --lang en --lang zh-CN
+python <makewiki_root>/scripts/run_toolkit.py review . --lang en --lang zh-CN
 ```
 
-Also manually verify:
+Always manually verify:
 1. **All languages have the same pages** - no missing pages
 2. **Commands are identical** across all languages (code blocks must match exactly)
 3. **Config keys are identical** - same keys, same defaults
@@ -371,11 +380,13 @@ For any examples that use:
 
 ### Step 7: Validate output
 
+If the launcher is available, run:
+
 ```bash
-python -m makewiki_skills validate <output_dir>
+python <makewiki_root>/scripts/run_toolkit.py validate <output_dir>
 ```
 
-Also check:
+Then check manually:
 - Every page has a proper H1 heading
 - No broken internal links
 - No empty pages

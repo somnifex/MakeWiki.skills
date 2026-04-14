@@ -16,18 +16,30 @@ Parse `$ARGUMENTS` for:
 
 ## Execution
 
-### Step 1: Run the toolkit reviewer
+### Step 1: Locate the repo-local launcher
+
+Locate the MakeWiki skill repository. The launcher at `<makewiki_root>/scripts/run_toolkit.py` always bootstraps `<makewiki_root>/.venv`, preferring `uv` and falling back to `python -m venv`, then runs the internal toolkit inside that environment.
+
+Use this locator:
+
+```bash
+python -c "import os, pathlib; cwd = pathlib.Path.cwd().resolve(); candidates = [cwd, *cwd.parents]; roots = [pathlib.Path(value) for value in (os.environ.get('CLAUDE_CONFIG_DIR'), os.environ.get('CODEX_HOME'), os.environ.get('OPENCODE_HOME')) if value]; home = pathlib.Path.home(); roots += [home / '.claude', home / '.codex', home / '.opencode', home / '.config' / 'claude', home / '.config' / 'codex', home / '.config' / 'opencode']; roots += [pathlib.Path(value) / name for value in (os.environ.get('APPDATA'), os.environ.get('LOCALAPPDATA')) if value for name in ('Claude', 'Codex', 'OpenCode')]; search_dirs = [candidate for root in roots if root.exists() for candidate in (root, root / 'plugins', root / 'skills') if candidate.exists()]; candidates.extend(path.parents[2] for search_dir in search_dirs for path in search_dir.rglob('__init__.py') if path.match('*/src/makewiki_skills/__init__.py')); root = next((path for path in candidates if (path / 'pyproject.toml').exists() and (path / 'scripts' / 'run_toolkit.py').exists() and (path / 'src' / 'makewiki_skills' / '__init__.py').exists()), None); print(root if root else 'NOT_FOUND')"
+```
+
+If the locator prints a path, refer to it as `<makewiki_root>` and run the toolkit reviewer.
 
 Construct the command explicitly from the parsed arguments:
 
-- If no `--lang` flags were provided, run `python -m makewiki_skills review .`
-- If languages were provided, append them directly, for example `python -m makewiki_skills review . --lang en --lang zh-CN`
+- If no `--lang` flags were provided, run `python <makewiki_root>/scripts/run_toolkit.py review .`
+- If languages were provided, append them directly, for example `python <makewiki_root>/scripts/run_toolkit.py review . --lang en --lang zh-CN`
 
 Example:
 
 ```bash
-python -m makewiki_skills review . --lang en --lang zh-CN
+python <makewiki_root>/scripts/run_toolkit.py review . --lang en --lang zh-CN
 ```
+
+If the locator prints `NOT_FOUND`, skip the launcher and perform the structural and semantic review manually.
 
 ### Step 2: Structural review
 

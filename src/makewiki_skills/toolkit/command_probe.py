@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import json
 import re
+import tomllib
 from pathlib import Path
 from typing import Any
 
@@ -81,15 +83,15 @@ class CommandProbeTool:
 
     def parse_package_json_scripts(self, path: Path) -> ToolResult:
         try:
-            import json as _json
-
             real = Path(path).resolve()
             if not real.is_file():
                 return ToolResult(success=False, error=f"Not a file: {path}")
-            data = _json.loads(real.read_text(encoding="utf-8"))
+            data = json.loads(real.read_text(encoding="utf-8"))
             scripts = data.get("scripts", {})
+            if not isinstance(scripts, dict):
+                scripts = {}
             entries = [
-                ScriptEntry(name=k, command=v, source="package_json").model_dump()
+                ScriptEntry(name=str(k), command=str(v), source="package_json").model_dump()
                 for k, v in scripts.items()
             ]
             return ToolResult(success=True, data={"scripts": entries}, source_path=str(real))
@@ -101,14 +103,13 @@ class CommandProbeTool:
             real = Path(path).resolve()
             if not real.is_file():
                 return ToolResult(success=False, error=f"Not a file: {path}")
-            try:
-                import tomllib
-            except ModuleNotFoundError:
-                import tomli as tomllib  # type: ignore[no-redef]
             data = tomllib.loads(real.read_text(encoding="utf-8"))
-            scripts = data.get("project", {}).get("scripts", {})
+            project_data = data.get("project", {})
+            scripts = project_data.get("scripts", {}) if isinstance(project_data, dict) else {}
+            if not isinstance(scripts, dict):
+                scripts = {}
             entries = [
-                ScriptEntry(name=k, command=v, source="pyproject_scripts").model_dump()
+                ScriptEntry(name=str(k), command=str(v), source="pyproject_scripts").model_dump()
                 for k, v in scripts.items()
             ]
             return ToolResult(success=True, data={"scripts": entries}, source_path=str(real))

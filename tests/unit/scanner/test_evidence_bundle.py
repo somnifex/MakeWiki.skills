@@ -4,7 +4,7 @@ import json
 
 import pytest
 
-from makewiki_skills.scanner.evidence_bundle import EvidenceBundle, EvidenceBundleDetection
+from makewiki_skills.scanner.evidence_bundle import EvidenceBundle
 from makewiki_skills.scanner.evidence_registry import EvidenceRegistry
 from makewiki_skills.scanner.project_detector import ProjectDetectionResult, ProjectType
 from makewiki_skills.toolkit.evidence import EvidenceFact, EvidenceLink

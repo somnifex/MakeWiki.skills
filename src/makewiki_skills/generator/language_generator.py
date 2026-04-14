@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 from pathlib import Path
+from typing import Any
 
 import jinja2
 from pydantic import BaseModel, Field
@@ -88,7 +89,7 @@ class LanguageGenerator:
         model: SemanticModel,
         profile: LanguageProfile,
         config: MakeWikiConfig,
-    ) -> dict:
+    ) -> dict[str, Any]:
         """Combine semantic data with language-specific labels and formatting."""
         terms = profile.terminology
         formatting = profile.formatting
@@ -96,7 +97,7 @@ class LanguageGenerator:
         def _link(base: str) -> str:
             return profile.get_filename(base)
 
-        quick_start_example: dict | None = None
+        quick_start_example: dict[str, Any] | None = None
         preferred_example = next(
             (
                 example
@@ -195,7 +196,7 @@ class LanguageGenerator:
 
         return ctx
 
-    def _render(self, template_path: str, context: dict) -> str:
+    def _render(self, template_path: str, context: dict[str, Any]) -> str:
         template = self._env.get_template(template_path)
         return template.render(**context)
 

@@ -24,6 +24,7 @@ from makewiki_skills.model.semantic_model import (
     ProjectIdentity,
     SemanticModel,
     TroubleshootingItem,
+    UserTask,
     UsageExample,
 )
 from makewiki_skills.model.task_inference import TaskInferenceEngine
@@ -33,7 +34,7 @@ from makewiki_skills.review.cross_language_reviewer import CrossLanguageReview, 
 from makewiki_skills.scanner.evidence_collector import CollectedEvidence, EvidenceCollector
 from makewiki_skills.scanner.evidence_registry import EvidenceRegistry
 from makewiki_skills.scanner.project_detector import ProjectDetectionResult, ProjectDetector, ProjectType
-from makewiki_skills.toolkit.evidence import EvidenceFact
+from makewiki_skills.toolkit.evidence import EvidenceFact, EvidenceLink
 from makewiki_skills.verification.code_grounding_verifier import CodeGroundingVerifier, GroundingReport
 
 
@@ -242,7 +243,7 @@ def _build_installation(
         InstallStep(
             order=1,
             title="Clone the repository",
-            commands=[f"git clone <repository-url>", f"cd {detection.project_name}"],
+            commands=["git clone <repository-url>", f"cd {detection.project_name}"],
         )
     ]
     if install_commands:
@@ -371,7 +372,7 @@ def _build_commands(registry: EvidenceRegistry) -> list[Command]:
 
 def _build_usage_examples(
     commands: list[Command],
-    user_tasks: list,
+    user_tasks: list[UserTask],
 ) -> list[UsageExample]:
     used_commands = {command for task in user_tasks for command in task.commands}
     examples: list[UsageExample] = []
@@ -465,7 +466,7 @@ def _build_faq(
 
 def _build_platform_notes(commands: list[Command]) -> list[PlatformNote]:
     windows_notes: list[str] = []
-    windows_evidence: list = []
+    windows_evidence: list[EvidenceLink] = []
     make_command = next((cmd for cmd in commands if cmd.name.startswith("make ")), None)
     if make_command is not None:
         windows_notes.append(

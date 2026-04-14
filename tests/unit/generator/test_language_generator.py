@@ -1,7 +1,5 @@
 """Tests for LanguageGenerator."""
 
-from pathlib import Path
-
 from makewiki_skills.config import MakeWikiConfig
 from makewiki_skills.generator.language_generator import LanguageGenerator
 from makewiki_skills.languages.registry import LanguageRegistry

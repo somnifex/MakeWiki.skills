@@ -4,10 +4,11 @@ from __future__ import annotations
 
 import json
 import re
+import tomllib
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 
-import yaml
+import yaml  # type: ignore[import-untyped]
 
 from makewiki_skills.toolkit.base import ToolResult
 
@@ -57,7 +58,7 @@ class ConfigReaderTool:
                 paths.extend(ConfigReaderTool.extract_key_paths(value, full))
         return paths
 
-    def _read(self, path: Path, parser: Any) -> ToolResult:
+    def _read(self, path: Path, parser: Callable[[str], Any]) -> ToolResult:
         try:
             real = Path(path).resolve()
             if not real.is_file():
@@ -74,10 +75,6 @@ class ConfigReaderTool:
 
     @staticmethod
     def _parse_toml(text: str) -> Any:
-        try:
-            import tomllib
-        except ModuleNotFoundError:
-            import tomli as tomllib  # type: ignore[no-redef]
         return tomllib.loads(text)
 
     @staticmethod

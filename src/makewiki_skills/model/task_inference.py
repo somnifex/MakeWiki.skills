@@ -91,7 +91,7 @@ class TaskInferenceEngine:
                 continue
 
             title, goal = self._match_known_task(cmd.name)
-            if title is None:
+            if title is None or goal is None:
                 continue
 
             if title in seen_titles:

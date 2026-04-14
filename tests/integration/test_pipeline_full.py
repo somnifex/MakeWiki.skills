@@ -2,8 +2,6 @@
 
 from pathlib import Path
 
-import pytest
-
 from makewiki_skills.config import MakeWikiConfig
 from makewiki_skills.pipeline.pipeline import Pipeline
 

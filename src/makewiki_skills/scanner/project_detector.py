@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import json
+import tomllib
 from enum import Enum
 from pathlib import Path
 
@@ -99,25 +101,21 @@ class ProjectDetector:
         pyproject = root / "pyproject.toml"
         if pyproject.is_file():
             try:
-                import tomllib
-            except ModuleNotFoundError:
-                import tomli as tomllib  # type: ignore[no-redef]
-            try:
                 data = tomllib.loads(pyproject.read_text(encoding="utf-8"))
-                name = data.get("project", {}).get("name")
-                if name:
-                    return name
+                project_data = data.get("project")
+                if isinstance(project_data, dict):
+                    name = project_data.get("name")
+                    if isinstance(name, str):
+                        return name
             except Exception:
                 pass
 
         package_json = root / "package.json"
         if package_json.is_file():
-            import json
-
             try:
                 data = json.loads(package_json.read_text(encoding="utf-8"))
                 name = data.get("name")
-                if name:
+                if isinstance(name, str):
                     return name
             except Exception:
                 pass

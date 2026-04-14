@@ -16,7 +16,7 @@ def test_output_structure(minimal_python_cli_dir: Path, tmp_path: Path):
     config.languages = ["en", "zh-CN"]
 
     pipeline = Pipeline(config)
-    ctx = pipeline.run()
+    pipeline.run()
 
     wiki_dir = project_dir / "makewiki"
     assert wiki_dir.is_dir()
@@ -68,7 +68,7 @@ def test_three_languages(minimal_python_cli_dir: Path, tmp_path: Path):
     config.languages = ["en", "zh-CN", "ja"]
 
     pipeline = Pipeline(config)
-    ctx = pipeline.run()
+    pipeline.run()
 
     wiki_dir = project_dir / "makewiki"
     assert (wiki_dir / "README.md").is_file()

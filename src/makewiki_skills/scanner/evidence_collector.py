@@ -4,12 +4,9 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any
-
 from pydantic import BaseModel, Field
 
 from makewiki_skills.config import MakeWikiConfig
-from makewiki_skills.scanner.evidence_registry import EvidenceRegistry
 from makewiki_skills.scanner.project_detector import ProjectDetectionResult, ProjectType
 from makewiki_skills.toolkit.cli_help_extractor import CLIHelpExtractor
 from makewiki_skills.toolkit.command_probe import CommandProbeTool
@@ -279,15 +276,15 @@ class EvidenceCollector:
 
                 cli_help_facts = self._cli_help_extractor.extract_from_file(py_file)
                 if cli_help_facts:
-                    for f in cli_help_facts:
-                        f.source_path = rel
+                    for help_fact in cli_help_facts:
+                        help_fact.source_path = rel
                     facts.extend(self._cli_help_extractor.to_evidence_facts(cli_help_facts))
                     files_read.append(rel)
 
                 error_facts = self._error_extractor.extract_from_file(py_file)
                 if error_facts:
-                    for f in error_facts:
-                        f.source_path = rel
+                    for error_fact in error_facts:
+                        error_fact.source_path = rel
                     facts.extend(self._error_extractor.to_evidence_facts(error_facts))
                     if rel not in files_read:
                         files_read.append(rel)

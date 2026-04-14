@@ -3,9 +3,9 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
-import yaml
+import yaml  # type: ignore[import-untyped]
 from pydantic import BaseModel, Field
 
 class ScanConfig(BaseModel):
@@ -86,7 +86,7 @@ class MakeWikiConfig(BaseModel):
         config_path = Path(config_path)
         if config_path.is_file():
             raw = config_path.read_text(encoding="utf-8")
-            data = yaml.safe_load(raw) or {}
+            data = cast(dict[str, Any], yaml.safe_load(raw) or {})
         cfg = cls.model_validate(data)
         if target_dir is not None:
             cfg.target_dir = Path(target_dir).resolve()
@@ -102,4 +102,4 @@ class MakeWikiConfig(BaseModel):
     def to_yaml(self) -> str:
         """Serialise to YAML (excludes runtime-only fields)."""
         data = self.model_dump(exclude={"target_dir"})
-        return yaml.dump(data, default_flow_style=False, allow_unicode=True, sort_keys=False)
+        return str(yaml.dump(data, default_flow_style=False, allow_unicode=True, sort_keys=False))
