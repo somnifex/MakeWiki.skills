@@ -1,0 +1,11 @@
+{
+  "name": "makewiki-skills",
+  "description": "Generate multilingual user-facing wiki documentation through language-independent semantic modeling and cross-language verification.",
+  "version": "0.1.0",
+  "author": {
+    "name": "HowieWood"
+  },
+  "repository": "https://github.com/somnifex/MakeWiki.skills",
+  "license": "MIT",
+  "keywords": ["wiki", "documentation", "multilingual", "i18n", "markdown"]
+}

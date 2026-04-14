@@ -29,7 +29,6 @@ uv.lock
 *.swo
 *~
 .claude/
-.claude-plugin/
 
 # Testing
 .pytest_cache/
