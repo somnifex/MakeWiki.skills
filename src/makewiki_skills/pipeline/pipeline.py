@@ -38,7 +38,6 @@ from makewiki_skills.verification.code_grounding_verifier import CodeGroundingVe
 
 
 class PipelineContext(BaseModel):
-    """Shared mutable state threaded through all pipeline stages."""
 
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
@@ -61,14 +60,12 @@ class PipelineContext(BaseModel):
 
 
 def stage_detect_project(ctx: PipelineContext) -> PipelineContext:
-    """Stage 1: Detect project type."""
     detector = ProjectDetector()
     ctx.detection = detector.detect(ctx.config.target_dir)
     return ctx
 
 
 def stage_collect_evidence(ctx: PipelineContext) -> PipelineContext:
-    """Stage 2: Collect evidence from the project."""
     if ctx.detection is None:
         ctx.errors.append("Cannot collect evidence: no detection result")
         return ctx
@@ -80,7 +77,6 @@ def stage_collect_evidence(ctx: PipelineContext) -> PipelineContext:
 
 
 def stage_build_semantic_model(ctx: PipelineContext) -> PipelineContext:
-    """Stage 3: Build the language-neutral semantic model from evidence."""
     if ctx.detection is None or ctx.collected_evidence is None:
         ctx.errors.append("Cannot build model: missing detection or evidence")
         return ctx
@@ -116,7 +112,6 @@ def stage_build_semantic_model(ctx: PipelineContext) -> PipelineContext:
 
 
 def stage_generate_documents(ctx: PipelineContext) -> PipelineContext:
-    """Stage 4: Generate documents for each language independently."""
     if ctx.semantic_model is None:
         ctx.errors.append("Cannot generate: no semantic model")
         return ctx
@@ -139,7 +134,6 @@ def stage_generate_documents(ctx: PipelineContext) -> PipelineContext:
 
 
 def stage_cross_language_review(ctx: PipelineContext) -> PipelineContext:
-    """Stage 5: Cross-language consistency review."""
     if not ctx.config.review.enable_cross_language_review:
         return ctx
     if len(ctx.generated_documents) < 2:
@@ -151,7 +145,6 @@ def stage_cross_language_review(ctx: PipelineContext) -> PipelineContext:
 
 
 def stage_grounding_verification(ctx: PipelineContext) -> PipelineContext:
-    """Stage 6: Code-grounding verification."""
     if not ctx.config.review.enable_code_grounding_verification:
         return ctx
 
@@ -161,7 +154,6 @@ def stage_grounding_verification(ctx: PipelineContext) -> PipelineContext:
 
 
 def stage_revision_and_output(ctx: PipelineContext) -> PipelineContext:
-    """Stage 7: Apply revisions and write output."""
     ctx.final_documents = dict(ctx.generated_documents)
 
     output_dir = ctx.config.target_dir / ctx.config.output_dir
@@ -187,13 +179,11 @@ STAGES = [
 
 
 class Pipeline:
-    """Orchestrate the 7-stage pipeline."""
 
     def __init__(self, config: MakeWikiConfig) -> None:
         self._config = config
 
     def run(self) -> PipelineContext:
-        """Run the full pipeline."""
         ctx = PipelineContext(config=self._config)
         for name, stage_fn in STAGES:
             start = time.monotonic()
@@ -202,7 +192,6 @@ class Pipeline:
         return ctx
 
     def run_until(self, stage_name: str) -> PipelineContext:
-        """Run stages up to and including *stage_name*."""
         ctx = PipelineContext(config=self._config)
         for name, stage_fn in STAGES:
             start = time.monotonic()

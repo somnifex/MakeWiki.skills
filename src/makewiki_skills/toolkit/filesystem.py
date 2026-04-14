@@ -8,12 +8,10 @@ from pathlib import Path
 from makewiki_skills.toolkit.base import ToolResult
 
 class FilesystemTool:
-    """All filesystem I/O goes through this tool."""
 
     name = "filesystem"
 
     def read_file(self, path: Path, max_bytes: int = 512_000) -> ToolResult:
-        """Read a text file and return its content."""
         try:
             real = Path(path).resolve()
             if not real.is_file():
@@ -39,7 +37,6 @@ class FilesystemTool:
         pattern: str = "**/*",
         exclude: list[str] | None = None,
     ) -> ToolResult:
-        """List files matching *pattern*, excluding glob patterns in *exclude*."""
         exclude = exclude or []
         try:
             root = Path(path).resolve()
@@ -63,7 +60,6 @@ class FilesystemTool:
         max_depth: int = 4,
         exclude: list[str] | None = None,
     ) -> ToolResult:
-        """Return an ASCII tree representation of the directory."""
         exclude = exclude or [".git", "node_modules", "__pycache__", ".venv", "venv"]
         try:
             root = Path(path).resolve()
@@ -100,7 +96,6 @@ class FilesystemTool:
                 )
 
     def safe_write(self, path: Path, content: str, overwrite: bool = True) -> ToolResult:
-        """Write *content* to *path*, creating parent directories as needed."""
         try:
             target = Path(path).resolve()
             if target.exists() and not overwrite:

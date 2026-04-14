@@ -71,7 +71,6 @@ class EvidenceCollector:
         )
 
     def _collect_structure(self, root: Path) -> list[EvidenceFact]:
-        """Emit facts about the directory structure itself."""
         facts: list[EvidenceFact] = []
         result = self._fs.list_directory(
             root,
@@ -195,7 +194,6 @@ class EvidenceCollector:
         return facts, commands
 
     def _extract_description(self, content: str, source_path: str) -> list[EvidenceFact]:
-        """Extract the first meaningful paragraph from a README as a description fact."""
         lines = content.split("\n")
         paragraph_lines: list[str] = []
         in_paragraph = False

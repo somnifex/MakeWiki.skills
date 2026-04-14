@@ -20,7 +20,6 @@ class ToolResult(BaseModel):
 
 @runtime_checkable
 class BaseTool(Protocol):
-    """Protocol that every toolkit tool must satisfy."""
 
     name: str
 

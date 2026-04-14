@@ -58,7 +58,6 @@ class LanguageGenerator:
         profile: LanguageProfile,
         config: MakeWikiConfig,
     ) -> list[GeneratedDocument]:
-        """Generate all documents for a single language."""
         context = self._build_context(model, profile, config)
         documents: list[GeneratedDocument] = []
 
@@ -201,7 +200,6 @@ class LanguageGenerator:
         return template.render(**context)
 
     def _apply_formatting(self, content: str, profile: LanguageProfile) -> str:
-        """Apply language-specific formatting rules after rendering."""
         if profile.formatting.space_between_cjk_and_latin:
             content = self._add_cjk_latin_spaces(content)
         while "\n\n\n" in content:
@@ -210,7 +208,6 @@ class LanguageGenerator:
 
     @staticmethod
     def _add_cjk_latin_spaces(text: str) -> str:
-        """Insert spaces between CJK characters and Latin characters."""
         import re
 
         cjk = r"[\u4e00-\u9fff\u3400-\u4dbf]"

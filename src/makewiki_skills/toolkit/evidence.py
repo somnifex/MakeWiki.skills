@@ -30,7 +30,6 @@ class EvidenceFact(BaseModel):
     @computed_field  # type: ignore[prop-decorator]
     @property
     def best_confidence(self) -> str:
-        """Return the highest confidence level from all evidence links."""
         order = {"high": 0, "medium": 1, "low": 2, "inferred": 3}
         if not self.evidence:
             return "inferred"

@@ -94,7 +94,6 @@ class OutputValidator:
         expected_languages: list[str],
         default_language: str = "en",
     ) -> list[str]:
-        """Check that all expected languages have the same set of base pages."""
         output = Path(output_dir)
         issues: list[str] = []
         pages_by_lang: dict[str, set[str]] = {lang: set() for lang in expected_languages}

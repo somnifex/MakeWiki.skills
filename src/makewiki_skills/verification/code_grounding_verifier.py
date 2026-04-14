@@ -123,7 +123,6 @@ class CodeGroundingVerifier:
         return claims
 
     def _verify_claim(self, claim: GroundingClaim) -> GroundingViolation | None:
-        """Check a single claim against the evidence registry."""
         if claim.claim_type == "command":
             return self._verify_command(claim)
         if claim.claim_type == "config_key":

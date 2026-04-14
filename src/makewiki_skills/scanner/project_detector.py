@@ -96,7 +96,6 @@ class ProjectDetector:
         )
 
     def _detect_name(self, root: Path) -> str:
-        """Attempt to extract the project name from common manifest files."""
         pyproject = root / "pyproject.toml"
         if pyproject.is_file():
             try:

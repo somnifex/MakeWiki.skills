@@ -40,7 +40,6 @@ class EvidenceRegistry:
         return list(self._facts.values())
 
     def to_summary(self) -> dict[str, int]:
-        """Return a count of facts grouped by type."""
         summary: dict[str, int] = {}
         for fact in self._facts.values():
             summary[fact.fact_type] = summary.get(fact.fact_type, 0) + 1

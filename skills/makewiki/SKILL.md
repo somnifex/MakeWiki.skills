@@ -1,6 +1,6 @@
 ---
 name: makewiki
-description: "Generate multilingual user-facing wiki documentation for the current project. Scans project structure, collects evidence from configs/scripts/docs, builds a language-neutral semantic model, then independently generates documentation in each specified language with cross-language verification and code-evidence grounding. Use when: user asks to generate wiki, docs, documentation, or multilingual docs for a project."
+description: "Generate multilingual user-facing wiki documentation for the current project inside Claude Code or Codex. Scans project structure, collects evidence from configs/scripts/docs, builds a language-neutral semantic model, then independently generates documentation in each specified language with cross-language verification and code-evidence grounding. Use when: user asks to generate wiki, docs, documentation, or multilingual docs for a project."
 argument-hint: "[--lang <code>...] [--output <dir>]"
 allowed-tools: Bash(python *) Bash(uv run *) Read Write Edit Glob Grep
 ---
@@ -8,6 +8,16 @@ allowed-tools: Bash(python *) Bash(uv run *) Read Write Edit Glob Grep
 # MakeWiki - Multilingual Wiki Documentation Generator
 
 You are executing the MakeWiki skill. Your task is to generate high-quality, multilingual user-facing wiki documentation for a software project.
+
+## Execution Mode
+
+Run this skill **serially in the main Claude Code conversation**.
+
+- Do **NOT** use the `Task` tool, subagents, agent teams, or any "parallel agents" workflow.
+- Do **NOT** say that you will "parallelize across multiple agents."
+- If Claude Code exposes agent-related tools anyway, ignore them for this skill and continue sequentially.
+- If you want to speed up I/O, only parallelize ordinary reads or shell commands inside the current conversation. Do not delegate writing or review to helper agents.
+- If multiple languages are requested, generate them one by one in the current thread from the same project understanding.
 
 ---
 
@@ -217,6 +227,8 @@ For each requested language, **independently** generate the full documentation s
 
 **Critical: You are NOT translating. You are writing each language version from scratch, from your understanding of the project.** A native Chinese speaker and a native English speaker reading the same project would emphasize different things, use different idioms, structure explanations differently. That is correct and expected.
 
+Work through the requested languages **sequentially in the current conversation**. Do not spawn a helper agent per language.
+
 #### Output structure
 
 Create `<project_root>/<output_dir>/` with files per language:
@@ -235,9 +247,9 @@ Plus an `index.md` linking all language versions.
 
 #### Language style guidelines
 
-**English (en):** Clear, professional, concise. Active voice. Address reader as "you". Short sentences. Lead each section with what the user DOES, not what the system IS.
+**English (en):** Clear, professional, concise. Active voice. Address reader as “you”. Short sentences. Lead each section with what the user DOES, not what the system IS.
 
-**简体中文 (zh-CN):** 简洁专业的技术文档风格。使用主动语态，以"你"称呼用户。英文专有名词保留英文，中英文之间加空格。使用全角标点。先写用户能做什么，再解释原因。
+**简体中文 (zh-CN):** 简洁专业的技术文档风格。使用主动语态，以”你”称呼用户。英文专有名词保留英文，中英文之间加空格。使用全角标点。先写用户能做什么，再解释原因。
 
 **日本語 (ja):** 丁寧で正確な技術文書。です・ます調を使用。専門用語はカタカナまたは英語のまま使用。ユーザーの操作手順を中心に記述。
 
@@ -310,3 +322,4 @@ These are non-negotiable. Violating any of them is a failure condition.
 8. **ALWAYS keep code blocks, commands, and config keys identical** across all languages - only the prose differs.
 9. **ALWAYS describe features as user actions** - "You can..." not "The system supports..."
 10. **Output directory MUST be `<project_root>/makewiki/`** unless the user specifies otherwise.
+11. **NEVER use `Task`, subagents, or multi-agent orchestration for this skill.** Complete the workflow in the main conversation.

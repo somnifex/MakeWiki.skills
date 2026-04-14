@@ -19,7 +19,6 @@ class OutputManager:
     def write_documents(
         self, documents: dict[str, list[GeneratedDocument]]
     ) -> list[Path]:
-        """Write all documents to disk. Returns list of written paths."""
         written: list[Path] = []
         for _lang, docs in documents.items():
             for doc in docs:
@@ -34,7 +33,6 @@ class OutputManager:
         documents: dict[str, list[GeneratedDocument]],
         default_language: str = "en",
     ) -> Path | None:
-        """Write an index file that links to all language versions."""
         del default_language
 
         lines = ["# MakeWiki Documentation\n\n"]

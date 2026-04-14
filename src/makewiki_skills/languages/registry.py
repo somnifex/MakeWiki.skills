@@ -36,7 +36,6 @@ class LanguageRegistry:
 
     @classmethod
     def load_builtins(cls) -> None:
-        """Import and register all built-in profiles."""
         from makewiki_skills.languages.profiles import de, en, fr, ja, zh_cn
 
         for mod in (en, fr, de, ja, zh_cn):

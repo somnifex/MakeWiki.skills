@@ -129,7 +129,6 @@ class CrossLanguageReviewer:
     def generate_revision_instructions(
         self, review: CrossLanguageReview
     ) -> list[RevisionInstruction]:
-        """Convert review deltas into actionable revision instructions."""
         instructions: list[RevisionInstruction] = []
         for delta in review.fact_deltas:
             if delta.missing_from:
@@ -153,7 +152,6 @@ class CrossLanguageReviewer:
     def _compare_fact_sets(
         self, sets: list[tuple[str, FactSet]]
     ) -> list[FactDelta]:
-        """Compare fact sets from multiple languages for the same page."""
         deltas: list[FactDelta] = []
 
         deltas.extend(
@@ -196,7 +194,6 @@ class CrossLanguageReviewer:
         fact_type: str,
         severity: str,
     ) -> list[FactDelta]:
-        """Find values that appear in some languages but not all."""
         all_values: set[str] = set()
         for _, values in lang_values:
             all_values.update(values)

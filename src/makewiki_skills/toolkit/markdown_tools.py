@@ -117,11 +117,9 @@ class MarkdownTool:
     def extract_facts(self, content: str, language_code: str = "", document_name: str = "") -> FactSet:
         facts = FactSet(language_code=language_code, document_name=document_name)
 
-        # Section names from headings
         headings = self.extract_headings(content)
         facts.section_names = [h.text for h in headings]
 
-        # Commands from bash/shell code blocks
         blocks = self.extract_code_blocks(content)
         for block in blocks:
             if block.language in ("bash", "sh", "shell", "console", None):
@@ -132,24 +130,19 @@ class MarkdownTool:
                     if line and not line.startswith("#") and not line.startswith("//"):
                         facts.commands.append(line)
 
-        # Inline code that looks like config keys
         config_pattern = re.compile(r"`([A-Z_][A-Z0-9_]*)`")
         facts.config_keys = list(set(config_pattern.findall(content)))
 
-        # Also find dotted config keys
         dotted_pattern = re.compile(r"`([\w]+\.[\w.]+)`")
         facts.config_keys.extend(set(dotted_pattern.findall(content)))
         facts.config_keys = sorted(set(facts.config_keys))
 
-        # File paths (inline code starting with ./ or containing /)
         path_pattern = re.compile(r"`((?:\./|/)[\w./_-]+)`")
         facts.file_paths = sorted(set(path_pattern.findall(content)))
 
-        # Version strings
         version_pattern = re.compile(r"\b(\d+\.\d+(?:\.\d+)?(?:[a-zA-Z0-9.+-]*))\b")
         facts.version_strings = sorted(set(version_pattern.findall(content)))
 
-        # URLs
         url_pattern = re.compile(r"https?://[^\s\)\"'>]+")
         facts.urls = sorted(set(url_pattern.findall(content)))
 

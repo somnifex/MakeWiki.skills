@@ -26,14 +26,12 @@ class ConfigReaderTool:
         return self._read(path, self._parse_json)
 
     def read_env_file(self, path: Path) -> ToolResult:
-        """Parse a .env / .env.example file into key-value pairs."""
         return self._read(path, self._parse_env)
 
     def read_ini(self, path: Path) -> ToolResult:
         return self._read(path, self._parse_ini)
 
     def read_any(self, path: Path) -> ToolResult:
-        """Detect format from extension and delegate."""
         p = Path(path)
         ext = p.suffix.lower()
         name = p.name.lower()
@@ -51,7 +49,6 @@ class ConfigReaderTool:
 
     @staticmethod
     def extract_key_paths(data: dict[str, Any], prefix: str = "") -> list[str]:
-        """Flatten a nested dict into dotted key paths."""
         paths: list[str] = []
         for key, value in data.items():
             full = f"{prefix}.{key}" if prefix else key
