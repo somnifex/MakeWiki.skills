@@ -88,6 +88,10 @@ Scan project → collect evidence → build semantic model → generate per lang
 
 No translation, no API reference, no architecture diagrams, no source code modification, no dangerous commands, no unsubstantiated claims.
 
+## Thanks
+
+MakeWiki.skills also owes a quiet debt to the issue threads, forum posts, and troubleshooting notes shared across [GitHub](https://github.com/), [Reddit](https://www.reddit.com/), and [Linux.do](https://linux.do/).
+
 ## Tests
 
 ```bash

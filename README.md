@@ -88,6 +88,10 @@ English、简体中文、日本語、Deutsch、Français。需要更多可在 `s
 
 不翻译、不生成 API 参考、不画架构图、不改源码、不执行危险命令、不把猜测写成事实。
 
+## 致谢
+
+MakeWiki.skills 也默默受益于 [GitHub](https://github.com/)、[Reddit](https://www.reddit.com/) 和 [Linux.do](https://linux.do/) 社区里持续分享的问题讨论、论坛帖子与排障记录。
+
 ## 测试
 
 ```bash
