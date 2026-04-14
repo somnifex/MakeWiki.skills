@@ -13,8 +13,13 @@ Create a default `makewiki.config.yaml` in the current project root.
 
 Try the toolkit first:
 
+Build the command explicitly from the parsed arguments:
+
+- If no `--lang` flags were provided, run `python -m makewiki_skills init-config .`
+- If languages were provided, append them directly, for example `python -m makewiki_skills init-config . --lang en --lang zh-CN`
+
 ```bash
-python -m makewiki_skills init-config . $ARGUMENTS
+python -m makewiki_skills init-config . --lang en --lang zh-CN
 ```
 
 If the toolkit is not available, create the file manually with this content:

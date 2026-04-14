@@ -165,18 +165,18 @@ Parse `$ARGUMENTS` for:
 
 Supported language codes: `en`, `zh-CN`, `ja`, `de`, `fr` (and any BCP-47 code you can write fluently)
 
-### Step 1: Install toolkit (if needed)
+### Step 1: Ensure the toolkit is importable
 
-Check if the MakeWiki toolkit is available:
-
-```!
-python -c “import makewiki_skills; print(makewiki_skills.__version__)” 2>/dev/null || echo “NOT_INSTALLED”
-```
-
-If not installed, install it from the skill's parent directory:
+Check whether the MakeWiki toolkit is already importable:
 
 ```bash
-cd ${CLAUDE_SKILL_DIR}/../.. && uv sync 2>/dev/null || pip install -e . 2>/dev/null
+python -c "import makewiki_skills; print(makewiki_skills.__version__)"
+```
+
+If Python reports `No module named makewiki_skills`, install the toolkit from the skill repository with a Python-only command, then rerun the import check:
+
+```bash
+python -c "import os, pathlib, subprocess, sys; skill_dir = pathlib.Path(os.environ['CLAUDE_SKILL_DIR']).resolve(); repo_root = skill_dir.parents[1]; subprocess.check_call([sys.executable, '-m', 'pip', 'install', '-e', str(repo_root)])"
 ```
 
 ### Step 2: Collect structured evidence

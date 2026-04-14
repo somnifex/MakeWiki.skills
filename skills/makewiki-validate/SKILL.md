@@ -17,8 +17,15 @@ Validate the generated makewiki documentation.
 
 ### Step 1: Run the toolkit validator
 
+After parsing `$ARGUMENTS`, build the command explicitly:
+
+- If no path was provided, run `python -m makewiki_skills validate ./makewiki`
+- If a path was provided, replace `./makewiki` with that exact path
+
+Example default command:
+
 ```bash
-python -m makewiki_skills validate ${1:-./makewiki}
+python -m makewiki_skills validate ./makewiki
 ```
 
 ### Step 2: Manual quality checks

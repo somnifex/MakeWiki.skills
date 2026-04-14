@@ -18,8 +18,15 @@ Parse `$ARGUMENTS` for:
 
 ### Step 1: Run the toolkit reviewer
 
+Construct the command explicitly from the parsed arguments:
+
+- If no `--lang` flags were provided, run `python -m makewiki_skills review .`
+- If languages were provided, append them directly, for example `python -m makewiki_skills review . --lang en --lang zh-CN`
+
+Example:
+
 ```bash
-python -m makewiki_skills review . $ARGUMENTS
+python -m makewiki_skills review . --lang en --lang zh-CN
 ```
 
 ### Step 2: Structural review
