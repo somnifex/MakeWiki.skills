@@ -1,50 +1,52 @@
 # MakeWiki.skills
 
-Type `/makewiki` in Claude Code or Codex to generate multilingual user documentation for your project.
+Type `/makewiki` in Claude Code or Codex to generate multilingual user documentation for a project.
 
 [简体中文](README.md) | **English**
 
 ## What it does
 
-Writes user documentation for any software project — installation, configuration, daily usage, troubleshooting — with each language generated independently rather than translated. Every claim in the output traces back to actual code, config, or scripts in the project.
+MakeWiki.skills scans the repository first, then writes user docs for installation, configuration, day-to-day usage, FAQ, and troubleshooting. Each language version is written from the same project evidence instead of being translated from another language.
 
 ## Usage
 
 ### Claude Code
 
-Load the plugin, then call skills in any project conversation:
+Load the plugin:
 
 ```bash
 claude --plugin-dir /path/to/MakeWiki.skills
 ```
 
-```
-/makewiki --lang en --lang zh-CN    # Full pipeline: scan → generate → review → validate
-/makewiki-scan                       # Scan only — see what the project exposes
-/makewiki-review --lang en --lang zh-CN  # Cross-language consistency check
-/makewiki-validate ./makewiki        # Validate existing docs
-/makewiki-init                       # Generate default config
+Then run the skills inside a project conversation:
+
+```text
+/makewiki --lang en --lang zh-CN    # Full flow: scan → generate → review → validate
+/makewiki-scan                      # Inspect what the project exposes
+/makewiki-review --lang en --lang zh-CN
+/makewiki-validate ./makewiki
+/makewiki-init
 ```
 
 ### Installation
 
-Python 3.11+, via `uv` or `pip`:
+Requires Python 3.11+. Install with `uv` or `pip`:
 
 ```bash
 git clone https://github.com/somnifex/MakeWiki.skills.git
 cd MakeWiki.skills
-uv sync          # or: pip install -e .
+uv sync          # or pip install -e .
 ```
 
 ## Principles
 
-- Each language is generated from the project understanding, never translated.
-- Facts require project evidence; insufficient evidence is flagged, not guessed.
-- Code blocks stay identical across languages — only prose differs.
+- Each language is written independently, not translated.
+- Documentation claims need project evidence. When evidence is weak, the docs stay cautious.
+- Code blocks stay identical across languages; only the prose changes.
 
 ## Output
 
-Writes to `<project>/makewiki/` by default, with language suffixes:
+By default, files are written to `<project>/makewiki/`:
 
 ```
 makewiki/
@@ -78,19 +80,19 @@ review:
 
 ## Built-in languages
 
-English, Simplified Chinese, Japanese, German, French. Add more under `src/makewiki_skills/languages/profiles/`.
+English, Simplified Chinese, Japanese, German, and French. Add more under `src/makewiki_skills/languages/profiles/`.
 
 ## Pipeline
 
-Scan project → collect evidence → build semantic model → generate per language → cross-language review → evidence grounding → write and validate.
+Scan the project → collect evidence → build the semantic model → generate docs → review across languages → validate the output.
 
 ## Out of scope
 
-No translation, no API reference, no architecture diagrams, no source code modification, no dangerous commands, no unsubstantiated claims.
+No translation of existing docs, no API reference generation, no architecture write-up, no source edits, no unsafe commands, and no invented facts.
 
 ## Thanks
 
-MakeWiki.skills also owes a quiet debt to the issue threads, forum posts, and troubleshooting notes shared across [GitHub](https://github.com/), [Reddit](https://www.reddit.com/), and [Linux.do](https://linux.do/).
+Thanks to the people who keep sharing debugging notes, issue threads, and forum posts on [GitHub](https://github.com/), [Reddit](https://www.reddit.com/), and [Linux.do](https://linux.do/). That public problem-solving helped shape this project.
 
 ## Tests
 

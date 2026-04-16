@@ -1,19 +1,7 @@
-"""Post-generation verification against the actual project codebase.
+"""Verify rendered docs against the project files on disk.
 
-Unlike :class:`CodeGroundingVerifier` which checks claims against the
-evidence registry (what the scanner captured), this verifier goes back
-to the real project filesystem and validates that:
-
-* File paths mentioned in documentation actually exist on disk.
-* Commands referenced in code blocks correspond to real project
-  scripts (Makefile targets, package.json scripts, pyproject.toml
-  entry-points) or well-known generic tools.
-* Configuration keys appear in the actual configuration files found
-  in the project directory.
-
-This is especially valuable in AI-agent-driven workflows where the
-agent may produce content that goes beyond what the evidence scanner
-captured — the codebase verifier gives a ground-truth verdict.
+Unlike :class:`CodeGroundingVerifier`, this step checks the real
+repository instead of the collected evidence cache.
 """
 
 from __future__ import annotations
@@ -83,11 +71,6 @@ class CodebaseVerificationReport(BaseModel):
         return [c for c in self.checks if not c.verified]
 
 
-# ---------------------------------------------------------------------------
-# Well-known tool prefixes that do not require project-level evidence.
-# If a command starts with one of these tokens it is considered verified
-# automatically (the tool is assumed to be available in the environment).
-# ---------------------------------------------------------------------------
 _GENERIC_TOOL_PREFIXES: list[str] = [
     "cd ",
     "mkdir ",
@@ -120,11 +103,7 @@ _GENERIC_TOOL_PREFIXES: list[str] = [
 
 
 class CodebaseVerifier:
-    """Verify generated document claims directly against the project filesystem.
-
-    Designed for post-generation quality assurance — call this *after* the
-    AI agent or template engine has produced the documentation.
-    """
+    """Check rendered document claims against the project filesystem."""
 
     def __init__(self, project_dir: Path) -> None:
         self._root = Path(project_dir).resolve()
@@ -132,14 +111,9 @@ class CodebaseVerifier:
         self._cmd_probe = CommandProbeTool()
         self._cfg_reader = ConfigReaderTool()
 
-        # Lazy caches (built on first use)
         self._real_paths: set[str] | None = None
         self._real_commands: set[str] | None = None
         self._real_config_keys: set[str] | None = None
-
-    # ------------------------------------------------------------------
-    # Public API
-    # ------------------------------------------------------------------
 
     def verify(
         self,
@@ -154,12 +128,10 @@ class CodebaseVerifier:
                 checks.extend(self._check_config_keys(doc, facts.config_keys))
         return CodebaseVerificationReport(checks=checks)
 
-    # ------------------------------------------------------------------
-    # Path verification
-    # ------------------------------------------------------------------
-
     def _check_paths(
-        self, doc: GeneratedDocument, paths: list[str],
+        self,
+        doc: GeneratedDocument,
+        paths: list[str],
     ) -> list[CodebaseCheck]:
         real = self._get_real_paths()
         results: list[CodebaseCheck] = []
@@ -168,18 +140,15 @@ class CodebaseVerifier:
             if normalised in real or path in real:
                 results.append(self._ok(doc, path, "path", f"exists on disk"))
             elif (self._root / normalised).exists():
-                # Glob cache might not cover all files — final stat() check
                 results.append(self._ok(doc, path, "path", "exists on disk (direct check)"))
             else:
                 results.append(self._fail(doc, path, "path", "file/directory not found in project"))
         return results
 
-    # ------------------------------------------------------------------
-    # Command verification
-    # ------------------------------------------------------------------
-
     def _check_commands(
-        self, doc: GeneratedDocument, commands: list[str],
+        self,
+        doc: GeneratedDocument,
+        commands: list[str],
     ) -> list[CodebaseCheck]:
         project_cmds = self._get_real_commands()
         results: list[CodebaseCheck] = []
@@ -187,15 +156,12 @@ class CodebaseVerifier:
             stripped = cmd.strip()
             if not stripped:
                 continue
-            # 1) Generic tool prefix — always OK
             if any(stripped.startswith(p) for p in _GENERIC_TOOL_PREFIXES):
                 results.append(self._ok(doc, stripped, "command", "well-known tool"))
                 continue
-            # 2) Exact or substring match against project commands
             if self._command_matches(stripped, project_cmds):
                 results.append(self._ok(doc, stripped, "command", "matches project script"))
                 continue
-            # 3) Placeholder / template command — be lenient
             if "<" in stripped and ">" in stripped:
                 results.append(self._ok(doc, stripped, "command", "contains placeholder"))
                 continue
@@ -206,28 +172,22 @@ class CodebaseVerifier:
 
     @staticmethod
     def _command_matches(claim: str, project_cmds: set[str]) -> bool:
-        """Check whether *claim* matches any known project command."""
+        """Return ``True`` when a documented command matches a known command."""
         for known in project_cmds:
-            # Exact match
             if claim == known:
                 return True
-            # Claim starts with the known command (e.g. "make serve --port 8080")
             if claim.startswith(known) and (
                 len(claim) == len(known) or claim[len(known)] in (" ", "\t")
             ):
                 return True
-            # Known command is a prefix of the claim's first token group
-            # e.g. known="myapp" matches claim="myapp serve"
             if known in claim.split()[0:1]:
                 return True
         return False
 
-    # ------------------------------------------------------------------
-    # Config key verification
-    # ------------------------------------------------------------------
-
     def _check_config_keys(
-        self, doc: GeneratedDocument, keys: list[str],
+        self,
+        doc: GeneratedDocument,
+        keys: list[str],
     ) -> list[CodebaseCheck]:
         real_keys = self._get_real_config_keys()
         results: list[CodebaseCheck] = []
@@ -235,11 +195,9 @@ class CodebaseVerifier:
             if key in real_keys:
                 results.append(self._ok(doc, key, "config_key", "found in project config"))
                 continue
-            # Try suffix match: "port" matches "server.port"
             if any(rk.endswith(f".{key}") for rk in real_keys):
                 results.append(self._ok(doc, key, "config_key", "matches config key suffix"))
                 continue
-            # Pure UPPER_CASE env-var style — whitelist
             if re.match(r"^[A-Z][A-Z0-9_]+$", key):
                 results.append(self._ok(doc, key, "config_key", "env-var naming pattern"))
                 continue
@@ -248,10 +206,6 @@ class CodebaseVerifier:
             )
         return results
 
-    # ------------------------------------------------------------------
-    # Codebase scanning helpers (cached)
-    # ------------------------------------------------------------------
-
     def _get_real_paths(self) -> set[str]:
         if self._real_paths is not None:
             return self._real_paths
@@ -259,7 +213,6 @@ class CodebaseVerifier:
         try:
             for p in self._root.rglob("*"):
                 rel = str(p.relative_to(self._root)).replace("\\", "/")
-                # Skip hidden dirs and common noise
                 if any(
                     part.startswith(".") or part in ("node_modules", "__pycache__", ".venv", "venv")
                     for part in rel.split("/")
@@ -287,8 +240,14 @@ class CodebaseVerifier:
             return self._real_config_keys
         keys: set[str] = set()
         config_patterns = [
-            "*.yaml", "*.yml", "*.toml", "*.json",
-            ".env", ".env.example", "*.cfg", "*.ini",
+            "*.yaml",
+            "*.yml",
+            "*.toml",
+            "*.json",
+            ".env",
+            ".env.example",
+            "*.cfg",
+            "*.ini",
         ]
         for pattern in config_patterns:
             for p in self._root.glob(pattern):
@@ -299,10 +258,6 @@ class CodebaseVerifier:
                     keys.update(ConfigReaderTool.extract_key_paths(result.data))
         self._real_config_keys = keys
         return keys
-
-    # ------------------------------------------------------------------
-    # Result builders
-    # ------------------------------------------------------------------
 
     @staticmethod
     def _ok(

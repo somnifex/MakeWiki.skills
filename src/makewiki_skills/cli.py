@@ -1,8 +1,4 @@
-"""Typer-based internal CLI for MakeWiki.skills.
-
-This CLI serves the skill layer only. It is NOT a user-facing interface.
-Skills invoke it via ``python -m makewiki_skills <command>``.
-"""
+"""Internal CLI for MakeWiki.skills."""
 
 from __future__ import annotations
 
@@ -23,11 +19,14 @@ app = typer.Typer(
 )
 console = Console()
 
+
 @app.command()
 def generate(
     target: Path = typer.Argument(..., help="Target project directory"),
     langs: list[str] = typer.Option(["en", "zh-CN"], "--lang", "-l", help="Languages to generate"),
-    config_path: Optional[Path] = typer.Option(None, "--config", "-c", help="Path to makewiki.config.yaml"),
+    config_path: Optional[Path] = typer.Option(
+        None, "--config", "-c", help="Path to makewiki.config.yaml"
+    ),
     output: Optional[str] = typer.Option(None, "--output", "-o", help="Output directory name"),
     verbose: bool = typer.Option(False, "--verbose", "-v", help="Verbose output"),
 ) -> None:
@@ -87,20 +86,25 @@ def generate(
 
     if ctx.codebase_verification_report:
         cb_report = ctx.codebase_verification_report
-        console.print(f"  Codebase verification: {cb_report.score:.1%} ({cb_report.verified_count}/{cb_report.total_checks})")
+        console.print(
+            f"  Codebase verification: {cb_report.score:.1%} ({cb_report.verified_count}/{cb_report.total_checks})"
+        )
         if cb_report.failed_count:
             console.print(f"  [yellow]Failed checks: {cb_report.failed_count}[/yellow]")
 
     if ctx.validation_report:
         console.print(f"  Validation: {ctx.validation_report.summary()}")
 
+
 @app.command()
 def scan(
     target: Path = typer.Argument(..., help="Target project directory"),
     config_path: Optional[Path] = typer.Option(None, "--config", "-c"),
-    output_format: str = typer.Option("human", "--format", "-f", help="Output format: human | json"),
+    output_format: str = typer.Option(
+        "human", "--format", "-f", help="Output format: human | json"
+    ),
 ) -> None:
-    """Scan a project and output evidence summary (stages 1-2 only)."""
+    """Scan a project and print the collected evidence."""
     from makewiki_skills.pipeline.pipeline import Pipeline
 
     target = Path(target).resolve()
@@ -126,7 +130,6 @@ def scan(
             typer.echo(json_lib.dumps({"error": "No evidence collected"}, indent=2))
         return
 
-    # Human-readable output (default)
     if ctx.detection:
         console.print(f"[bold]Project:[/bold] {ctx.detection.project_name}")
         console.print(f"[bold]Type:[/bold] {ctx.detection.project_type.value}")
@@ -143,6 +146,7 @@ def scan(
     console.print(table)
     console.print(f"Total facts: {len(ctx.evidence_registry)}")
 
+
 @app.command()
 def validate(
     wiki_dir: Path = typer.Argument(..., help="Path to makewiki/ output directory"),
@@ -157,7 +161,9 @@ def validate(
     console.print(f"[bold]{report.summary()}[/bold]")
     for issue in report.issues:
         severity_color = "red" if issue.severity == "error" else "yellow"
-        console.print(f"  [{severity_color}]{issue.severity}[/{severity_color}] {issue.issue_type}: {issue.message}")
+        console.print(
+            f"  [{severity_color}]{issue.severity}[/{severity_color}] {issue.issue_type}: {issue.message}"
+        )
 
     if report.passed:
         console.print("[green]Validation passed.[/green]")
@@ -165,13 +171,18 @@ def validate(
         console.print("[red]Validation failed.[/red]")
         raise typer.Exit(1)
 
+
 @app.command()
 def verify(
     target: Path = typer.Argument(..., help="Target project directory"),
-    wiki_dir: Optional[Path] = typer.Option(None, "--wiki-dir", "-w", help="Path to makewiki/ output (default: <target>/<output_dir>)"),
+    wiki_dir: Optional[Path] = typer.Option(
+        None, "--wiki-dir", "-w", help="Path to makewiki/ output (default: <target>/<output_dir>)"
+    ),
     langs: list[str] = typer.Option(["en", "zh-CN"], "--lang", "-l"),
     config_path: Optional[Path] = typer.Option(None, "--config", "-c"),
-    output_format: str = typer.Option("human", "--format", "-f", help="Output format: human | json"),
+    output_format: str = typer.Option(
+        "human", "--format", "-f", help="Output format: human | json"
+    ),
 ) -> None:
     """Verify generated docs against the actual project codebase.
 
@@ -193,7 +204,6 @@ def verify(
         console.print(f"[red]Error:[/red] Wiki directory not found: {resolved_wiki_dir}")
         raise typer.Exit(1)
 
-    # Load documents from disk
     documents: dict[str, list[GeneratedDocument]] = {}
     for lang_code in langs:
         if not LanguageRegistry.has(lang_code):
@@ -217,13 +227,15 @@ def verify(
                 base_name = base_name.replace(profile.file_suffix, "")
 
             content = md_file.read_text(encoding="utf-8", errors="replace")
-            docs.append(GeneratedDocument(
-                filename=str(rel).replace("\\", "/"),
-                base_name=base_name,
-                language_code=lang_code,
-                content=content,
-                word_count=len(content.split()),
-            ))
+            docs.append(
+                GeneratedDocument(
+                    filename=str(rel).replace("\\", "/"),
+                    base_name=base_name,
+                    language_code=lang_code,
+                    content=content,
+                    word_count=len(content.split()),
+                )
+            )
         documents[lang_code] = docs
 
     verifier = CodebaseVerifier(target)
@@ -253,6 +265,7 @@ def verify(
     else:
         console.print(f"[yellow]{report.failed_count} check(s) failed.[/yellow]")
 
+
 @app.command()
 def review(
     target: Path = typer.Argument(..., help="Target project directory"),
@@ -268,6 +281,7 @@ def review(
     cfg.languages = langs
 
     from makewiki_skills.languages.registry import LanguageRegistry
+
     LanguageRegistry.load_builtins()
 
     wiki_dir = target / cfg.output_dir
@@ -299,13 +313,15 @@ def review(
                 base_name = base_name.replace(profile.file_suffix, "")
 
             content = md_file.read_text(encoding="utf-8", errors="replace")
-            docs.append(GeneratedDocument(
-                filename=str(rel).replace("\\", "/"),
-                base_name=base_name,
-                language_code=lang_code,
-                content=content,
-                word_count=len(content.split()),
-            ))
+            docs.append(
+                GeneratedDocument(
+                    filename=str(rel).replace("\\", "/"),
+                    base_name=base_name,
+                    language_code=lang_code,
+                    content=content,
+                    word_count=len(content.split()),
+                )
+            )
         documents[lang_code] = docs
 
     reviewer = CrossLanguageReviewer()
@@ -324,7 +340,9 @@ def review(
         table.add_column("Missing From")
         table.add_column("Severity")
         for delta in result.fact_deltas[:20]:
-            sev_color = {"critical": "red", "major": "yellow", "minor": "dim"}.get(delta.severity, "")
+            sev_color = {"critical": "red", "major": "yellow", "minor": "dim"}.get(
+                delta.severity, ""
+            )
             table.add_row(
                 delta.fact_type,
                 delta.value[:40],
@@ -333,6 +351,7 @@ def review(
                 f"[{sev_color}]{delta.severity}[/{sev_color}]",
             )
         console.print(table)
+
 
 @app.command(name="init-config")
 def init_config(
@@ -355,18 +374,14 @@ def semantic_review(
     langs: list[str] = typer.Option(["en", "zh-CN"], "--lang", "-l"),
     output_format: str = typer.Option("json", "--format", "-f", help="Output format: json | human"),
 ) -> None:
-    """Output parallel passages from all language versions for LLM semantic review.
-
-    Structures document content by section so the AI skill can compare
-    semantics across languages. This is a data preparation tool, not an
-    automated reviewer.
-    """
+    """Prepare aligned passages for cross-language semantic review."""
     wiki_dir = Path(wiki_dir).resolve()
     if not wiki_dir.is_dir():
         console.print(f"[red]Error:[/red] Directory not found: {wiki_dir}")
         raise typer.Exit(1)
 
     from makewiki_skills.languages.registry import LanguageRegistry
+
     LanguageRegistry.load_builtins()
 
     pages: dict[str, dict[str, str]] = {}
@@ -404,7 +419,7 @@ def semantic_review(
             passages: dict[str, str] = {}
             for lang_code, content in lang_contents.items():
                 sections = _split_by_h2(content)
-                # Try to match by section index (headings differ across languages)
+                # Headings differ across languages, so sections are matched by position.
                 section_idx = list(ref_sections.keys()).index(section_heading)
                 other_sections = list(sections.values())
                 if section_idx < len(other_sections):
@@ -413,12 +428,14 @@ def semantic_review(
                     passages[lang_code] = ""
 
             if any(p.strip() for p in passages.values()):
-                review_pairs.append({
-                    "document": base_name,
-                    "section_index": list(ref_sections.keys()).index(section_heading),
-                    "reference_heading": section_heading,
-                    "passages": passages,
-                })
+                review_pairs.append(
+                    {
+                        "document": base_name,
+                        "section_index": list(ref_sections.keys()).index(section_heading),
+                        "reference_heading": section_heading,
+                        "passages": passages,
+                    }
+                )
 
     if output_format == "json":
         typer.echo(json_lib.dumps({"review_pairs": review_pairs}, indent=2, ensure_ascii=False))
@@ -456,6 +473,7 @@ def _split_by_h2(content: str) -> dict[str, str]:
         sections[current_heading] = "\n".join(current_lines)
 
     return sections
+
 
 def _load_config(config_path: Path | None, target: Path) -> MakeWikiConfig:
     if config_path and config_path.is_file():

@@ -1,4 +1,4 @@
-"""Toolkit - tool abstraction layer for all I/O operations."""
+"""Toolkit exports used across the project."""
 
 from makewiki_skills.toolkit.base import BaseTool, ToolResult
 from makewiki_skills.toolkit.command_probe import CommandProbeTool

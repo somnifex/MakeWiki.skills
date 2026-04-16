@@ -1,3 +1,3 @@
-"""MakeWiki.skills - Multilingual wiki documentation generator."""
+"""MakeWiki.skills package."""
 
 __version__ = "0.1.0"

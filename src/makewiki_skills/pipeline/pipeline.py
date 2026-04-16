@@ -1,4 +1,4 @@
-"""Pipeline orchestrator - the 7-stage document generation pipeline."""
+"""Orchestrate the documentation pipeline."""
 
 from __future__ import annotations
 
@@ -31,17 +31,29 @@ from makewiki_skills.model.semantic_model import (
 from makewiki_skills.model.task_inference import TaskInferenceEngine
 from makewiki_skills.renderer.output_manager import OutputManager
 from makewiki_skills.renderer.validator import OutputValidator, ValidationReport
-from makewiki_skills.review.cross_language_reviewer import CrossLanguageReview, CrossLanguageReviewer
+from makewiki_skills.review.cross_language_reviewer import (
+    CrossLanguageReview,
+    CrossLanguageReviewer,
+)
 from makewiki_skills.scanner.evidence_collector import CollectedEvidence, EvidenceCollector
 from makewiki_skills.scanner.evidence_registry import EvidenceRegistry
-from makewiki_skills.scanner.project_detector import ProjectDetectionResult, ProjectDetector, ProjectType
+from makewiki_skills.scanner.project_detector import (
+    ProjectDetectionResult,
+    ProjectDetector,
+    ProjectType,
+)
 from makewiki_skills.toolkit.evidence import EvidenceFact, EvidenceLink
-from makewiki_skills.verification.code_grounding_verifier import CodeGroundingVerifier, GroundingReport
-from makewiki_skills.verification.codebase_verifier import CodebaseVerificationReport, CodebaseVerifier
+from makewiki_skills.verification.code_grounding_verifier import (
+    CodeGroundingVerifier,
+    GroundingReport,
+)
+from makewiki_skills.verification.codebase_verifier import (
+    CodebaseVerificationReport,
+    CodebaseVerifier,
+)
 
 
 class PipelineContext(BaseModel):
-
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
     config: MakeWikiConfig
@@ -103,14 +115,20 @@ def stage_build_semantic_model(ctx: PipelineContext) -> PipelineContext:
 
     max_faq = depth.max_faq_items if is_detailed else min(depth.max_faq_items, 4)
     max_examples = depth.max_usage_examples if is_detailed else min(depth.max_usage_examples, 4)
-    max_trouble = depth.max_troubleshooting_items if is_detailed else min(depth.max_troubleshooting_items, 3)
+    max_trouble = (
+        depth.max_troubleshooting_items if is_detailed else min(depth.max_troubleshooting_items, 3)
+    )
 
     faq = faq[:max_faq]
     usage_examples = usage_examples[:max_examples]
     troubleshooting = troubleshooting[:max_trouble]
 
     command_groups = _build_command_groups(
-        commands, user_tasks, usage_examples, depth.split_usage_threshold, is_detailed,
+        commands,
+        user_tasks,
+        usage_examples,
+        depth.split_usage_threshold,
+        is_detailed,
         configuration=configuration,
     )
 
@@ -170,7 +188,8 @@ def stage_grounding_verification(ctx: PipelineContext) -> PipelineContext:
         return ctx
 
     verifier = CodeGroundingVerifier(
-        ctx.evidence_registry, strict=ctx.config.strict_grounding,
+        ctx.evidence_registry,
+        strict=ctx.config.strict_grounding,
     )
     ctx.grounding_report = verifier.verify(ctx.generated_documents)
     return ctx
@@ -216,7 +235,6 @@ STAGES = [
 
 
 class Pipeline:
-
     def __init__(self, config: MakeWikiConfig) -> None:
         self._config = config
 
@@ -603,17 +621,11 @@ def _is_detailed_mode(
     configuration: list[ConfigSection],
     user_tasks: list[UserTask],
 ) -> bool:
-    """Decide whether to use detailed content depth.
-
-    In "auto" mode, activate detailed using a multi-dimensional heuristic:
-    if at least two of the three dimensions (commands, config items, tasks)
-    exceed their individual thresholds, or the combined total is large enough.
-    """
+    """Decide whether the project needs the detailed layout."""
     if mode == "detailed":
         return True
     if mode == "compact":
         return False
-    # auto: multi-dimensional heuristic
     cmd_count = len(commands)
     cfg_count = sum(len(s.items) for s in configuration)
     task_count = len(user_tasks)
@@ -629,26 +641,10 @@ def _build_command_groups(
     is_detailed: bool,
     configuration: list[ConfigSection] | None = None,
 ) -> list[CommandGroup]:
-    """Group commands by source file into logical modules.
-
-    Only produces groups when there are enough commands to warrant splitting,
-    the content depth allows it, AND commands originate from multiple distinct
-    source files. A single README with many sections is not enough to split —
-    the project needs genuinely separate documentation sources (e.g. README
-    + Makefile + separate docs files).
-
-    Each group is enriched with related config sections (matched via
-    task.related_config) and a generated description summarising the
-    user tasks it covers.
-
-    Returns an empty list when the project is simple enough for a single
-    basic-usage page.
-    """
+    """Split large usage sections into source-based command groups."""
     if not is_detailed or len(commands) < split_threshold:
         return []
 
-    # Group by source file (not section) to avoid splitting one README
-    # into multiple "modules"
     by_source: dict[str, list[Command]] = {}
     ungrouped: list[Command] = []
 
@@ -659,11 +655,9 @@ def _build_command_groups(
         else:
             ungrouped.append(cmd)
 
-    # Need at least 2 distinct source files to justify splitting
     if len(by_source) < 2:
         return []
 
-    # Build config lookup: config item key -> ConfigSection
     config_by_key: dict[str, ConfigSection] = {}
     if configuration:
         for section in configuration:
@@ -687,10 +681,7 @@ def _build_command_groups(
         group_tasks = [task_by_cmd[c.name] for c in cmds if c.name in task_by_cmd]
         group_examples = [example_by_cmd[c.name] for c in cmds if c.name in example_by_cmd]
 
-        # Collect config sections related to this group's tasks
         group_configs = _collect_group_configs(group_tasks, config_by_key)
-
-        # Generate a description from the group's tasks
         description = _generate_group_description(group_tasks)
 
         groups.append(
@@ -735,7 +726,6 @@ def _collect_group_configs(
     related_keys: set[str] = set()
     for task in group_tasks:
         related_keys.update(task.related_config)
-    # Deduplicate by section identity (use id to handle duplicate references)
     seen: dict[int, ConfigSection] = {}
     for key in related_keys:
         section = config_by_key.get(key)
@@ -849,7 +839,11 @@ def _is_user_facing_config(source: str) -> bool:
 
 
 def _configuration_section_name(source: str) -> str:
-    return "Environment variables" if Path(source).name.lower().startswith(".env") else "Configuration file"
+    return (
+        "Environment variables"
+        if Path(source).name.lower().startswith(".env")
+        else "Configuration file"
+    )
 
 
 def _is_repo_navigation_command(command: str) -> bool:
@@ -859,7 +853,9 @@ def _is_repo_navigation_command(command: str) -> bool:
 
 def _installation_step_title(command: str) -> str:
     normalized = command.lower()
-    if normalized.startswith(("pip install", "npm install", "pnpm install", "yarn install", "poetry install")):
+    if normalized.startswith(
+        ("pip install", "npm install", "pnpm install", "yarn install", "poetry install")
+    ):
         return "Install the project"
     if normalized.startswith("uv sync"):
         return "Sync the project environment"

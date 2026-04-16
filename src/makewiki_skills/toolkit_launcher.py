@@ -1,4 +1,4 @@
-"""Launcher for invoking the internal toolkit from skill docs."""
+"""Bootstrap and run the internal toolkit environment."""
 
 from __future__ import annotations
 
@@ -24,7 +24,7 @@ TOOLKIT_PROBE = (
 
 @dataclass(frozen=True)
 class LaunchContext:
-    """Computed paths for the source checkout and home-scoped toolkit environment."""
+    """Paths used by the home-scoped toolkit launcher."""
 
     project_root: Path
     toolkit_root: Path
@@ -34,12 +34,12 @@ class LaunchContext:
 
 
 def default_toolkit_root() -> Path:
-    """Return the default cross-platform toolkit root under the user's home directory."""
+    """Return the default toolkit directory under the user's home folder."""
     return Path.home() / ".makewiki"
 
 
 def build_launch_context(project_root: Path, toolkit_root: Path | None = None) -> LaunchContext:
-    """Build the filesystem context for the launcher."""
+    """Build launcher paths for the checkout and toolkit home."""
     root = project_root.resolve()
     home_root = (toolkit_root or default_toolkit_root()).resolve()
     venv_dir = home_root / ".venv"
@@ -62,7 +62,7 @@ def venv_python_path(venv_dir: Path) -> Path:
 
 
 def project_state(project_root: Path) -> dict[str, Any]:
-    """Fingerprint the project metadata that should invalidate the launcher cache."""
+    """Fingerprint project state that should invalidate the launcher cache."""
     root = project_root.resolve()
     return {
         "schema_version": 1,
@@ -119,9 +119,11 @@ def main(
     project_root: Path | None = None,
     toolkit_root: Path | None = None,
 ) -> int:
-    """Entry point for the thin launcher script used by SKILL.md files."""
+    """Entry point for the launcher script referenced by SKILL.md files."""
     argv = list(args if args is not None else sys.argv[1:])
-    root = project_root.resolve() if project_root is not None else Path(__file__).resolve().parents[2]
+    root = (
+        project_root.resolve() if project_root is not None else Path(__file__).resolve().parents[2]
+    )
     context = build_launch_context(root, toolkit_root=toolkit_root)
     python_path = ensure_toolkit_environment(context)
     return dispatch_to_toolkit(python_path, argv)
@@ -154,7 +156,9 @@ def _install_with_venv(context: LaunchContext) -> None:
         )
 
     _run_install([sys.executable, "-m", "venv", str(context.venv_dir)])
-    _run_install([str(context.python_path), "-m", "pip", "install", "-e", str(context.project_root)])
+    _run_install(
+        [str(context.python_path), "-m", "pip", "install", "-e", str(context.project_root)]
+    )
 
 
 def _preferred_python_request() -> str:

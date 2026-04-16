@@ -12,6 +12,7 @@ from makewiki_skills.generator.language_generator import GeneratedDocument
 from makewiki_skills.scanner.evidence_registry import EvidenceRegistry
 from makewiki_skills.toolkit.markdown_tools import MarkdownTool
 
+
 class GroundingClaim(BaseModel):
     """A specific verifiable claim found in a generated document."""
 
@@ -21,6 +22,7 @@ class GroundingClaim(BaseModel):
     claim_text: str
     claim_type: str  # "command" | "config_key" | "path" | "version"
 
+
 class GroundingViolation(BaseModel):
     """A claim that cannot be grounded in project evidence."""
 
@@ -28,6 +30,7 @@ class GroundingViolation(BaseModel):
     violation_type: str  # "ungrounded" | "contradicted" | "low_confidence"
     message: str
     suggested_fix: str | None = None
+
 
 class GroundingReport(BaseModel):
     """Result of code-grounding verification across all documents."""
@@ -51,18 +54,16 @@ class GroundingReport(BaseModel):
     def passed(self) -> bool:
         return not any(v.violation_type == "contradicted" for v in self.violations)
 
+
 class CodeGroundingVerifier:
-    """Verify that document claims are grounded in collected project evidence.
+    """Verify that rendered docs stay grounded in collected evidence.
 
     Commands, config keys, and file paths are checked against the
     evidence registry before the docs are accepted as grounded.
 
-    When *strict* is ``False`` the verifier still runs but ``ungrounded``
-    and ``low_confidence`` violations are downgraded to warnings and do
-    not affect the grounding score.  Only ``contradicted`` violations
-    are treated as real failures.  This is the recommended mode when an
-    AI agent (Claude Code, Codex, …) drives the generation — the agent
-    may produce correct content that the evidence scanner did not capture.
+    When *strict* is ``False``, missing or low-confidence matches become
+    warnings instead of failures. Only ``contradicted`` violations still
+    count as hard failures.
     """
 
     def __init__(self, evidence_registry: EvidenceRegistry, *, strict: bool = True) -> None:
@@ -70,9 +71,7 @@ class CodeGroundingVerifier:
         self._md = MarkdownTool()
         self._strict = strict
 
-    def verify(
-        self, documents: dict[str, list[GeneratedDocument]]
-    ) -> GroundingReport:
+    def verify(self, documents: dict[str, list[GeneratedDocument]]) -> GroundingReport:
         all_claims: list[GroundingClaim] = []
         violations: list[GroundingViolation] = []
         warnings: list[GroundingViolation] = []
@@ -149,9 +148,7 @@ class CodeGroundingVerifier:
     def _verify_command(self, claim: GroundingClaim) -> GroundingViolation | None:
         cmd_facts = self._registry.query(fact_type="command")
         for fact in cmd_facts:
-            if fact.value and (
-                fact.value in claim.claim_text or claim.claim_text in fact.value
-            ):
+            if fact.value and (fact.value in claim.claim_text or claim.claim_text in fact.value):
                 if fact.best_confidence == "low":
                     return GroundingViolation(
                         claim=claim,
@@ -161,8 +158,16 @@ class CodeGroundingVerifier:
                 return None
 
         generic_prefixes = [
-            "cd ", "mkdir ", "git ", "pip install", "npm install",
-            "yarn ", "python ", "node ", "cargo ", "go ",
+            "cd ",
+            "mkdir ",
+            "git ",
+            "pip install",
+            "npm install",
+            "yarn ",
+            "python ",
+            "node ",
+            "cargo ",
+            "go ",
         ]
         if any(claim.claim_text.startswith(p) for p in generic_prefixes):
             return None
@@ -197,8 +202,7 @@ class CodeGroundingVerifier:
         path_facts = self._registry.query(fact_type="path")
         for fact in path_facts:
             if fact.value and (
-                claim.claim_text == fact.value
-                or claim.claim_text.lstrip("./") == fact.value
+                claim.claim_text == fact.value or claim.claim_text.lstrip("./") == fact.value
             ):
                 return None
 

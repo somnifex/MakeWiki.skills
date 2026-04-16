@@ -16,7 +16,9 @@ from makewiki_skills.scanner.project_detector import ProjectType
 
 def _make_model() -> SemanticModel:
     return SemanticModel(
-        identity=ProjectIdentity(name="test-app", version="1.0.0", description="A test application."),
+        identity=ProjectIdentity(
+            name="test-app", version="1.0.0", description="A test application."
+        ),
         installation=InstallationGuide(
             prerequisites=[Prerequisite(name="Python", version_constraint=">=3.11")],
             steps=[
@@ -40,7 +42,9 @@ def test_generate_english():
     gen = LanguageGenerator()
 
     docs = gen.generate(_make_model(), profile, config)
-    assert len(docs) >= 5  # README, getting-started, installation, configuration, usage, faq, troubleshooting
+    assert (
+        len(docs) >= 5
+    )  # README, getting-started, installation, configuration, usage, faq, troubleshooting
     filenames = [d.filename for d in docs]
     assert "README.md" in filenames
     assert "installation.md" in filenames
@@ -122,13 +126,16 @@ def test_emit_uncertainty_notes_disabled():
 
     docs = gen.generate(model, profile, config)
 
-    # configuration.md should NOT contain the "No configuration items" message
+    # configuration.md should NOT contain the uncertainty note
     config_doc = next(d for d in docs if d.base_name == "configuration.md")
-    assert "No configuration items" not in config_doc.content
+    assert (
+        "No user-facing configuration was found in the scanned project files."
+        not in config_doc.content
+    )
 
-    # faq.md should NOT contain the "No frequently asked questions" message
+    # faq.md should NOT contain the uncertainty note
     faq_doc = next(d for d in docs if d.base_name == "faq.md")
-    assert "No frequently asked questions" not in faq_doc.content
+    assert "No recurring questions stood out in the scanned project files." not in faq_doc.content
 
 
 def test_emit_uncertainty_notes_enabled():
@@ -150,4 +157,6 @@ def test_emit_uncertainty_notes_enabled():
     docs = gen.generate(model, profile, config)
 
     config_doc = next(d for d in docs if d.base_name == "configuration.md")
-    assert "No configuration items" in config_doc.content
+    assert (
+        "No user-facing configuration was found in the scanned project files." in config_doc.content
+    )

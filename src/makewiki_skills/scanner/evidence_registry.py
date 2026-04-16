@@ -1,10 +1,11 @@
-"""In-memory store for collected evidence facts."""
+"""Store collected evidence facts in memory."""
 
 from __future__ import annotations
 
 from makewiki_skills.scanner.evidence_bundle import EvidenceBundle
 from makewiki_skills.scanner.project_detector import ProjectDetectionResult
 from makewiki_skills.toolkit.evidence import EvidenceFact
+
 
 class EvidenceRegistry:
     """Store evidence facts and query them by type or confidence."""
@@ -55,7 +56,7 @@ class EvidenceRegistry:
         detection: ProjectDetectionResult,
         files_read: list[str] | None = None,
     ) -> EvidenceBundle:
-        """Build a structured evidence bundle for AI skill consumption."""
+        """Build the JSON-ready evidence bundle."""
         return EvidenceBundle.from_registry(
             detection=detection,
             facts=self.all_facts(),

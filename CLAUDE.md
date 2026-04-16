@@ -1,46 +1,38 @@
 # MakeWiki.skills
 
+This repository contains the skills and Python toolkit behind `/makewiki`.
 
+## What is in the repo
 
+- `skills/`: skill definitions and bootstrap helpers
+- `src/makewiki_skills/`: scanning, modeling, generation, review, and validation code
+- `tests/`: automated test coverage
 
+## Available skills
 
-A set of skills for Claude Code / Codex that generate multilingual user-facing wiki documentation for any software project. Users invoke `/makewiki` inside their AI coding assistant; the skill handles scanning, generation, review, and validation.
+- `/makewiki` - full documentation flow (`scan -> generate -> review -> validate`)
+- `/makewiki-scan` - inspect project evidence
+- `/makewiki-review` - compare language versions
+- `/makewiki-validate` - validate generated output
+- `/makewiki-init` - create a default config file
 
-## Project Overview
+## Working notes
 
-MakeWiki.skills provides 5 skills for AI coding assistants:
-- `/makewiki` - Full documentation generation (scan -> generate -> review -> validate)
-- `/makewiki-scan` - Scan a project and report evidence
-- `/makewiki-review` - Cross-language consistency review
-- `/makewiki-validate` - Output quality validation
-- `/makewiki-init` - Generate default configuration
-
-## Architecture
-
-The project has two layers:
-
-1. **Skills layer** (`skills/`) - Skill definitions (SKILL.md files) that drive the AI assistant to generate documentation. The AI is the generation engine, producing genuinely fluent text in each language.
-2. **Toolkit layer** (`src/makewiki_skills/`) - Python supporting infrastructure for project scanning, evidence collection, semantic model building, cross-language review, and validation. Skills should enter through `scripts/run_toolkit.py`, which bootstraps the home-scoped toolkit environment at `HOME/.makewiki/.venv` (prefer `uv`, fall back to `python -m venv`) and then dispatches to `python -m makewiki_skills <command>`. The CLI is internal-only — the AI agent (via `/makewiki` skills) is the sole user interface.
-
-## Key Design Principle
-
-**Independent multi-language generation, NOT translation.** Each language is generated independently from a language-neutral understanding of the project. No language is used as a source text for another.
-
-## Claude Code Note
-
-When invoking `/makewiki` inside this repository, keep the workflow single-threaded. Do not use `Task`, subagents, or "parallel agents" for this skill. Generate, review, and validate in the main conversation.
+- Generate each language independently. Do not translate from another generated page.
+- Keep the workflow in the main conversation when working inside this repo. Do not use subagents or parallel-agent flows for the MakeWiki skill itself.
+- Treat `scripts/run_toolkit.py` and `python -m makewiki_skills <command>` as internal plumbing, not end-user commands.
 
 ## Build & Test
 
 ```bash
-uv sync              # install dependencies
-uv run pytest        # run tests (80 test cases)
+uv sync
+uv run pytest
 ```
 
-## Code Conventions
+## Code conventions
 
-- Python 3.11+, type-annotated
-- Pydantic models for data structures
-- All I/O through the toolkit layer (`src/makewiki_skills/toolkit/`)
-- Jinja2 templates in `src/makewiki_skills/templates/`
-- Tests in `tests/` using pytest
+- Python 3.11+ with type annotations
+- Pydantic models for structured data
+- All I/O goes through `src/makewiki_skills/toolkit/`
+- Jinja2 templates live in `src/makewiki_skills/templates/`
+- Tests use pytest

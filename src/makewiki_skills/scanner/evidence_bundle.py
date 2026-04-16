@@ -1,4 +1,4 @@
-"""Structured evidence bundle for AI skill consumption."""
+"""JSON-friendly scan result built from collected evidence."""
 
 from __future__ import annotations
 
@@ -29,11 +29,7 @@ class EvidenceBundleFact(BaseModel):
 
 
 class EvidenceBundle(BaseModel):
-    """Complete structured evidence package consumed by the AI skill.
-
-    Produced by ``EvidenceRegistry.to_evidence_bundle()`` and serialized
-    to JSON by the ``scan --format json`` CLI command.
-    """
+    """Structured scan result serialized by ``scan --format json``."""
 
     detection: EvidenceBundleDetection
     summary: dict[str, int] = Field(default_factory=dict)

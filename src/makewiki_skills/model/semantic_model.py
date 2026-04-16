@@ -1,4 +1,4 @@
-"""Language-neutral document model built from collected evidence."""
+"""Data models used during document generation."""
 
 from __future__ import annotations
 
@@ -9,6 +9,7 @@ from pydantic import BaseModel, Field
 
 from makewiki_skills.scanner.project_detector import ProjectType
 from makewiki_skills.toolkit.evidence import EvidenceLink
+
 
 class ProjectIdentity(BaseModel):
     name: str = ""
@@ -21,11 +22,13 @@ class ProjectIdentity(BaseModel):
     authors: list[str] = Field(default_factory=list)
     evidence: list[EvidenceLink] = Field(default_factory=list)
 
+
 class Prerequisite(BaseModel):
     name: str
     version_constraint: str | None = None
     install_hint: str | None = None
     evidence: list[EvidenceLink] = Field(default_factory=list)
+
 
 class InstallStep(BaseModel):
     order: int
@@ -35,11 +38,13 @@ class InstallStep(BaseModel):
     notes: str | None = None
     evidence: list[EvidenceLink] = Field(default_factory=list)
 
+
 class InstallationGuide(BaseModel):
     prerequisites: list[Prerequisite] = Field(default_factory=list)
     steps: list[InstallStep] = Field(default_factory=list)
     verify_command: str | None = None
     evidence: list[EvidenceLink] = Field(default_factory=list)
+
 
 class ConfigItem(BaseModel):
     key: str
@@ -51,6 +56,7 @@ class ConfigItem(BaseModel):
     example_value: str | None = None
     evidence: list[EvidenceLink] = Field(default_factory=list)
 
+
 class ConfigSection(BaseModel):
     name: str
     description: str | None = None
@@ -58,12 +64,14 @@ class ConfigSection(BaseModel):
     config_file: str | None = None
     evidence: list[EvidenceLink] = Field(default_factory=list)
 
+
 class CommandParam(BaseModel):
     name: str
     param_type: str = "option"  # "argument" | "option" | "flag"
     required: bool = False
     description: str | None = None
     default_value: str | None = None
+
 
 class Command(BaseModel):
     name: str
@@ -75,6 +83,7 @@ class Command(BaseModel):
     examples: list[str] = Field(default_factory=list)
     evidence: list[EvidenceLink] = Field(default_factory=list)
 
+
 class UserTask(BaseModel):
     task_id: str = ""
     title: str
@@ -85,22 +94,26 @@ class UserTask(BaseModel):
     related_config: list[str] = Field(default_factory=list)
     evidence: list[EvidenceLink] = Field(default_factory=list)
 
+
 class UsageExample(BaseModel):
     title: str
     description: str | None = None
     commands: list[str] = Field(default_factory=list)
     evidence: list[EvidenceLink] = Field(default_factory=list)
 
+
 class PlatformNote(BaseModel):
     platform: str
     note: str
     evidence: list[EvidenceLink] = Field(default_factory=list)
+
 
 class FAQItem(BaseModel):
     question: str
     answer: str
     tags: list[str] = Field(default_factory=list)
     evidence: list[EvidenceLink] = Field(default_factory=list)
+
 
 class TroubleshootingItem(BaseModel):
     symptom: str
@@ -111,11 +124,7 @@ class TroubleshootingItem(BaseModel):
 
 
 class CommandGroup(BaseModel):
-    """A logical grouping of commands/tasks for modular documentation.
-
-    When a project is complex enough, commands are organized into groups
-    so each group can be documented on its own sub-page under usage/.
-    """
+    """Group related commands and tasks under one usage page."""
 
     name: str
     slug: str  # used for filename: usage/<slug>.md
@@ -126,8 +135,9 @@ class CommandGroup(BaseModel):
     config_sections: list[ConfigSection] = Field(default_factory=list)
     evidence: list[EvidenceLink] = Field(default_factory=list)
 
+
 class SemanticModel(BaseModel):
-    """The complete, language-neutral document model."""
+    """Structured project model used to render docs."""
 
     model_id: str = ""
     created_at: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
@@ -147,5 +157,5 @@ class SemanticModel(BaseModel):
     evidence_summary: dict[str, int] = Field(default_factory=dict)
 
     def to_context_dict(self) -> dict[str, Any]:
-        """Flatten into a dict suitable for Jinja2 template rendering."""
+        """Return a template-friendly dict representation."""
         return self.model_dump()
