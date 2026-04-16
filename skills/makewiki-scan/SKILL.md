@@ -1,12 +1,20 @@
 ---
 name: makewiki-scan
 description: "Scan a project and output evidence summary with LLM analysis: detected project type, available commands, config keys, dependencies, file structure, and a structured project brief. Use when: user wants to understand a project before generating docs, or wants to see what MakeWiki would detect."
-allowed-tools: Bash(python *) Read Glob Grep
+version: "0.5.0"
+argument-hint: "[--format json|human]"
+license: MIT
+allowed-tools: Bash(python */scripts/bootstrap_toolkit.py) Bash(python */scripts/run_toolkit.py *) Read Glob Grep
 ---
 
 # MakeWiki Scan - Project Evidence Discovery
 
 Scan the current project and report what MakeWiki can detect, supplemented with your own analysis.
+
+## Arguments
+
+Parse `$ARGUMENTS` for:
+- `--format json|human`: Output format. Default: try json, fall back to human.
 
 ## Execution
 

@@ -1,8 +1,10 @@
 ---
 name: makewiki-init
 description: "Generate a default makewiki.config.yaml configuration file in the current project. Use when: user wants to customize MakeWiki behavior before generating docs."
+version: "0.5.0"
 argument-hint: "[--lang <code>...]"
-allowed-tools: Bash(python *) Write
+license: MIT
+allowed-tools: Bash(python */scripts/bootstrap_toolkit.py) Bash(python */scripts/run_toolkit.py *) Write
 ---
 # MakeWiki Init - Generate Configuration
 

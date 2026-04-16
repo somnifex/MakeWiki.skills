@@ -1,13 +1,15 @@
 ---
 name: makewiki
-description: "Generate multilingual user-facing wiki documentation for the current project inside Claude Code or Codex. Scans project structure, collects evidence from configs/scripts/docs, builds a language-neutral semantic model, then independently generates documentation in each specified language with cross-language verification and code-evidence grounding. Use when: user asks to generate wiki, docs, documentation, or multilingual docs for a project."
+description: "Generate multilingual user-facing wiki documentation for a software project. Scans evidence, builds a semantic model, then independently writes each language version with codebase verification. Use when: user asks to generate wiki, docs, documentation, or multilingual docs for a project."
+version: "0.5.0"
 argument-hint: "[--lang <code>...] [--output <dir>]"
-allowed-tools: Bash(python *) Read Write Edit Glob Grep
+license: MIT
+allowed-tools: Bash(python */scripts/bootstrap_toolkit.py) Bash(python */scripts/run_toolkit.py *) Read Write Edit Glob Grep
 ---
 
 # MakeWiki - Multilingual Wiki Documentation Generator
 
-You are executing the MakeWiki skill. Your task is to generate high-quality, multilingual user-facing wiki documentation for a software project.
+Execute the MakeWiki skill: generate high-quality, multilingual user-facing wiki documentation for a software project.
 
 ## Execution Mode
 
@@ -23,7 +25,7 @@ Run this skill **serially in the main Claude Code conversation**.
 
 ## Part A: Documentation Philosophy
 
-You are writing a **user guide for an open-source project**, not an architecture document, not an API reference, not a sales pitch. Every sentence you write must answer one question: **"What can the user do with this, and how?"**
+Write a **user guide for an open-source project**, not an architecture document, not an API reference, not a sales pitch. Every sentence must answer one question: **"What can the user do with this, and how?"**
 
 ### A.0 - Two-Phase Understanding: Architect First, Then User
 
@@ -51,7 +53,7 @@ For **complex projects** (multiple thresholds exceeded — see Step 4a): Phase 1
 
 **Do NOT open the directory listing and start writing section-by-section.** Instead:
 
-1. Read the project as if you are a new user who just found this repo.
+1. Read the project from a first-time user's perspective.
 2. Figure out: what does this project DO? Who would use it? What problem does it solve?
 3. Identify the user's journey: install -> configure -> first run -> daily use -> troubleshoot.
 4. THEN decide which pages to create and what goes on each page.
@@ -396,7 +398,7 @@ Use the project brief from Step 3 as your authoritative source. The brief overri
 
 For each requested language, **independently** generate the full documentation set.
 
-**Critical: You are NOT translating. You are writing each language version from scratch, from your understanding of the project.** A native Chinese speaker and a native English speaker reading the same project would emphasize different things, use different idioms, structure explanations differently. That is correct and expected.
+**Critical: Do NOT translate. Write each language version from scratch, from the project understanding.** A native Chinese speaker and a native English speaker reading the same project would emphasize different things, use different idioms, structure explanations differently. That is correct and expected.
 
 Work through the requested languages **sequentially in the current conversation**. Do not spawn a helper agent per language.
 

@@ -1,8 +1,10 @@
 ---
 name: makewiki-review
-description: "Run cross-language consistency review and codebase verification on existing makewiki documentation. Verifies factual accuracy against the actual project source code, then compares structured facts (commands, config keys, paths, versions) and semantic meaning across all language versions to find inconsistencies. Use when: user has generated multilingual docs and wants to verify consistency and accuracy."
+description: "Verify and review existing makewiki documentation: checks factual accuracy against project source code, then compares structured facts and semantic meaning across all language versions. Use when: user has generated multilingual docs and wants to verify consistency and accuracy."
+version: "0.5.0"
 argument-hint: "[--lang <code>...]"
-allowed-tools: Bash(python *) Read Glob Grep
+license: MIT
+allowed-tools: Bash(python */scripts/bootstrap_toolkit.py) Bash(python */scripts/run_toolkit.py *) Read Glob Grep
 ---
 
 # MakeWiki Review - Cross-Language & Codebase Consistency Check
