@@ -4,7 +4,6 @@ description: "Generate a default makewiki.config.yaml configuration file in the 
 argument-hint: "[--lang <code>...]"
 allowed-tools: Bash(python *) Write
 ---
-
 # MakeWiki Init - Generate Configuration
 
 Create a default `makewiki.config.yaml` in the current project root.
@@ -65,7 +64,7 @@ review:
   min_page_alignment_ratio: 0.9
 content_depth:
   mode: auto                      # auto | detailed | compact
-  max_faq_items: 10               # max FAQ entries (detailed mode)
+  max_faq_items: 20               # max FAQ entries (detailed mode)
   max_usage_examples: 8           # max usage examples (detailed mode)
   max_troubleshooting_items: 8    # max troubleshooting entries (detailed mode)
   split_usage_threshold: 6        # split usage into sub-pages when commands exceed this

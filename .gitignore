@@ -36,11 +36,7 @@ Thumbs.db
 .env.*
 !.env.example
 
-# Generated output
-**/makewiki/
-!skills/makewiki/
-!skills/makewiki/**
-
 # other
 .history
 uv.lock
+.claude/

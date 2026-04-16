@@ -41,7 +41,7 @@ class ContentDepthConfig(BaseModel):
     """Controls how much detail is generated and when pages are split into sub-pages."""
 
     mode: str = "auto"  # "compact" | "detailed" | "auto"
-    max_faq_items: int = 10
+    max_faq_items: int = 20
     max_usage_examples: int = 8
     max_troubleshooting_items: int = 8
     split_usage_threshold: int = 6  # split usage into sub-pages when commands exceed this
