@@ -33,6 +33,7 @@ class ReviewConfig(BaseModel):
 
     enable_cross_language_review: bool = True
     enable_code_grounding_verification: bool = True
+    enable_codebase_verification: bool = True
     enable_semantic_review: bool = True
     min_page_alignment_ratio: float = 0.9
 

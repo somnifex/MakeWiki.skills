@@ -22,8 +22,3 @@ def minimal_node_app_dir() -> Path:
 @pytest.fixture
 def sample_python_cli_dir() -> Path:
     return Path(__file__).parent.parent / "examples" / "sample-python-cli"
-
-
-@pytest.fixture
-def sample_node_app_dir() -> Path:
-    return Path(__file__).parent.parent / "examples" / "sample-node-app"

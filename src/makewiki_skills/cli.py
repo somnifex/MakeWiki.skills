@@ -85,6 +85,12 @@ def generate(
         if report.violations:
             console.print(f"  [yellow]Ungrounded claims: {len(report.violations)}[/yellow]")
 
+    if ctx.codebase_verification_report:
+        cb_report = ctx.codebase_verification_report
+        console.print(f"  Codebase verification: {cb_report.score:.1%} ({cb_report.verified_count}/{cb_report.total_checks})")
+        if cb_report.failed_count:
+            console.print(f"  [yellow]Failed checks: {cb_report.failed_count}[/yellow]")
+
     if ctx.validation_report:
         console.print(f"  Validation: {ctx.validation_report.summary()}")
 
@@ -158,6 +164,94 @@ def validate(
     else:
         console.print("[red]Validation failed.[/red]")
         raise typer.Exit(1)
+
+@app.command()
+def verify(
+    target: Path = typer.Argument(..., help="Target project directory"),
+    wiki_dir: Optional[Path] = typer.Option(None, "--wiki-dir", "-w", help="Path to makewiki/ output (default: <target>/<output_dir>)"),
+    langs: list[str] = typer.Option(["en", "zh-CN"], "--lang", "-l"),
+    config_path: Optional[Path] = typer.Option(None, "--config", "-c"),
+    output_format: str = typer.Option("human", "--format", "-f", help="Output format: human | json"),
+) -> None:
+    """Verify generated docs against the actual project codebase.
+
+    Checks that file paths, commands, and config keys mentioned in the
+    generated documentation actually exist in the project.
+    """
+    from makewiki_skills.generator.language_generator import GeneratedDocument
+    from makewiki_skills.languages.registry import LanguageRegistry
+    from makewiki_skills.verification.codebase_verifier import CodebaseVerifier
+
+    target = Path(target).resolve()
+    cfg = _load_config(config_path, target)
+    cfg.languages = langs
+
+    LanguageRegistry.load_builtins()
+
+    resolved_wiki_dir = Path(wiki_dir).resolve() if wiki_dir else target / cfg.output_dir
+    if not resolved_wiki_dir.is_dir():
+        console.print(f"[red]Error:[/red] Wiki directory not found: {resolved_wiki_dir}")
+        raise typer.Exit(1)
+
+    # Load documents from disk
+    documents: dict[str, list[GeneratedDocument]] = {}
+    for lang_code in langs:
+        if not LanguageRegistry.has(lang_code):
+            continue
+        profile = LanguageRegistry.get(lang_code)
+        docs: list[GeneratedDocument] = []
+        for md_file in resolved_wiki_dir.rglob("*.md"):
+            if md_file.name == "index.md":
+                continue
+            name = md_file.name
+            if lang_code == cfg.default_language:
+                if any(f".{other}" in name for other in langs if other != lang_code):
+                    continue
+            else:
+                if profile.file_suffix not in name:
+                    continue
+
+            rel = md_file.relative_to(resolved_wiki_dir)
+            base_name = str(rel).replace("\\", "/")
+            if profile.file_suffix:
+                base_name = base_name.replace(profile.file_suffix, "")
+
+            content = md_file.read_text(encoding="utf-8", errors="replace")
+            docs.append(GeneratedDocument(
+                filename=str(rel).replace("\\", "/"),
+                base_name=base_name,
+                language_code=lang_code,
+                content=content,
+                word_count=len(content.split()),
+            ))
+        documents[lang_code] = docs
+
+    verifier = CodebaseVerifier(target)
+    report = verifier.verify(documents)
+
+    if output_format == "json":
+        typer.echo(json_lib.dumps(report.model_dump(), indent=2, ensure_ascii=False))
+        return
+
+    console.print("[bold]Codebase Verification[/bold]")
+    console.print(f"  Score: {report.score:.1%} ({report.verified_count}/{report.total_checks})")
+    console.print(f"  Passed: {report.verified_count}  Failed: {report.failed_count}")
+
+    failures = report.failures()
+    if failures:
+        table = Table(title="Failed Checks")
+        table.add_column("Document")
+        table.add_column("Type")
+        table.add_column("Claim")
+        table.add_column("Detail")
+        for check in failures:
+            table.add_row(check.document, check.claim_type, check.claim_text[:50], check.detail)
+        console.print(table)
+
+    if report.passed:
+        console.print("[green]All checks passed.[/green]")
+    else:
+        console.print(f"[yellow]{report.failed_count} check(s) failed.[/yellow]")
 
 @app.command()
 def review(

@@ -1,6 +1,9 @@
 # MakeWiki.skills
 
 
+
+
+
 A set of skills for Claude Code / Codex that generate multilingual user-facing wiki documentation for any software project. Users invoke `/makewiki` inside their AI coding assistant; the skill handles scanning, generation, review, and validation.
 
 ## Project Overview

@@ -11,9 +11,15 @@ from makewiki_skills.toolkit.filesystem import FilesystemTool
 class OutputManager:
     """Write final documents to the output directory."""
 
-    def __init__(self, output_dir: Path, overwrite: bool = True) -> None:
+    def __init__(
+        self,
+        output_dir: Path,
+        overwrite: bool = True,
+        delete_stale_files: bool = False,
+    ) -> None:
         self._output_dir = Path(output_dir)
         self._overwrite = overwrite
+        self._delete_stale = delete_stale_files
         self._fs = FilesystemTool()
 
     def write_documents(
@@ -26,7 +32,20 @@ class OutputManager:
                 result = self._fs.safe_write(target, doc.content, overwrite=self._overwrite)
                 if result.success:
                     written.append(target)
+
+        if self._delete_stale and written:
+            self._remove_stale_files(written)
+
         return written
+
+    def _remove_stale_files(self, written: list[Path]) -> None:
+        """Delete .md files in the output directory that were not just written."""
+        if not self._output_dir.is_dir():
+            return
+        freshly_written = {path.resolve() for path in written}
+        for md_file in self._output_dir.rglob("*.md"):
+            if md_file.resolve() not in freshly_written:
+                md_file.unlink(missing_ok=True)
 
     def write_index(
         self,

@@ -37,6 +37,7 @@ class GroundingReport(BaseModel):
     total_claims: int = 0
     grounded_claims: int = 0
     violations: list[GroundingViolation] = Field(default_factory=list)
+    warnings: list[GroundingViolation] = Field(default_factory=list)
 
     @computed_field  # type: ignore[prop-decorator]
     @property
@@ -55,17 +56,26 @@ class CodeGroundingVerifier:
 
     Commands, config keys, and file paths are checked against the
     evidence registry before the docs are accepted as grounded.
+
+    When *strict* is ``False`` the verifier still runs but ``ungrounded``
+    and ``low_confidence`` violations are downgraded to warnings and do
+    not affect the grounding score.  Only ``contradicted`` violations
+    are treated as real failures.  This is the recommended mode when an
+    AI agent (Claude Code, Codex, …) drives the generation — the agent
+    may produce correct content that the evidence scanner did not capture.
     """
 
-    def __init__(self, evidence_registry: EvidenceRegistry) -> None:
+    def __init__(self, evidence_registry: EvidenceRegistry, *, strict: bool = True) -> None:
         self._registry = evidence_registry
         self._md = MarkdownTool()
+        self._strict = strict
 
     def verify(
         self, documents: dict[str, list[GeneratedDocument]]
     ) -> GroundingReport:
         all_claims: list[GroundingClaim] = []
         violations: list[GroundingViolation] = []
+        warnings: list[GroundingViolation] = []
 
         for lang, docs in documents.items():
             for doc in docs:
@@ -76,7 +86,11 @@ class CodeGroundingVerifier:
         for claim in all_claims:
             violation = self._verify_claim(claim)
             if violation:
-                violations.append(violation)
+                if self._strict or violation.violation_type == "contradicted":
+                    violations.append(violation)
+                else:
+                    warnings.append(violation)
+                    grounded += 1  # count as grounded in non-strict mode
             else:
                 grounded += 1
 
@@ -84,6 +98,7 @@ class CodeGroundingVerifier:
             total_claims=len(all_claims),
             grounded_claims=grounded,
             violations=violations,
+            warnings=warnings,
         )
 
     def _extract_claims(self, doc: GeneratedDocument) -> list[GroundingClaim]:

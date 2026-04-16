@@ -245,6 +245,7 @@ class EvidenceCollector:
         facts: list[EvidenceFact] = []
         files_read: list[str] = []
         max_files = self._config.scan.source_intelligence_max_files
+        max_depth = self._config.scan.max_depth
 
         config_patterns = ["*.yaml", "*.yml", "*.toml", ".env", ".env.example", "*.cfg", "*.ini"]
         for pattern in config_patterns:
@@ -266,8 +267,11 @@ class EvidenceCollector:
         if is_python:
             py_files_scanned = 0
             for py_file in sorted(root.rglob("*.py")):
-                rel = str(py_file.relative_to(root)).replace("\\", "/")
-                if any(part in self._config.scan.ignore_dirs for part in py_file.relative_to(root).parts):
+                rel_path = py_file.relative_to(root)
+                if len(rel_path.parts) > max_depth:
+                    continue
+                rel = str(rel_path).replace("\\", "/")
+                if any(part in self._config.scan.ignore_dirs for part in rel_path.parts):
                     continue
                 if py_file.stat().st_size > self._config.scan.max_file_size_kb * 1024:
                     continue

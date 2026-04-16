@@ -100,3 +100,54 @@ def test_language_suffix_naming():
     assert profile.get_filename("README.md") == "README.ja.md"
     assert profile.get_filename("getting-started.md") == "getting-started.ja.md"
     assert profile.get_filename("usage/basic-usage.md") == "usage/basic-usage.ja.md"
+
+
+def test_emit_uncertainty_notes_disabled():
+    """When emit_uncertainty_notes is False, uncertainty strings should be empty."""
+    LanguageRegistry.load_builtins()
+    profile = LanguageRegistry.get("en")
+    config = MakeWikiConfig.default()
+    config.emit_uncertainty_notes = False
+    gen = LanguageGenerator()
+
+    # Model with no configuration and no FAQ -> templates would normally emit uncertainty
+    model = SemanticModel(
+        identity=ProjectIdentity(name="bare-app"),
+        installation=InstallationGuide(
+            steps=[InstallStep(order=1, title="Install", commands=["npm install"])],
+        ),
+        commands=[],
+        project_type=ProjectType.GENERIC,
+    )
+
+    docs = gen.generate(model, profile, config)
+
+    # configuration.md should NOT contain the "No configuration items" message
+    config_doc = next(d for d in docs if d.base_name == "configuration.md")
+    assert "No configuration items" not in config_doc.content
+
+    # faq.md should NOT contain the "No frequently asked questions" message
+    faq_doc = next(d for d in docs if d.base_name == "faq.md")
+    assert "No frequently asked questions" not in faq_doc.content
+
+
+def test_emit_uncertainty_notes_enabled():
+    """When emit_uncertainty_notes is True (default), uncertainty notes appear."""
+    LanguageRegistry.load_builtins()
+    profile = LanguageRegistry.get("en")
+    config = MakeWikiConfig.default()
+    gen = LanguageGenerator()
+
+    model = SemanticModel(
+        identity=ProjectIdentity(name="bare-app"),
+        installation=InstallationGuide(
+            steps=[InstallStep(order=1, title="Install", commands=["npm install"])],
+        ),
+        commands=[],
+        project_type=ProjectType.GENERIC,
+    )
+
+    docs = gen.generate(model, profile, config)
+
+    config_doc = next(d for d in docs if d.base_name == "configuration.md")
+    assert "No configuration items" in config_doc.content

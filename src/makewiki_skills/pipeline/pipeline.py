@@ -37,6 +37,7 @@ from makewiki_skills.scanner.evidence_registry import EvidenceRegistry
 from makewiki_skills.scanner.project_detector import ProjectDetectionResult, ProjectDetector, ProjectType
 from makewiki_skills.toolkit.evidence import EvidenceFact, EvidenceLink
 from makewiki_skills.verification.code_grounding_verifier import CodeGroundingVerifier, GroundingReport
+from makewiki_skills.verification.codebase_verifier import CodebaseVerificationReport, CodebaseVerifier
 
 
 class PipelineContext(BaseModel):
@@ -52,6 +53,7 @@ class PipelineContext(BaseModel):
     generated_documents: dict[str, list[GeneratedDocument]] = Field(default_factory=dict)
     cross_language_review: CrossLanguageReview | None = None
     grounding_report: GroundingReport | None = None
+    codebase_verification_report: CodebaseVerificationReport | None = None
     final_documents: dict[str, list[GeneratedDocument]] = Field(default_factory=dict)
     validation_report: ValidationReport | None = None
 
@@ -167,8 +169,19 @@ def stage_grounding_verification(ctx: PipelineContext) -> PipelineContext:
     if not ctx.config.review.enable_code_grounding_verification:
         return ctx
 
-    verifier = CodeGroundingVerifier(ctx.evidence_registry)
+    verifier = CodeGroundingVerifier(
+        ctx.evidence_registry, strict=ctx.config.strict_grounding,
+    )
     ctx.grounding_report = verifier.verify(ctx.generated_documents)
+    return ctx
+
+
+def stage_codebase_verification(ctx: PipelineContext) -> PipelineContext:
+    if not ctx.config.review.enable_codebase_verification:
+        return ctx
+
+    verifier = CodebaseVerifier(ctx.config.target_dir)
+    ctx.codebase_verification_report = verifier.verify(ctx.generated_documents)
     return ctx
 
 
@@ -176,7 +189,11 @@ def stage_revision_and_output(ctx: PipelineContext) -> PipelineContext:
     ctx.final_documents = dict(ctx.generated_documents)
 
     output_dir = ctx.config.target_dir / ctx.config.output_dir
-    manager = OutputManager(output_dir, overwrite=ctx.config.overwrite)
+    manager = OutputManager(
+        output_dir,
+        overwrite=ctx.config.overwrite,
+        delete_stale_files=ctx.config.delete_stale_files,
+    )
     written = manager.write_documents(ctx.final_documents)
     manager.write_index(ctx.final_documents, ctx.config.default_language)
     ctx.written_files = [str(path) for path in written]
@@ -193,6 +210,7 @@ STAGES = [
     ("generate_documents", stage_generate_documents),
     ("cross_language_review", stage_cross_language_review),
     ("grounding_verification", stage_grounding_verification),
+    ("codebase_verification", stage_codebase_verification),
     ("revision_and_output", stage_revision_and_output),
 ]
 

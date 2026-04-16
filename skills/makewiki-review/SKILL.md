@@ -1,13 +1,13 @@
 ---
 name: makewiki-review
-description: "Run cross-language consistency review on existing makewiki documentation. Compares structured facts (commands, config keys, paths, versions) and semantic meaning across all language versions to find inconsistencies. Use when: user has generated multilingual docs and wants to verify consistency."
+description: "Run cross-language consistency review and codebase verification on existing makewiki documentation. Verifies factual accuracy against the actual project source code, then compares structured facts (commands, config keys, paths, versions) and semantic meaning across all language versions to find inconsistencies. Use when: user has generated multilingual docs and wants to verify consistency and accuracy."
 argument-hint: "[--lang <code>...]"
 allowed-tools: Bash(python *) Read Glob Grep
 ---
 
-# MakeWiki Review - Cross-Language Consistency Check
+# MakeWiki Review - Cross-Language & Codebase Consistency Check
 
-Review existing makewiki documentation for cross-language consistency — both structural and semantic.
+Review existing makewiki documentation for cross-language consistency and factual accuracy against the actual project codebase.
 
 ## Arguments
 
@@ -41,7 +41,45 @@ python <makewiki_root>/scripts/run_toolkit.py review . --lang en --lang zh-CN
 
 If the script prints `NOT_FOUND`, or if the launcher command fails, skip the launcher and perform the structural and semantic review manually.
 
-### Step 2: Structural review
+### Step 2: Codebase verification (ground-truth check)
+
+Before checking cross-language consistency, first verify that the documentation is **factually correct against the actual project source code**. A document that is perfectly consistent across 5 languages but contains a fabricated command is still wrong.
+
+#### Step 2a: Run the toolkit mechanical check (if available)
+
+```bash
+python <makewiki_root>/scripts/run_toolkit.py verify . --format json
+```
+
+Parse the JSON output. Note any `verified: false` entries — these are claims in the docs that could not be confirmed against the project filesystem.
+
+If the toolkit is unavailable, skip to Step 2b.
+
+#### Step 2b: Agent-driven source code verification
+
+For each of the following categories, **read the actual project files** and compare against what the documentation claims:
+
+**Commands:**
+- For every command in code blocks: find its definition (Makefile, package.json, pyproject.toml, CLI subcommand). Does it exist? Does it accept the documented flags?
+- If a command doesn't exist → flag as critical error
+
+**Configuration keys:**
+- For every config key in configuration tables: open the real config file. Does the key exist? Is the default value correct?
+- For non-obvious keys: read the source code that consumes them. Does the documented effect match the actual behavior?
+
+**File paths:**
+- For every file path referenced: confirm it exists on disk.
+
+**Behavioral claims:**
+- For claims like "starts on port 8080" or "generates a JSON file at...": trace the source code to verify.
+- Pay attention to: default ports/URLs, output formats, environment variable names.
+
+Flag every discrepancy with its severity:
+- **Critical**: fabricated command, non-existent config key, wrong default value
+- **Major**: incorrect behavioral description, outdated version constraint
+- **Minor**: path exists but was renamed, config key is deprecated but still works
+
+### Step 3: Structural review
 
 Read the generated docs yourself and compare across languages:
 
@@ -53,7 +91,7 @@ Read the generated docs yourself and compare across languages:
 6. **Information drift** - Does any language add or omit facts compared to others?
 7. **Link correctness** - Do internal links use correct language-suffixed filenames?
 
-### Step 3: Semantic review (LLM analysis)
+### Step 4: Semantic review (LLM analysis)
 
 Go beyond structural comparison. For each page, read the corresponding versions in all languages and check:
 
@@ -69,9 +107,17 @@ Go beyond structural comparison. For each page, read the corresponding versions 
 - Example values (personal names, dates, currencies) should be appropriate for each locale.
 - Idiomatic expressions should be natural in each language, not literal translations.
 
-### Step 4: Report
+### Step 5: Report
 
-Report findings in two sections:
+Report findings in three sections:
+
+**Codebase verification issues:**
+
+| Severity | Type | Claim | File | Detail |
+|---|---|---|---|---|
+| critical | command | `make deploy-prod` | usage.md | command not found in Makefile |
+| major | config_key | `server.timeout` | configuration.md | key not found in config.yaml |
+| minor | path | `./src/utils/` | README.md | directory renamed to `./src/lib/` |
 
 **Structural issues:**
 

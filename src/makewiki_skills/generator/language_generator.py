@@ -201,25 +201,31 @@ class LanguageGenerator:
                 ],
                 "quick_start_example": quick_start_example,
                 "uncertainty_no_prereqs": self._uncertainty(
-                    profile, "No specific prerequisites were identified from the project evidence."
+                    profile, "No specific prerequisites were identified from the project evidence.",
+                    config.emit_uncertainty_notes,
                 ),
                 "uncertainty_no_config": self._uncertainty(
-                    profile, "No configuration items were identified from the project evidence."
+                    profile, "No configuration items were identified from the project evidence.",
+                    config.emit_uncertainty_notes,
                 ),
                 "uncertainty_no_faq": self._uncertainty(
                     profile,
                     "No frequently asked questions were identified. "
                     "Check the project repository for community discussions.",
+                    config.emit_uncertainty_notes,
                 ),
                 "uncertainty_no_troubleshooting": self._uncertainty(
                     profile,
                     "No common issues were identified from the project evidence.",
+                    config.emit_uncertainty_notes,
                 ),
                 "uncertainty_no_usage": self._uncertainty(
-                    profile, "No usage patterns were identified from the project evidence."
+                    profile, "No usage patterns were identified from the project evidence.",
+                    config.emit_uncertainty_notes,
                 ),
                 "uncertainty_no_platform_notes": self._uncertainty(
-                    profile, "No platform-specific notes were identified from the project evidence."
+                    profile, "No platform-specific notes were identified from the project evidence.",
+                    config.emit_uncertainty_notes,
                 ),
                 "config_file_label": self._localize(profile, "Configuration file"),
                 "expected_output_label": self._localize(profile, "Expected output"),
@@ -316,7 +322,9 @@ class LanguageGenerator:
     }
 
     @classmethod
-    def _uncertainty(cls, profile: LanguageProfile, english: str) -> str:
+    def _uncertainty(cls, profile: LanguageProfile, english: str, enabled: bool = True) -> str:
+        if not enabled:
+            return ""
         lang_map = cls._SIMPLE_TRANSLATIONS.get(profile.code, {})
         return lang_map.get(english, english)
 

@@ -120,3 +120,58 @@ def test_low_confidence_warning():
     report = verifier.verify({"en": [doc]})
 
     assert any(v.violation_type == "low_confidence" for v in report.violations)
+
+
+def test_non_strict_downgrades_ungrounded_to_warnings():
+    """In non-strict mode, ungrounded commands become warnings, not violations."""
+    registry = _registry_with_facts()
+    doc = GeneratedDocument(
+        filename="README.md",
+        base_name="README.md",
+        language_code="en",
+        content="# App\n\n```bash\nmake deploy-prod\n```\n",
+    )
+    verifier = CodeGroundingVerifier(registry, strict=False)
+    report = verifier.verify({"en": [doc]})
+
+    # No violations — downgraded to warnings
+    assert len(report.violations) == 0
+    assert len(report.warnings) > 0
+    assert any(w.claim.claim_text == "make deploy-prod" for w in report.warnings)
+    # Grounding score should be 1.0 since ungrounded are counted as grounded
+    assert report.grounding_score == 1.0
+
+
+def test_non_strict_still_flags_contradicted():
+    """Contradicted violations remain violations even in non-strict mode."""
+    registry = _registry_with_facts()
+    # A grounded command should pass, while the hallucinated one is a warning
+    doc = GeneratedDocument(
+        filename="README.md",
+        base_name="README.md",
+        language_code="en",
+        content="# App\n\n```bash\nmake test\nmake nonexistent\n```\n",
+    )
+    verifier = CodeGroundingVerifier(registry, strict=False)
+    report = verifier.verify({"en": [doc]})
+
+    # make test is grounded -> pass
+    # make nonexistent is ungrounded -> warning (non-strict)
+    assert report.grounded_claims >= 1
+    assert len(report.warnings) > 0
+
+
+def test_strict_mode_flags_ungrounded_as_violations():
+    """In strict mode (default), ungrounded commands are violations."""
+    registry = _registry_with_facts()
+    doc = GeneratedDocument(
+        filename="README.md",
+        base_name="README.md",
+        language_code="en",
+        content="# App\n\n```bash\nmake deploy-prod\n```\n",
+    )
+    verifier = CodeGroundingVerifier(registry, strict=True)
+    report = verifier.verify({"en": [doc]})
+
+    assert len(report.violations) > 0
+    assert len(report.warnings) == 0

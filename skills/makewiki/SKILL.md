@@ -455,7 +455,76 @@ Before writing each paragraph, verify:
 - [ ] Am I hedging appropriately for uncertain capabilities?
 - [ ] Am I free of banned marketing words?
 
-### Step 6: Cross-language verification
+### Step 6: Codebase verification (ground-truth check)
+
+After generating all documents, verify that what you wrote is **factually correct against the actual project source code**. This is the most important quality step — it catches hallucinations, stale information, and claims that go beyond what the project actually does.
+
+#### Step 6a: Run the toolkit mechanical check (if available)
+
+```bash
+python <makewiki_root>/scripts/run_toolkit.py verify . --format json
+```
+
+This produces a JSON report checking whether paths, commands, and config keys mentioned in the docs exist in the real project. Parse the output and note any `verified: false` entries.
+
+If the toolkit is unavailable, skip to Step 6b — the manual verification is the essential part.
+
+#### Step 6b: Agent-driven source code verification
+
+The toolkit can only do string matching. **You** must verify semantic accuracy. For each category below, go back to the project source and read the relevant files:
+
+**1. Command verification:**
+For every command in your generated code blocks that is NOT a generic tool (git, pip, npm, etc.):
+- Find its definition: Makefile target? package.json script? pyproject.toml entry-point? CLI subcommand?
+- Read the actual implementation or help text
+- Verify: Does the command accept the flags/arguments you documented? Does it produce the output you described?
+- If a command exists in your docs but not in the project → **remove it**
+- If a command's behavior differs from what you wrote → **correct it**
+
+**2. Configuration key verification:**
+For every config key in your configuration table:
+- Open the actual config file (not the evidence bundle — the real file)
+- Verify the key exists, its default value is correct, and its type matches
+- For non-obvious keys: read the source code that consumes them to confirm the described effect
+- If a key doesn't exist → **remove it**
+- If the default value or description is wrong → **correct it**
+
+**3. Path verification:**
+For every file path mentioned in the docs:
+- Confirm the file or directory exists in the project
+- If referencing a config file ("Edit `config/settings.yaml`..."), confirm that file is the right one
+- If a path doesn't exist → **remove the reference or correct it**
+
+**4. Behavioral claims verification:**
+For any claim about what happens when the user runs a command or changes a config value:
+- Read the source code entry point or handler
+- Trace the behavior: does the code actually do what you claimed?
+- Pay special attention to:
+  - Default ports, URLs, and addresses ("available at `localhost:8080`")
+  - Output formats ("generates a JSON file at...")
+  - Environment variable names and their effects
+  - Error messages and their conditions
+
+**5. Version and prerequisite verification:**
+- Read `pyproject.toml` / `package.json` / `Cargo.toml` directly for version constraints
+- Do NOT rely on the evidence bundle for versions — it may be stale
+
+#### Step 6c: Fix and re-verify
+
+For each discrepancy found:
+1. Fix the generated document **in place**
+2. If the fix affects multiple languages, fix all of them
+3. If the fix changes a code block, ensure all language versions get the identical code block
+
+After fixing, re-run the toolkit verification if available:
+
+```bash
+python <makewiki_root>/scripts/run_toolkit.py verify . --format json
+```
+
+If failures remain, repeat the manual check for those specific items. Do not proceed to Step 7 until all verifiable claims are grounded.
+
+### Step 7: Cross-language verification
 
 If the launcher is available, run the structural review:
 
@@ -475,7 +544,7 @@ Always manually verify:
 
 If inconsistencies are found, fix them.
 
-#### Step 6b: Semantic consistency review (LLM analysis)
+#### Step 7b: Semantic consistency review (LLM analysis)
 
 After the structural check above, perform a **semantic pass** across all language versions:
 
@@ -497,7 +566,7 @@ For any examples that use:
 - Currency or date format examples → do they match the locale's conventions?
 - Humor or idiomatic expressions → are they natural in the target language?
 
-### Step 7: Validate output
+### Step 8: Validate output
 
 If the launcher is available, run:
 
@@ -511,10 +580,11 @@ Then check manually:
 - No empty pages
 - Heading hierarchy is correct (no skipped levels)
 
-### Step 8: Report
+### Step 9: Report
 
 After completion, report:
 - Number of files generated per language
+- Codebase verification score (from Step 6) and any items that required correction
 - Cross-language consistency score (structural + semantic)
 - Any grounding warnings (claims without strong evidence)
 - Any validation issues
@@ -538,3 +608,4 @@ These are non-negotiable. Violating any of them is a failure condition.
 9. **ALWAYS describe features as user actions** - "You can..." not "The system supports..."
 10. **Output directory MUST be `<project_root>/makewiki/`** unless the user specifies otherwise.
 11. **NEVER use `Task`, subagents, or multi-agent orchestration for this skill.** Complete the workflow in the main conversation.
+12. **NEVER skip codebase verification (Step 6).** Every command, config key, and path in the generated docs must be verified against the actual project source code before proceeding to cross-language review. The toolkit check is optional; the agent reading and verifying source code is mandatory.
