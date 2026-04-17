@@ -1,7 +1,7 @@
 ---
 name: makewiki
 description: "Artifact-first multilingual documentation orchestrator for software projects. Use when a user wants project-level docs or wiki output and MakeWiki should run as the main LLM orchestrator: prepare objective evidence, read only the semantic index and short child-skill receipts, loop through module/workflow/page/language jobs, assemble markdown, and verify the final output."
-version: "0.6.1"
+version: "0.6.2"
 argument-hint: "[--lang <code>...] [--output <dir>]"
 license: MIT
 allowed-tools: Bash(python */scripts/bootstrap_toolkit.py *) Bash(python */scripts/run_toolkit.py *) Read Write Edit Glob Grep
@@ -41,7 +41,7 @@ Use `toolkit_root` from the JSON as `<makewiki_root>`.
 Then prepare or resume the run:
 
 ```bash
-python <makewiki_root>/scripts/run_toolkit.py prepare . --format json --no-write-run
+python <makewiki_root>/scripts/run_toolkit.py prepare . --format json
 ```
 
 This creates or resumes `.makewiki/runs/<run_id>/` logically and returns the initial files for:
@@ -50,7 +50,7 @@ This creates or resumes `.makewiki/runs/<run_id>/` logically and returns the ini
 - `evidence.index.json`
 - `evidence/shards/*.json`
 
-Immediately materialize the returned `files` list with the built-in `Write` or `Edit` tool before moving to `status`. Do not use Python, `uv`, or shell redirection to write these objective evidence artifacts.
+Immediately materialize the returned `files` list with the built-in `Write` or `Edit` tool before moving to `status`. This is the default behavior. Use `--write-run` only when you explicitly want Python to write these objective evidence artifacts.
 
 If `prepare` reports `llm_scan_required: true`, do not stop. Switch the scan stage to the internal LLM fallback skill and continue the same run.
 
@@ -67,7 +67,7 @@ If the bootstrap command prints `NOT_FOUND`, or if `prepare` cannot run because 
 Refresh orchestration state before choosing work:
 
 ```bash
-python <makewiki_root>/scripts/run_toolkit.py status . --format json --no-write-state
+python <makewiki_root>/scripts/run_toolkit.py status . --format json
 ```
 
 Use the returned `ready_jobs` list as the only scheduler input. The loop is:
@@ -83,7 +83,7 @@ Use the returned `ready_jobs` list as the only scheduler input. The loop is:
 
 Only pass the minimal artifact paths needed for the current job.
 
-After each `status` call, overwrite `state.json` with the returned `state_update.content` using the built-in `Write` or `Edit` tool. Do not use Python, `uv`, or shell redirection to update `state.json`.
+After each `status` call, overwrite `state.json` with the returned `state_update.content` using the built-in `Write` or `Edit` tool. This is the default behavior. Use `--write-state` only when you explicitly want Python to update `state.json`.
 
 ## Child Skills
 
@@ -105,10 +105,10 @@ Each child skill must write its own artifact, trace, and receipt file. After a c
 When the needed page plans and page artifacts exist, assemble the output:
 
 ```bash
-python <makewiki_root>/scripts/run_toolkit.py assemble . --lang en --lang zh-CN --format json --no-write-output
+python <makewiki_root>/scripts/run_toolkit.py assemble . --lang en --lang zh-CN --format json
 ```
 
-Use the returned `files` list to create or overwrite the final `makewiki/` files with the built-in `Write` or `Edit` tool. The toolkit should compute the content, but the agent should materialize the final user-facing files.
+Use the returned `files` list to create or overwrite the final `makewiki/` files with the built-in `Write` or `Edit` tool. This is the default behavior. Use `--write-output` only when you explicitly want Python to materialize the final user-facing files.
 
 Then run the mechanical checks:
 

@@ -64,7 +64,7 @@ def test_status_json_clears_llm_scan_required_after_scan_job_done(
 
     monkeypatch.setattr(EvidenceCollector, "collect", fail_collect)
 
-    prepare_result = runner.invoke(app, ["prepare", str(project_dir), "--format", "json"])
+    prepare_result = runner.invoke(app, ["prepare", str(project_dir), "--format", "json", "--write-run"])
     assert prepare_result.exit_code == 0
     prepare_payload = json.loads(prepare_result.stdout)
     run_dir = Path(prepare_payload["run_dir"])

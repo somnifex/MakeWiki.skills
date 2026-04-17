@@ -56,13 +56,13 @@ def test_build_bootstrap_status_reports_update_available(tmp_path: Path) -> None
     module = load_bootstrap_module()
     source_script = write_fake_toolkit(
         tmp_path / "source",
-        skill_version="0.6.1",
+        skill_version="0.6.2",
         runtime_marker="new",
     )
     installed_root = tmp_path / "home" / ".makewiki"
     write_fake_toolkit(
         installed_root,
-        skill_version="0.6.1",
+        skill_version="0.6.2",
         runtime_marker="old",
     )
 
@@ -73,8 +73,8 @@ def test_build_bootstrap_status_reports_update_available(tmp_path: Path) -> None
     assert status.update_available is True
     assert status.source_kind == "bundled_checkout"
     assert status.source_root == (tmp_path / "source").resolve()
-    assert status.installed_version == "0.6.1"
-    assert status.candidate_version == "0.6.1"
+    assert status.installed_version == "0.6.2"
+    assert status.candidate_version == "0.6.2"
     assert status.installed_fingerprint != status.candidate_fingerprint
 
 
@@ -85,13 +85,13 @@ def test_ensure_home_toolkit_keeps_existing_install_without_update_flag(
     module = load_bootstrap_module()
     source_script = write_fake_toolkit(
         tmp_path / "source",
-        skill_version="0.6.1",
+        skill_version="0.6.2",
         runtime_marker="new",
     )
     installed_root = tmp_path / "home" / ".makewiki"
     write_fake_toolkit(
         installed_root,
-        skill_version="0.6.1",
+        skill_version="0.6.2",
         runtime_marker="old",
     )
     monkeypatch.setattr(module, "toolkit_root", lambda: installed_root)
@@ -111,13 +111,13 @@ def test_ensure_home_toolkit_update_replaces_existing_install(
     module = load_bootstrap_module()
     source_script = write_fake_toolkit(
         tmp_path / "source",
-        skill_version="0.6.1",
+        skill_version="0.6.2",
         runtime_marker="new",
     )
     installed_root = tmp_path / "home" / ".makewiki"
     write_fake_toolkit(
         installed_root,
-        skill_version="0.6.1",
+        skill_version="0.6.2",
         runtime_marker="old",
     )
     monkeypatch.setattr(module, "toolkit_root", lambda: installed_root)
@@ -130,4 +130,4 @@ def test_ensure_home_toolkit_update_replaces_existing_install(
     ).read_text(encoding="utf-8") == 'VALUE = "new"\n'
     assert (installed_root / "skills" / "makewiki" / "SKILL.md").read_text(
         encoding="utf-8"
-    ).startswith('---\nname: makewiki\nversion: "0.6.1"')
+    ).startswith('---\nname: makewiki\nversion: "0.6.2"')

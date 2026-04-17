@@ -1,7 +1,7 @@
 ---
 name: makewiki-scan
 description: "Objective evidence scan for MakeWiki. Use when a user wants to inspect what MakeWiki can prove from the repository before semantic orchestration: commands, config keys, paths, comments, AST config access hits, grep fallback hits, and shard layout."
-version: "0.6.1"
+version: "0.6.2"
 argument-hint: "[--format json|human]"
 license: MIT
 allowed-tools: Bash(python */scripts/bootstrap_toolkit.py *) Bash(python */scripts/run_toolkit.py *) Read Write Edit Glob Grep
@@ -44,10 +44,10 @@ The JSON output explicitly reports:
 If the user wants a full orchestration run directory, you may also run:
 
 ```bash
-python <makewiki_root>/scripts/run_toolkit.py prepare . --format json --no-write-run
+python <makewiki_root>/scripts/run_toolkit.py prepare . --format json
 ```
 
-If you use `prepare`, write the returned `files` list with the built-in `Write` or `Edit` tool instead of asking Python or `uv` to materialize the evidence artifacts.
+If you use `prepare`, write the returned `files` list with the built-in `Write` or `Edit` tool. This is the default behavior. Use `--write-run` only when you intentionally want Python to materialize the evidence artifacts.
 
 If Python scanning fails or `prepare` reports `llm_scan_required: true`, fall back to direct LLM scanning:
 

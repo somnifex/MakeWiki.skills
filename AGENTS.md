@@ -34,7 +34,7 @@ Internal child skills used by `/makewiki`:
 Skills should bootstrap the home-scoped toolkit under `HOME/.makewiki`. The launcher `scripts/run_toolkit.py` refreshes `HOME/.makewiki/.venv`, preferring `uv` and falling back to `python -m venv`, then dispatches to the internal toolkit via `python -m makewiki_skills <command>`. This is internal infrastructure - not a user-facing CLI.
 
 ```bash
-python /path/to/MakeWiki.skills/scripts/run_toolkit.py prepare <target> --format json --no-write-run
+python /path/to/MakeWiki.skills/scripts/run_toolkit.py prepare <target> --format json
 python /path/to/MakeWiki.skills/scripts/run_toolkit.py status <target> --format json
 python /path/to/MakeWiki.skills/scripts/run_toolkit.py assemble <target> --lang en --lang zh-CN --format json
 python /path/to/MakeWiki.skills/scripts/run_toolkit.py scan <target>
@@ -51,7 +51,7 @@ python /path/to/MakeWiki.skills/scripts/run_toolkit.py init-config <target>
 4. Keep code blocks identical across languages.
 5. Output to `<project>/makewiki/` by default.
 6. Treat `/makewiki` as the LLM orchestrator. Python is limited to objective evidence, artifact/state management, assembly, and mechanical checks.
-7. When the toolkit can return file content or an updated state payload, use the built-in `Write` / `Edit` tools to materialize files instead of using Python, `uv`, or shell redirection to write them. This includes `state.json`, `evidence.index.json`, and `evidence/shards/*.json`.
+7. The toolkit should default to returning file content or an updated state payload for the built-in `Write` / `Edit` tools to materialize. Only use Python write modes when explicitly requested. This includes `state.json`, `evidence.index.json`, and `evidence/shards/*.json`.
 8. The main conversation may read `semantic-model.index.json`, `state.json`, and short receipts only. Do not summarize module briefs or traces in the main conversation.
 
 ## Structure

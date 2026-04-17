@@ -116,15 +116,15 @@ English, Simplified Chinese, Japanese, German, and French. Add more under `src/m
 The toolkit under `scripts/run_toolkit.py` is for skills only. The key internal commands are:
 
 ```bash
-python scripts/run_toolkit.py prepare . --format json --no-write-run
-python scripts/run_toolkit.py status . --format json --no-write-state
-python scripts/run_toolkit.py assemble . --lang en --lang zh-CN --format json --no-write-output
+python scripts/run_toolkit.py prepare . --format json
+python scripts/run_toolkit.py status . --format json
+python scripts/run_toolkit.py assemble . --lang en --lang zh-CN --format json
 python scripts/run_toolkit.py verify .
 python scripts/run_toolkit.py review . --lang en --lang zh-CN
 python scripts/run_toolkit.py validate ./makewiki
 ```
 
-In Claude Code, prefer letting the toolkit compute content and refreshed state while the built-in `Write` / `Edit` tools materialize `state.json`, `evidence.index.json`, `evidence/shards/*.json`, `makewiki.config.yaml`, and the final `makewiki/` pages. That reduces repeated approval prompts caused by Python or `uv` writing files directly.
+In Claude Code, those commands now default to agent-side materialization: the toolkit computes content and refreshed state while the built-in `Write` / `Edit` tools materialize `state.json`, `evidence.index.json`, `evidence/shards/*.json`, `makewiki.config.yaml`, and the final `makewiki/` pages. Use `--write-run`, `--write-state`, `--write-output`, or `--write` only when you explicitly want Python to write files directly.
 
 ## Out of scope
 
