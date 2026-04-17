@@ -61,7 +61,6 @@ By default, files are written to `<project>/makewiki/`:
 
 ```text
 makewiki/
-  index.md
   README.md / README.zh-CN.md
   getting-started.md / getting-started.zh-CN.md
   installation.md / installation.zh-CN.md

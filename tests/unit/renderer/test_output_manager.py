@@ -77,3 +77,24 @@ def test_delete_stale_preserves_non_md_files(tmp_path: Path):
 
     assert (output_dir / "logo.png").exists()
     assert not (output_dir / "old-page.md").exists()
+
+
+def test_output_manager_uses_readme_as_entry_page(tmp_path: Path):
+    output_dir = tmp_path / "makewiki"
+    output_dir.mkdir()
+    (output_dir / "index.md").write_text("# Old Index\n", encoding="utf-8")
+
+    manager = OutputManager(output_dir, overwrite=True, delete_stale_files=False)
+    docs = {
+        "en": [
+            _make_doc("commands.md", "# Commands\n"),
+            _make_doc("README.md", "# Project\n"),
+        ]
+    }
+    written = manager.write_documents(docs, default_language="en")
+
+    assert written[0].name == "README.md"
+    assert not (output_dir / "index.md").exists()
+    readme = (output_dir / "README.md").read_text(encoding="utf-8")
+    assert "## Documentation Index" in readme
+    assert "commands.md" in readme

@@ -174,12 +174,15 @@ def test_assemble_returns_file_plan_by_default(tmp_path: Path) -> None:
     assert payload["write_mode"] == "agent"
     assert not (project_dir / "makewiki").exists()
 
+    assert payload["files"][0]["relative_path"] == "README.md"
     files = {item["relative_path"]: item for item in payload["files"]}
     assert "configuration.md" in files
     assert "configuration.zh-CN.md" in files
-    assert "index.md" in files
+    assert "README.md" in files
+    assert "index.md" not in files
     assert "[^low-1]" in files["configuration.md"]["content"]
     assert "Inferred by fallback scan from `src/app.py`." in files["configuration.md"]["content"]
+    assert "configuration.md" in files["README.md"]["content"]
 
 
 def test_init_config_returns_yaml_without_creating_file_by_default(tmp_path: Path) -> None:

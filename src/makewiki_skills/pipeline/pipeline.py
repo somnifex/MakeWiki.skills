@@ -169,7 +169,7 @@ def stage_assemble_output(ctx: PipelineContext) -> PipelineContext:
         overwrite=ctx.config.overwrite,
         delete_stale_files=ctx.config.delete_stale_files,
     )
-    written = manager.write_documents(documents)
+    written = manager.write_documents(documents, ctx.config.default_language)
     manager.write_index(documents, ctx.config.default_language)
     ctx.written_files = [str(path) for path in written]
     return ctx
