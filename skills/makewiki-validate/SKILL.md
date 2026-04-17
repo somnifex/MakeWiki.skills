@@ -1,7 +1,7 @@
 ---
 name: makewiki-validate
 description: "Validate existing makewiki output directory for Markdown quality: heading hierarchy, broken links, empty pages, and language alignment. Use when: user wants to check quality of generated documentation."
-version: "0.5.0"
+version: "0.6.0"
 argument-hint: "[path-to-makewiki-dir]"
 license: MIT
 allowed-tools: Bash(python */scripts/bootstrap_toolkit.py) Bash(python */scripts/run_toolkit.py *) Read Glob Grep
@@ -53,6 +53,7 @@ Read the generated files and check:
 5. **Language suffix consistency** - All non-default language files use correct suffixes
 6. **Index file** - `index.md` links to all language versions
 7. **Code blocks** - All command code blocks have a language tag (`bash`, `yaml`, etc.)
+8. **Page families** - `commands.md`, `modules/`, `workflows/`, and `integrations/` should be internally consistent when present
 
 ### Step 3: Report
 

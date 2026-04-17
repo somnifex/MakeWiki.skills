@@ -1,6 +1,6 @@
 """Tests for CodeGroundingVerifier."""
 
-from makewiki_skills.generator.language_generator import GeneratedDocument
+from makewiki_skills.documents import GeneratedDocument
 from makewiki_skills.scanner.evidence_registry import EvidenceRegistry
 from makewiki_skills.toolkit.evidence import EvidenceFact, EvidenceLink
 from makewiki_skills.verification.code_grounding_verifier import CodeGroundingVerifier

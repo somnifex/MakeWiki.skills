@@ -2,7 +2,7 @@
 
 from pathlib import Path
 
-from makewiki_skills.generator.language_generator import GeneratedDocument
+from makewiki_skills.documents import GeneratedDocument
 from makewiki_skills.renderer.output_manager import OutputManager
 
 
@@ -35,17 +35,17 @@ def test_delete_stale_files_removes_old_docs(tmp_path: Path):
 def test_delete_stale_files_removes_nested(tmp_path: Path):
     """Stale files in sub-directories should also be cleaned up."""
     output_dir = tmp_path / "makewiki"
-    usage_dir = output_dir / "usage"
-    usage_dir.mkdir(parents=True)
+    modules_dir = output_dir / "modules"
+    modules_dir.mkdir(parents=True)
 
-    (usage_dir / "old-module.md").write_text("# Old\n", encoding="utf-8")
+    (modules_dir / "old-module.md").write_text("# Old\n", encoding="utf-8")
 
     manager = OutputManager(output_dir, overwrite=True, delete_stale_files=True)
-    docs = {"en": [_make_doc("usage/basic-usage.md", "# Usage\n")]}
+    docs = {"en": [_make_doc("modules/core.md", "# Core\n")]}
     manager.write_documents(docs)
 
-    assert (usage_dir / "basic-usage.md").exists()
-    assert not (usage_dir / "old-module.md").exists()
+    assert (modules_dir / "core.md").exists()
+    assert not (modules_dir / "old-module.md").exists()
 
 
 def test_delete_stale_disabled_keeps_old_files(tmp_path: Path):

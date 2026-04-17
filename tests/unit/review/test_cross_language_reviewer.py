@@ -1,6 +1,6 @@
 """Tests for CrossLanguageReviewer."""
 
-from makewiki_skills.generator.language_generator import GeneratedDocument
+from makewiki_skills.documents import GeneratedDocument
 from makewiki_skills.review.cross_language_reviewer import CrossLanguageReviewer
 
 

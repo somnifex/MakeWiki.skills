@@ -1,7 +1,7 @@
 ---
 name: makewiki-review
 description: "Verify and review existing makewiki documentation: checks factual accuracy against project source code, then compares structured facts and semantic meaning across all language versions. Use when: user has generated multilingual docs and wants to verify consistency and accuracy."
-version: "0.5.0"
+version: "0.6.0"
 argument-hint: "[--lang <code>...]"
 license: MIT
 allowed-tools: Bash(python */scripts/bootstrap_toolkit.py) Bash(python */scripts/run_toolkit.py *) Read Glob Grep
@@ -9,7 +9,7 @@ allowed-tools: Bash(python */scripts/bootstrap_toolkit.py) Bash(python */scripts
 
 # MakeWiki Review - Cross-Language & Codebase Consistency Check
 
-Review existing makewiki documentation for cross-language consistency and factual accuracy against the actual project codebase.
+Review existing MakeWiki output for cross-language consistency and factual accuracy against the actual project codebase.
 
 ## Arguments
 
@@ -117,7 +117,7 @@ Report findings in three sections:
 
 | Severity | Type | Claim | File | Detail |
 |---|---|---|---|---|
-| critical | command | `make deploy-prod` | usage.md | command not found in Makefile |
+| critical | command | `make deploy-prod` | commands.md | command not found in Makefile |
 | major | config_key | `server.timeout` | configuration.md | key not found in config.yaml |
 | minor | path | `./src/utils/` | README.md | directory renamed to `./src/lib/` |
 
@@ -132,7 +132,7 @@ Report findings in three sections:
 
 | Review Type | File | Description | Languages Affected | Severity |
 |---|---|---|---|---|
-| hedging | config.md | Hedge "may support" removed in zh-CN | en, zh-CN | major |
-| semantic_drift | usage.md | English says "dashboard", Chinese says "homepage" | en, zh-CN | minor |
+| hedging | configuration.md | Hedge "may support" removed in zh-CN | en, zh-CN | major |
+| semantic_drift | modules/core.md | English says "dashboard", Chinese says "homepage" | en, zh-CN | minor |
 
 Provide specific fix instructions for each issue.
