@@ -7,7 +7,6 @@ from collections import OrderedDict
 
 from makewiki_skills.config import MakeWikiConfig
 from makewiki_skills.documents import GeneratedDocument
-from makewiki_skills.orchestration.models import PagePlan
 from makewiki_skills.orchestration.store import RunLayout, RunStore
 
 _LOW_CONFIDENCE_MARKER_RE = re.compile(r"\{\{LOW_CONFIDENCE:([^}]+)\}\}")
@@ -26,11 +25,27 @@ class PageArtifactAssembler:
     ) -> tuple[dict[str, list[GeneratedDocument]], list[str]]:
         documents: dict[str, list[GeneratedDocument]] = {}
         warnings: list[str] = []
+        state = store.load_state(layout)
+        jobs_by_id = {job.job_id: job for job in state.jobs}
         page_plans = sorted(store.load_page_plans(layout), key=lambda plan: plan.output_path)
 
         for language in self._config.languages:
             language_docs: list[GeneratedDocument] = []
             for plan in page_plans:
+                plan_job = jobs_by_id.get(f"page-plan:{plan.page_id}")
+                if plan_job is None or plan_job.status != "done":
+                    warnings.append(
+                        f"Skipping page plan {plan.page_id} for {language}: job is not done"
+                    )
+                    continue
+
+                page_job = jobs_by_id.get(f"page-write:{plan.page_id}:{language}")
+                if page_job is None or page_job.status != "done":
+                    warnings.append(
+                        f"Skipping page artifact for {language}:{plan.page_id}: page-write job is not done"
+                    )
+                    continue
+
                 artifact_file = layout.page_artifacts_dir / language / f"{plan.page_id}.md"
                 if not artifact_file.is_file():
                     warnings.append(

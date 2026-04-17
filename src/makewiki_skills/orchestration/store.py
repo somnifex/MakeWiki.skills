@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import hashlib
-import json
 import re
 import uuid
 from dataclasses import dataclass
@@ -18,13 +17,10 @@ from makewiki_skills.orchestration.models import (
     ChildSkillReceipt,
     EvidenceIndex,
     EvidenceShard,
-    ModuleIndexItem,
-    PageIndexItem,
     PagePlan,
     RunJob,
     RunState,
     SemanticModelIndex,
-    WorkflowIndexItem,
 )
 from makewiki_skills.scanner.evidence_collector import CollectedEvidence
 from makewiki_skills.scanner.project_detector import ProjectDetectionResult
@@ -111,6 +107,15 @@ class RunLayout:
         return str(path.relative_to(self.project_root)).replace("\\", "/")
 
 
+@dataclass(frozen=True)
+class PlannedArtifactFile:
+    """A file payload that can be materialized by the agent with Write/Edit."""
+
+    target: Path
+    relative_path: str
+    content: str
+
+
 class RunStore:
     """Prepare, resume, and refresh MakeWiki runs."""
 
@@ -153,7 +158,8 @@ class RunStore:
         self,
         detection: ProjectDetectionResult,
         collected: CollectedEvidence,
-    ) -> tuple[RunLayout, RunState, EvidenceIndex, bool]:
+        persist: bool = True,
+    ) -> tuple[RunLayout, RunState, EvidenceIndex, bool, list[PlannedArtifactFile]]:
         resumed = False
         latest = self.latest_layout()
         if (
@@ -161,36 +167,54 @@ class RunStore:
             and latest is not None
             and latest.state_file.is_file()
             and self._run_is_incomplete(self.load_state(latest))
+            and self._resume_matches_config(self.load_state(latest))
         ):
             resumed = True
-            return latest, self.load_state(latest), self.load_evidence_index(latest), resumed
+            return latest, self.load_state(latest), self.load_evidence_index(latest), resumed, []
 
         run_id = self._new_run_id()
         layout = RunLayout.create(self._project_root, self._config.orchestration.state_dir, run_id)
-        layout.ensure_dirs()
+        if persist:
+            layout.ensure_dirs()
 
-        evidence_index = self._write_evidence_artifacts(layout, detection, collected)
+        evidence_index, planned_files = self._prepare_evidence_artifacts(
+            layout,
+            detection,
+            collected,
+            persist=persist,
+        )
         state = RunState(
             run_id=run_id,
             project_root=str(self._project_root),
             output_dir=self._config.output_dir,
+            languages=list(self._config.languages),
+            default_language=self._config.default_language,
             max_attempts=self._config.orchestration.max_attempts,
             jobs=self._seed_initial_jobs(evidence_index, layout),
         )
-        self._write_model(layout.state_file, state)
-        return layout, state, evidence_index, resumed
+        if persist:
+            self._write_model(layout.state_file, state)
+        else:
+            planned_files.append(self._planned_model(layout.state_file, state))
+        return layout, state, evidence_index, resumed, planned_files
 
     def refresh_state(
         self,
         layout: RunLayout,
         languages: list[str] | None = None,
+        persist: bool = True,
     ) -> tuple[RunState, SemanticModelIndex | None]:
         state = self.load_state(layout)
         semantic_index = self.load_semantic_index(layout)
-        languages = languages or self._config.languages
+        planned_languages = state.languages or languages or self._config.languages
 
         if semantic_index is not None:
-            state.jobs = self._merge_semantic_jobs(state.jobs, semantic_index, layout, languages)
+            state.jobs = self._merge_semantic_jobs(
+                state.jobs,
+                semantic_index,
+                layout,
+                planned_languages,
+            )
 
         latest_receipts = self._latest_receipts(layout)
         jobs_by_id = {job.job_id: job for job in state.jobs}
@@ -220,8 +244,13 @@ class RunStore:
 
         state.updated_at = datetime.now(timezone.utc).isoformat()
         state.jobs = sorted(state.jobs, key=self._job_sort_key)
-        self._write_model(layout.state_file, state)
+        if persist:
+            self._write_model(layout.state_file, state)
         return state, semantic_index
+
+    def scan_job_status(self, state: RunState) -> str | None:
+        job = next((job for job in state.jobs if job.kind == "llm-scan"), None)
+        return job.status if job is not None else None
 
     def ready_jobs(self, state: RunState, limit: int = 20) -> list[RunJob]:
         jobs_by_id = {job.job_id: job for job in state.jobs}
@@ -254,17 +283,19 @@ class RunStore:
             )
         return None
 
-    def _write_evidence_artifacts(
+    def _prepare_evidence_artifacts(
         self,
         layout: RunLayout,
         detection: ProjectDetectionResult,
         collected: CollectedEvidence,
-    ) -> EvidenceIndex:
+        persist: bool,
+    ) -> tuple[EvidenceIndex, list[PlannedArtifactFile]]:
         grouped: dict[str, list[EvidenceFact]] = {}
         for fact in collected.facts:
             source_path = fact.evidence[0].source_path if fact.evidence else "misc/unknown"
             grouped.setdefault(source_path, []).append(fact)
 
+        planned_files: list[PlannedArtifactFile] = []
         shards: list[EvidenceShard] = []
         for source_path, facts in sorted(grouped.items()):
             shard_id = self._make_shard_id(source_path)
@@ -277,7 +308,10 @@ class RunStore:
                 fact_types=fact_types,
                 facts=facts,
             )
-            self._write_model(artifact_path, shard)
+            if persist:
+                self._write_model(artifact_path, shard)
+            else:
+                planned_files.append(self._planned_model(artifact_path, shard))
             shards.append(shard)
 
         evidence_index = EvidenceIndex(
@@ -293,8 +327,11 @@ class RunStore:
             fact_summary=self._summarize_facts(collected.facts),
             shards=shards,
         )
-        self._write_model(layout.evidence_index_file, evidence_index)
-        return evidence_index
+        if persist:
+            self._write_model(layout.evidence_index_file, evidence_index)
+        else:
+            planned_files.append(self._planned_model(layout.evidence_index_file, evidence_index))
+        return evidence_index, planned_files
 
     def _seed_initial_jobs(self, evidence_index: EvidenceIndex, layout: RunLayout) -> list[RunJob]:
         if evidence_index.collection_mode == "llm-fallback":
@@ -446,6 +483,15 @@ class RunStore:
     def _run_is_incomplete(self, state: RunState) -> bool:
         return any(job.status != "done" for job in state.jobs)
 
+    def _resume_matches_config(self, state: RunState) -> bool:
+        if state.output_dir != self._config.output_dir:
+            return False
+        if state.default_language != self._config.default_language:
+            return False
+        if state.languages and state.languages != self._config.languages:
+            return False
+        return True
+
     def _new_run_id(self) -> str:
         prefix = datetime.now(timezone.utc).strftime("%Y%m%d%H%M%S")
         return f"{prefix}-{uuid.uuid4().hex[:6]}"
@@ -480,3 +526,13 @@ class RunStore:
     def _write_model(path: Path, model: BaseModel) -> None:
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(model.model_dump_json(indent=2), encoding="utf-8")
+
+    def _planned_model(self, path: Path, model: BaseModel) -> PlannedArtifactFile:
+        return PlannedArtifactFile(
+            target=path,
+            relative_path=self._project_relative(path),
+            content=model.model_dump_json(indent=2),
+        )
+
+    def _project_relative(self, path: Path) -> str:
+        return str(path.relative_to(self._project_root)).replace("\\", "/")

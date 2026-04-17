@@ -1,10 +1,10 @@
 ---
 name: makewiki-init
 description: "Generate a default makewiki.config.yaml for MakeWiki. Use when a user wants to customize scan, orchestration, semantic reasoning, render, or review behaviour before running /makewiki."
-version: "0.6.0"
+version: "0.6.1"
 argument-hint: "[--lang <code>...]"
 license: MIT
-allowed-tools: Bash(python */scripts/bootstrap_toolkit.py) Bash(python */scripts/run_toolkit.py *) Write
+allowed-tools: Bash(python */scripts/bootstrap_toolkit.py *) Bash(python */scripts/run_toolkit.py *) Write Edit
 ---
 
 # MakeWiki Init
@@ -13,16 +13,25 @@ Create a default `makewiki.config.yaml` in the current project root.
 
 ## Bootstrap
 
-The bootstrap script refreshes `HOME/.makewiki` and its `.venv`, preferring `uv` and falling back to `python -m venv`.
+The bootstrap script inspects `HOME/.makewiki`, reports whether the bundled skill checkout is newer than the installed toolkit, and can sync it on demand. The launcher at `<makewiki_root>/scripts/run_toolkit.py` then bootstraps `<makewiki_root>/.venv`, preferring `uv` and falling back to `python -m venv`.
 
 ```bash
-python scripts/bootstrap_toolkit.py
+python scripts/bootstrap_toolkit.py status --format json
 ```
+
+Use `toolkit_root` from the JSON as `<makewiki_root>`.
+
+- If `update_available` is `true`, pause and ask the user whether to update to the bundled version before continuing.
+- If the user says yes, run `python scripts/bootstrap_toolkit.py update` and keep using the printed path as `<makewiki_root>`.
+- If the user says no, keep using the existing `<makewiki_root>` from the JSON status output.
+- If `status` is `missing`, run `python scripts/bootstrap_toolkit.py` to install the toolkit and use the printed path as `<makewiki_root>`.
 
 If the launcher is available, run:
 
-- `python <makewiki_root>/scripts/run_toolkit.py init-config .`
-- or `python <makewiki_root>/scripts/run_toolkit.py init-config . --lang en --lang zh-CN`
+- `python <makewiki_root>/scripts/run_toolkit.py init-config . --format json --no-write`
+- or `python <makewiki_root>/scripts/run_toolkit.py init-config . --lang en --lang zh-CN --format json --no-write`
+
+Then create `makewiki.config.yaml` with the returned `content` using the built-in `Write` or `Edit` tool. Do not use Python, `uv`, shell redirection, or helper scripts to materialize the config file.
 
 If the launcher is unavailable, create the file manually with this content:
 

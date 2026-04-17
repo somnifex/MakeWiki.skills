@@ -1,6 +1,7 @@
 ---
 name: makewiki-module-brief
 description: "Internal MakeWiki child skill. Use when the current job is a module-brief task and you need to write one module brief JSON from the semantic index plus the directly relevant surface cards."
+allowed-tools: Read Write Edit Glob Grep
 ---
 
 # MakeWiki Module Brief
@@ -16,5 +17,7 @@ Write:
 - one module brief JSON
 - one trace JSON
 - one receipt JSON
+
+Use the built-in `Write` or `Edit` tool for every output artifact. Do not use Python, `uv`, or shell redirection to write them.
 
 Do not read unrelated modules. Do not summarize the module brief in the main conversation.

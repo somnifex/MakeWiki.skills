@@ -10,7 +10,7 @@ import re
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Literal
+from typing import Literal
 
 from pydantic import BaseModel, Field, computed_field
 
@@ -19,6 +19,8 @@ from makewiki_skills.toolkit.command_probe import CommandProbeTool
 from makewiki_skills.toolkit.config_reader import ConfigReaderTool
 from makewiki_skills.toolkit.markdown_tools import MarkdownTool
 
+ClaimType = Literal["path", "command", "config_key"]
+
 
 class CodebaseCheck(BaseModel):
     """A single claim checked against the real project filesystem."""
@@ -26,7 +28,7 @@ class CodebaseCheck(BaseModel):
     document: str
     language_code: str
     claim_text: str
-    claim_type: Literal["path", "command", "config_key"]
+    claim_type: ClaimType
     verified: bool
     detail: str
 
@@ -138,7 +140,7 @@ class CodebaseVerifier:
         for path in paths:
             normalised = path.lstrip("./")
             if normalised in real or path in real:
-                results.append(self._ok(doc, path, "path", f"exists on disk"))
+                results.append(self._ok(doc, path, "path", "exists on disk"))
             elif (self._root / normalised).exists():
                 results.append(self._ok(doc, path, "path", "exists on disk (direct check)"))
             else:
@@ -263,7 +265,7 @@ class CodebaseVerifier:
     def _ok(
         doc: GeneratedDocument,
         claim: str,
-        claim_type: str,
+        claim_type: ClaimType,
         detail: str,
     ) -> CodebaseCheck:
         return CodebaseCheck(
@@ -279,7 +281,7 @@ class CodebaseVerifier:
     def _fail(
         doc: GeneratedDocument,
         claim: str,
-        claim_type: str,
+        claim_type: ClaimType,
         detail: str,
     ) -> CodebaseCheck:
         return CodebaseCheck(
