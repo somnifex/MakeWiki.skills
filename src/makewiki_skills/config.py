@@ -27,9 +27,6 @@ class ScanConfig(BaseModel):
     max_file_size_kb: int = 512
     enable_source_intelligence: bool = True
     source_intelligence_max_files: int = 50
-    python_ast_config_tracking: bool = True
-    grep_fallback_for_config: bool = True
-    allow_llm_fallback_on_failure: bool = True
 
 class ReviewConfig(BaseModel):
     """Controls cross-language and grounding review behaviour."""
@@ -39,6 +36,16 @@ class ReviewConfig(BaseModel):
     enable_codebase_verification: bool = True
     enable_semantic_review: bool = True
     min_page_alignment_ratio: float = 0.9
+
+class ContentDepthConfig(BaseModel):
+    """Controls how much detail is generated and when pages are split into sub-pages."""
+
+    mode: str = "auto"  # "compact" | "detailed" | "auto"
+    max_faq_items: int = 20
+    max_usage_examples: int = 8
+    max_troubleshooting_items: int = 8
+    split_usage_threshold: int = 6  # split usage into sub-pages when commands exceed this
+
 
 class DocumentationPolicyConfig(BaseModel):
     """Controls how conservative and user-facing the generated docs should be."""
@@ -68,27 +75,10 @@ class DocumentationPolicyConfig(BaseModel):
         ]
     )
 
-class SemanticReasoningConfig(BaseModel):
-    """Controls how much semantic understanding is delegated to the LLM."""
+class LanguageProfileConfig(BaseModel):
+    """Per-language overrides in the config file."""
 
-    mode: str = "llm-first"
-    module_index_threshold: int = 30
-    index_only_in_main_conversation: bool = True
-
-
-class OrchestrationConfig(BaseModel):
-    """Controls state management for resumable multi-step runs."""
-
-    state_dir: str = ".makewiki"
-    resume: bool = True
-    max_attempts: int = 2
-    fail_fast: bool = False
-
-
-class RenderConfig(BaseModel):
-    """Controls post-processing of LLM-authored page artifacts."""
-
-    annotate_low_confidence_footnotes: bool = True
+    tone: str = "concise-user-facing"
 
 class MakeWikiConfig(BaseModel):
     """Root configuration for a makewiki run."""
@@ -98,13 +88,15 @@ class MakeWikiConfig(BaseModel):
     default_language: str = "en"
     overwrite: bool = True
     delete_stale_files: bool = False
+    generate_faq: bool = True
+    generate_troubleshooting: bool = True
     strict_grounding: bool = True
+    emit_uncertainty_notes: bool = True
     scan: ScanConfig = Field(default_factory=ScanConfig)
     review: ReviewConfig = Field(default_factory=ReviewConfig)
-    semantic_reasoning: SemanticReasoningConfig = Field(default_factory=SemanticReasoningConfig)
-    orchestration: OrchestrationConfig = Field(default_factory=OrchestrationConfig)
-    render: RenderConfig = Field(default_factory=RenderConfig)
+    content_depth: ContentDepthConfig = Field(default_factory=ContentDepthConfig)
     documentation_policy: DocumentationPolicyConfig = Field(default_factory=DocumentationPolicyConfig)
+    language_profiles: dict[str, LanguageProfileConfig] = Field(default_factory=dict)
 
     target_dir: Path = Field(default=Path("."))
 

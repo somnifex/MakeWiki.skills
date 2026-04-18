@@ -7,7 +7,7 @@ from datetime import datetime, timezone
 
 from pydantic import BaseModel, Field, computed_field
 
-from makewiki_skills.documents import GeneratedDocument
+from makewiki_skills.generator.language_generator import GeneratedDocument
 from makewiki_skills.toolkit.markdown_tools import FactSet, MarkdownTool
 
 class FactDelta(BaseModel):

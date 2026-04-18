@@ -1,0 +1,71 @@
+# {{ identity.name }}
+
+{{ formatting.note_callout }} {{ user_focus_note }}
+
+## {{ terms.project_overview }}
+
+{% if identity.description %}{{ identity.description }}
+{% endif %}
+
+## {{ terms.quick_start }}
+
+{% for step in installation.steps %}
+### {{ step.order }}. {{ step.title }}
+
+{% for cmd in step.commands %}
+```bash
+{{ cmd }}
+```
+{% endfor %}{% if step.notes %}
+
+{{ formatting.note_callout }} {{ step.notes }}
+{% endif %}
+{% endfor %}
+{% if quick_start_example %}
+
+### {{ installation.steps|length + 1 }}. {{ quick_start_example.title }}
+
+{% if quick_start_example.description %}{{ quick_start_example.description }}
+
+{% endif %}{% for cmd in quick_start_example.commands %}
+```bash
+{{ cmd }}
+```
+{% endfor %}
+{% endif %}
+
+## {{ terms.common_tasks }}
+
+{% if user_tasks|length > 0 %}{% for task in user_tasks[:3] %}
+### {{ task.title }}
+
+{{ task.user_goal }}
+
+{% for cmd in task.commands %}
+```bash
+{{ cmd }}
+```
+{% endfor %}
+{% endfor %}{% else %}
+{{ formatting.note_callout }} {{ uncertainty_no_usage }}
+{% endif %}
+
+## {{ terms.platform_notes }}
+
+{% if has_platform_notes %}{% for note in platform_notes %}
+- **{{ note.platform }}:** {{ note.note }}
+{% endfor %}{% else %}
+{{ formatting.note_callout }} {{ uncertainty_no_platform_notes }}
+{% endif %}
+
+## {{ documentation_navigation_heading }}
+
+- [{{ terms.getting_started }}]({{ getting_started_link }})
+- [{{ terms.installation }}]({{ installation_link }})
+- [{{ terms.configuration }}]({{ configuration_link }})
+{% if has_command_groups %}- [{{ terms.usage }}]({{ usage_link }})
+{% for group in command_group_links %}  - [{{ group.name }}]({{ group.link }})
+{% endfor %}{% else %}- [{{ terms.usage }}]({{ usage_link }})
+{% endif %}{% if has_faq %}- [{{ terms.faq }}]({{ faq_link }})
+{% endif %}{% if has_troubleshooting %}- [{{ terms.troubleshooting }}]({{ troubleshooting_link }})
+{% endif %}- [{{ terms.related_docs }}]({{ index_link }})

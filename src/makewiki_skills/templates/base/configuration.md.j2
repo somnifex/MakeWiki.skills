@@ -1,0 +1,22 @@
+# {{ terms.configuration }}
+
+{{ formatting.note_callout }} {{ user_config_note }}
+
+{% if configuration|length > 0 %}
+{% for section in configuration %}
+## {{ section["name"] }}
+
+{% if section["config_file"] %}
+{{ formatting.note_callout }} {{ config_file_label }}: `{{ section["config_file"] }}`
+{% endif %}
+
+{% if section["items"]|length > 0 %}
+| {{ key }} | {{ terms.description }} | {{ terms.default_value }} | {{ terms.required }} |
+|---|---|---|---|
+{% for item in section["items"] %}| `{{ item["key"] }}` | {{ item["description"] or "-" }} | {{ item["default_value"] or "-" }} | {{ terms.required if item["required"] else terms.optional }} |
+{% endfor %}
+{% endif %}
+{% endfor %}
+{% else %}
+{{ formatting.note_callout }} {{ uncertainty_no_config }}
+{% endif %}

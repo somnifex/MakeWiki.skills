@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from makewiki_skills.documents import GeneratedDocument
+from makewiki_skills.generator.language_generator import GeneratedDocument
 from makewiki_skills.toolkit.filesystem import FilesystemTool
 
 

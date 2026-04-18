@@ -14,7 +14,7 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, Field, computed_field
 
-from makewiki_skills.documents import GeneratedDocument
+from makewiki_skills.generator.language_generator import GeneratedDocument
 from makewiki_skills.toolkit.command_probe import CommandProbeTool
 from makewiki_skills.toolkit.config_reader import ConfigReaderTool
 from makewiki_skills.toolkit.markdown_tools import MarkdownTool

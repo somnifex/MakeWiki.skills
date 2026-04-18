@@ -1,0 +1,22 @@
+# {{ terms.troubleshooting }}
+
+{% if troubleshooting|length > 0 %}
+{% for item in troubleshooting %}
+## {{ item.symptom }}
+
+{% if item.probable_cause %}**{{ terms.cause }}:** {{ item.probable_cause }}
+
+{% endif %}**{{ terms.solution }}:** {{ item.solution }}
+
+{% if item.commands|length > 0 %}
+{% for cmd in item.commands %}
+```bash
+{{ cmd }}
+```
+{% endfor %}
+{% endif %}
+
+{% endfor %}
+{% else %}
+{{ formatting.note_callout }} {{ uncertainty_no_troubleshooting }}
+{% endif %}

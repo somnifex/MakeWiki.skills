@@ -4,18 +4,13 @@ from __future__ import annotations
 
 import json as json_lib
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any, Optional, cast
 
 import typer
 from rich.console import Console
 from rich.table import Table
 
 from makewiki_skills.config import MakeWikiConfig
-from makewiki_skills.documents import GeneratedDocument
-from makewiki_skills.orchestration import PageArtifactAssembler, RunLayout, RunStore
-from makewiki_skills.pipeline.pipeline import Pipeline
-from makewiki_skills.renderer.output_manager import OutputManager
-from makewiki_skills.renderer.validator import OutputValidator
 
 app = typer.Typer(
     name="makewiki",
@@ -35,11 +30,9 @@ def generate(
     output: Optional[str] = typer.Option(None, "--output", "-o", help="Output directory name"),
     verbose: bool = typer.Option(False, "--verbose", "-v", help="Verbose output"),
 ) -> None:
-    """Run the artifact-first pipeline.
+    """Generate multilingual wiki documentation for a project."""
+    from makewiki_skills.pipeline.pipeline import Pipeline
 
-    This command prepares/resumes a run, refreshes orchestration state, and
-    assembles any already-written page artifacts into the output directory.
-    """
     target = Path(target).resolve()
     if not target.is_dir():
         console.print(f"[red]Error:[/red] Target directory does not exist: {target}")
@@ -50,170 +43,57 @@ def generate(
     if output:
         cfg.output_dir = output
 
-    ctx = Pipeline(cfg).run()
-    if ctx.errors:
-        for err in ctx.errors:
-            console.print(f"[red]Error:[/red] {err}")
-        raise typer.Exit(1)
+    console.print(f"[bold]MakeWiki[/bold] generating docs for [cyan]{target.name}[/cyan]")
+    console.print(f"  Languages: {', '.join(cfg.languages)}")
+    console.print(f"  Output: {target / cfg.output_dir}")
+    console.print()
 
-    if ctx.run_layout is not None:
-        console.print(f"[bold]Run[/bold]: {ctx.run_layout.run_id}")
-        console.print(f"[bold]State[/bold]: {ctx.run_layout.state_file}")
-        console.print(f"[bold]Evidence[/bold]: {ctx.run_layout.evidence_index_file}")
+    pipeline = Pipeline(cfg)
+    ctx = pipeline.run()
+
+    if ctx.errors:
+        console.print("[red]Errors:[/red]")
+        for err in ctx.errors:
+            console.print(f"  - {err}")
 
     if ctx.warnings:
         console.print("[yellow]Warnings:[/yellow]")
-        for warning in ctx.warnings:
-            console.print(f"  - {warning}")
+        for w in ctx.warnings:
+            console.print(f"  - {w}")
 
-    console.print(f"[green]Assembled[/green] {len(ctx.written_files)} file(s)")
-
-    if ctx.state is not None:
-        store = RunStore(cfg)
-        ready_jobs = store.ready_jobs(ctx.state)
-        console.print(f"  Ready jobs: {len(ready_jobs)}")
-
-    if ctx.validation_report is not None:
-        console.print(f"  Validation: {ctx.validation_report.summary()}")
-    if ctx.codebase_verification_report is not None:
-        report = ctx.codebase_verification_report
-        console.print(
-            f"  Codebase verification: {report.score:.1%} ({report.verified_count}/{report.total_checks})"
-        )
-    if ctx.cross_language_review is not None:
-        review = ctx.cross_language_review
-        console.print(f"  Cross-language consistency: {review.consistency_score:.1%}")
+    console.print()
+    console.print(f"[green]Done![/green] Written {len(ctx.written_files)} files")
 
     if verbose and ctx.stage_timings:
         table = Table(title="Stage Timings")
         table.add_column("Stage")
         table.add_column("Time (s)", justify="right")
-        for name, timing in ctx.stage_timings.items():
-            table.add_row(name, f"{timing:.3f}")
+        for name, t in ctx.stage_timings.items():
+            table.add_row(name, f"{t:.3f}")
         console.print(table)
 
+    if ctx.cross_language_review:
+        review = ctx.cross_language_review
+        console.print(f"  Cross-language consistency: {review.consistency_score:.1%}")
+        if review.critical_issues:
+            console.print(f"  [red]Critical issues: {len(review.critical_issues)}[/red]")
 
-@app.command()
-def prepare(
-    target: Path = typer.Argument(..., help="Target project directory"),
-    config_path: Optional[Path] = typer.Option(None, "--config", "-c"),
-    output_format: str = typer.Option("json", "--format", "-f", help="json | human"),
-) -> None:
-    """Collect objective evidence and prepare or resume a run."""
-    target = Path(target).resolve()
-    if not target.is_dir():
-        console.print(f"[red]Error:[/red] Not a directory: {target}")
-        raise typer.Exit(1)
+    if ctx.grounding_report:
+        report = ctx.grounding_report
+        console.print(f"  Grounding score: {report.grounding_score:.1%}")
+        if report.violations:
+            console.print(f"  [yellow]Ungrounded claims: {len(report.violations)}[/yellow]")
 
-    cfg = _load_config(config_path, target)
-    ctx = Pipeline(cfg).run_until("prepare_run")
+    if ctx.codebase_verification_report:
+        cb_report = ctx.codebase_verification_report
+        console.print(
+            f"  Codebase verification: {cb_report.score:.1%} ({cb_report.verified_count}/{cb_report.total_checks})"
+        )
+        if cb_report.failed_count:
+            console.print(f"  [yellow]Failed checks: {cb_report.failed_count}[/yellow]")
 
-    if ctx.run_layout is None or ctx.state is None or ctx.evidence_index is None:
-        console.print("[red]Error:[/red] Failed to prepare a run")
-        raise typer.Exit(1)
-
-    payload = {
-        "run_id": ctx.run_layout.run_id,
-        "run_dir": str(ctx.run_layout.run_root),
-        "state_path": str(ctx.run_layout.state_file),
-        "evidence_index_path": str(ctx.run_layout.evidence_index_file),
-        "collection_mode": ctx.evidence_index.collection_mode,
-        "fallback_reason": ctx.evidence_index.fallback_reason,
-        "llm_scan_required": ctx.evidence_index.collection_mode == "llm-fallback",
-        "warnings": ctx.warnings,
-        "fact_summary": ctx.evidence_index.fact_summary,
-        "shard_count": ctx.evidence_index.shard_count,
-    }
-    _emit_payload(payload, output_format)
-
-
-@app.command()
-def status(
-    target: Path = typer.Argument(..., help="Target project directory"),
-    run_id: Optional[str] = typer.Option(None, "--run-id"),
-    config_path: Optional[Path] = typer.Option(None, "--config", "-c"),
-    output_format: str = typer.Option("json", "--format", "-f", help="json | human"),
-) -> None:
-    """Refresh and report the current run state."""
-    target = Path(target).resolve()
-    cfg = _load_config(config_path, target)
-    store = RunStore(cfg)
-    layout = _resolve_layout(store, cfg, run_id)
-    if layout is None:
-        console.print("[red]Error:[/red] No prepared run found")
-        raise typer.Exit(1)
-
-    evidence_index = store.load_evidence_index(layout)
-    state, semantic_index = store.refresh_state(layout, cfg.languages)
-    ready_jobs = store.ready_jobs(state, limit=25)
-    payload = {
-        "run_id": layout.run_id,
-        "state_path": str(layout.state_file),
-        "collection_mode": evidence_index.collection_mode,
-        "fallback_reason": evidence_index.fallback_reason,
-        "llm_scan_required": evidence_index.collection_mode == "llm-fallback",
-        "semantic_index_exists": semantic_index is not None,
-        "semantic_index_path": str(layout.semantic_index_file),
-        "module_count": len(semantic_index.modules) if semantic_index is not None else 0,
-        "workflow_count": len(semantic_index.workflows) if semantic_index is not None else 0,
-        "page_count": len(semantic_index.pages) if semantic_index is not None else 0,
-        "job_counts": state.job_counts,
-        "ready_jobs": [
-            {
-                "job_id": job.job_id,
-                "kind": job.kind,
-                "status": job.status,
-                "artifact_path": job.artifact_path,
-                "attempt": job.attempt,
-                "depends_on": job.depends_on,
-            }
-            for job in ready_jobs
-        ],
-    }
-    _emit_payload(payload, output_format)
-
-
-@app.command()
-def assemble(
-    target: Path = typer.Argument(..., help="Target project directory"),
-    langs: list[str] = typer.Option(["en", "zh-CN"], "--lang", "-l"),
-    run_id: Optional[str] = typer.Option(None, "--run-id"),
-    config_path: Optional[Path] = typer.Option(None, "--config", "-c"),
-    output_format: str = typer.Option("json", "--format", "-f", help="json | human"),
-) -> None:
-    """Assemble final docs from page plans and per-language page artifacts."""
-    target = Path(target).resolve()
-    cfg = _load_config(config_path, target)
-    cfg.languages = langs
-
-    store = RunStore(cfg)
-    layout = _resolve_layout(store, cfg, run_id)
-    if layout is None:
-        console.print("[red]Error:[/red] No prepared run found")
-        raise typer.Exit(1)
-
-    state, _semantic_index = store.refresh_state(layout, cfg.languages)
-    assembler = PageArtifactAssembler(cfg)
-    documents, warnings = assembler.assemble(layout, store)
-    output_dir = target / cfg.output_dir
-
-    manager = OutputManager(
-        output_dir,
-        overwrite=cfg.overwrite,
-        delete_stale_files=cfg.delete_stale_files,
-    )
-    written = manager.write_documents(documents)
-    manager.write_index(documents, cfg.default_language)
-    validation = OutputValidator(cfg.documentation_policy).validate(output_dir)
-
-    payload = {
-        "run_id": layout.run_id,
-        "written_files": [str(path) for path in written],
-        "warnings": warnings,
-        "job_counts": state.job_counts,
-        "validation": validation.summary(),
-    }
-    _emit_payload(payload, output_format)
+    if ctx.validation_report:
+        console.print(f"  Validation: {ctx.validation_report.summary()}")
 
 
 @app.command()
@@ -225,6 +105,8 @@ def scan(
     ),
 ) -> None:
     """Scan a project and print the collected evidence."""
+    from makewiki_skills.pipeline.pipeline import Pipeline
+
     target = Path(target).resolve()
     if not target.is_dir():
         console.print(f"[red]Error:[/red] Not a directory: {target}")
@@ -235,10 +117,15 @@ def scan(
     ctx = pipeline.run_until("collect_evidence")
 
     if output_format == "json":
-        if ctx.detection and ctx.collected_evidence:
-            typer.echo(
-                json_lib.dumps(_build_scan_json_payload(ctx), indent=2, ensure_ascii=False)
+        if ctx.detection and ctx.evidence_registry:
+            files_read: list[str] = []
+            if ctx.collected_evidence:
+                files_read = ctx.collected_evidence.raw_files_read
+            bundle = ctx.evidence_registry.to_evidence_bundle(
+                detection=ctx.detection,
+                files_read=files_read,
             )
+            typer.echo(json_lib.dumps(bundle.model_dump(), indent=2, ensure_ascii=False))
         else:
             typer.echo(json_lib.dumps({"error": "No evidence collected"}, indent=2))
         return
@@ -254,8 +141,8 @@ def scan(
     table = Table(title="Evidence Summary")
     table.add_column("Fact Type")
     table.add_column("Count", justify="right")
-    for fact_type, count in sorted(summary.items()):
-        table.add_row(fact_type, str(count))
+    for ftype, count in sorted(summary.items()):
+        table.add_row(ftype, str(count))
     console.print(table)
     console.print(f"Total facts: {len(ctx.evidence_registry)}")
 
@@ -265,6 +152,8 @@ def validate(
     wiki_dir: Path = typer.Argument(..., help="Path to makewiki/ output directory"),
 ) -> None:
     """Validate an existing makewiki output directory."""
+    from makewiki_skills.renderer.validator import OutputValidator
+
     wiki_dir = Path(wiki_dir).resolve()
     validator = OutputValidator()
     report = validator.validate(wiki_dir)
@@ -295,7 +184,12 @@ def verify(
         "human", "--format", "-f", help="Output format: human | json"
     ),
 ) -> None:
-    """Verify generated docs against the actual project codebase."""
+    """Verify generated docs against the actual project codebase.
+
+    Checks that file paths, commands, and config keys mentioned in the
+    generated documentation actually exist in the project.
+    """
+    from makewiki_skills.generator.language_generator import GeneratedDocument
     from makewiki_skills.languages.registry import LanguageRegistry
     from makewiki_skills.verification.codebase_verifier import CodebaseVerifier
 
@@ -304,12 +198,46 @@ def verify(
     cfg.languages = langs
 
     LanguageRegistry.load_builtins()
+
     resolved_wiki_dir = Path(wiki_dir).resolve() if wiki_dir else target / cfg.output_dir
     if not resolved_wiki_dir.is_dir():
         console.print(f"[red]Error:[/red] Wiki directory not found: {resolved_wiki_dir}")
         raise typer.Exit(1)
 
-    documents = _load_documents_from_output(resolved_wiki_dir, langs, cfg.default_language)
+    documents: dict[str, list[GeneratedDocument]] = {}
+    for lang_code in langs:
+        if not LanguageRegistry.has(lang_code):
+            continue
+        profile = LanguageRegistry.get(lang_code)
+        docs: list[GeneratedDocument] = []
+        for md_file in resolved_wiki_dir.rglob("*.md"):
+            if md_file.name == "index.md":
+                continue
+            name = md_file.name
+            if lang_code == cfg.default_language:
+                if any(f".{other}" in name for other in langs if other != lang_code):
+                    continue
+            else:
+                if profile.file_suffix not in name:
+                    continue
+
+            rel = md_file.relative_to(resolved_wiki_dir)
+            base_name = str(rel).replace("\\", "/")
+            if profile.file_suffix:
+                base_name = base_name.replace(profile.file_suffix, "")
+
+            content = md_file.read_text(encoding="utf-8", errors="replace")
+            docs.append(
+                GeneratedDocument(
+                    filename=str(rel).replace("\\", "/"),
+                    base_name=base_name,
+                    language_code=lang_code,
+                    content=content,
+                    word_count=len(content.split()),
+                )
+            )
+        documents[lang_code] = docs
+
     verifier = CodebaseVerifier(target)
     report = verifier.verify(documents)
 
@@ -345,18 +273,57 @@ def review(
     config_path: Optional[Path] = typer.Option(None, "--config", "-c"),
 ) -> None:
     """Run cross-language review on existing makewiki output."""
+    from makewiki_skills.generator.language_generator import GeneratedDocument
     from makewiki_skills.review.cross_language_reviewer import CrossLanguageReviewer
 
     target = Path(target).resolve()
     cfg = _load_config(config_path, target)
     cfg.languages = langs
 
+    from makewiki_skills.languages.registry import LanguageRegistry
+
+    LanguageRegistry.load_builtins()
+
     wiki_dir = target / cfg.output_dir
     if not wiki_dir.is_dir():
         console.print(f"[red]Error:[/red] Wiki directory not found: {wiki_dir}")
         raise typer.Exit(1)
 
-    documents = _load_documents_from_output(wiki_dir, langs, cfg.default_language)
+    documents: dict[str, list[GeneratedDocument]] = {}
+    for lang_code in langs:
+        if not LanguageRegistry.has(lang_code):
+            continue
+        profile = LanguageRegistry.get(lang_code)
+        docs: list[GeneratedDocument] = []
+        for md_file in wiki_dir.rglob("*.md"):
+            if md_file.name == "index.md":
+                continue
+            name = md_file.name
+            if lang_code == cfg.default_language:
+                if any(f".{other}" in name for other in langs if other != lang_code):
+                    continue
+            else:
+                if profile.file_suffix not in name:
+                    continue
+                name = name.replace(profile.file_suffix, "")
+
+            rel = md_file.relative_to(wiki_dir)
+            base_name = str(rel).replace("\\", "/")
+            if profile.file_suffix:
+                base_name = base_name.replace(profile.file_suffix, "")
+
+            content = md_file.read_text(encoding="utf-8", errors="replace")
+            docs.append(
+                GeneratedDocument(
+                    filename=str(rel).replace("\\", "/"),
+                    base_name=base_name,
+                    language_code=lang_code,
+                    content=content,
+                    word_count=len(content.split()),
+                )
+            )
+        documents[lang_code] = docs
+
     reviewer = CrossLanguageReviewer()
     result = reviewer.review(documents)
 
@@ -413,6 +380,10 @@ def semantic_review(
         console.print(f"[red]Error:[/red] Directory not found: {wiki_dir}")
         raise typer.Exit(1)
 
+    from makewiki_skills.languages.registry import LanguageRegistry
+
+    LanguageRegistry.load_builtins()
+
     pages: dict[str, dict[str, str]] = {}
     default_lang = langs[0] if langs else "en"
 
@@ -420,8 +391,19 @@ def semantic_review(
         if md_file.name == "index.md":
             continue
         rel = str(md_file.relative_to(wiki_dir)).replace("\\", "/")
-        detected_lang = _detect_language_from_filename(rel, langs, default_lang)
-        base = _strip_language_suffix(rel, detected_lang, default_lang)
+
+        detected_lang = default_lang
+        base = rel
+        for lang_code in langs:
+            if lang_code == default_lang:
+                continue
+            if LanguageRegistry.has(lang_code):
+                profile = LanguageRegistry.get(lang_code)
+                if profile.file_suffix and profile.file_suffix in rel:
+                    detected_lang = lang_code
+                    base = rel.replace(profile.file_suffix, "")
+                    break
+
         content = md_file.read_text(encoding="utf-8", errors="replace")
         pages.setdefault(base, {})[detected_lang] = content
 
@@ -437,11 +419,15 @@ def semantic_review(
             passages: dict[str, str] = {}
             for lang_code, content in lang_contents.items():
                 sections = _split_by_h2(content)
+                # Headings differ across languages, so sections are matched by position.
                 section_idx = list(ref_sections.keys()).index(section_heading)
                 other_sections = list(sections.values())
-                passages[lang_code] = other_sections[section_idx][:500] if section_idx < len(other_sections) else ""
+                if section_idx < len(other_sections):
+                    passages[lang_code] = other_sections[section_idx][:500]
+                else:
+                    passages[lang_code] = ""
 
-            if any(passage.strip() for passage in passages.values()):
+            if any(p.strip() for p in passages.values()):
                 review_pairs.append(
                     {
                         "document": base_name,
@@ -458,14 +444,15 @@ def semantic_review(
         console.print(f"  Documents with multiple languages: {len(pages)}")
         console.print(f"  Section pairs for review: {len(review_pairs)}")
         for pair in review_pairs[:10]:
-            console.print(f"\n  [cyan]{pair['document']}[/cyan] - {pair['reference_heading']}")
-            passages = pair["passages"]
+            console.print(f"\n  [cyan]{pair['document']}[/cyan] — {pair['reference_heading']}")
+            passages = cast(dict[str, str], pair["passages"])
             for lang, text in passages.items():
                 preview = str(text)[:80].replace("\n", " ")
                 console.print(f"    [{lang}] {preview}...")
 
 
 def _split_by_h2(content: str) -> dict[str, str]:
+    """Split markdown content into sections by H2 headings."""
     import re
 
     sections: dict[str, str] = {}
@@ -486,97 +473,6 @@ def _split_by_h2(content: str) -> dict[str, str]:
         sections[current_heading] = "\n".join(current_lines)
 
     return sections
-
-
-def _emit_payload(payload: dict[str, Any], output_format: str) -> None:
-    if output_format == "json":
-        typer.echo(json_lib.dumps(payload, indent=2, ensure_ascii=False))
-        return
-    for key, value in payload.items():
-        console.print(f"[bold]{key}:[/bold] {value}")
-
-
-def _build_scan_json_payload(ctx: "PipelineContext") -> dict[str, Any]:
-    files_read = ctx.collected_evidence.raw_files_read if ctx.collected_evidence else []
-    bundle = ctx.evidence_registry.to_evidence_bundle(
-        detection=ctx.detection,
-        files_read=files_read,
-    )
-    collection_mode = ctx.collected_evidence.collection_mode if ctx.collected_evidence else "python"
-    llm_scan_required = ctx.scan_fallback_required or collection_mode == "llm-fallback"
-    fallback_reason = ctx.scan_failure_reason
-    if not fallback_reason and ctx.collected_evidence is not None:
-        fallback_reason = ctx.collected_evidence.fallback_reason
-
-    scan_status = "fallback_required" if llm_scan_required else "complete"
-    payload = bundle.model_dump()
-    payload.update(
-        {
-            "scan_status": scan_status,
-            "collection_mode": collection_mode,
-            "llm_scan_required": llm_scan_required,
-            "fallback_reason": fallback_reason,
-            "warnings": ctx.warnings,
-            "suggested_job_kind": "llm-scan" if llm_scan_required else None,
-            "suggested_skill": "makewiki-llm-scan" if llm_scan_required else None,
-            "next_step": (
-                "Use the `makewiki-llm-scan` child skill to write objective evidence shards "
-                "and update evidence.index.json before semantic orchestration."
-                if llm_scan_required
-                else None
-            ),
-        }
-    )
-    return payload
-
-
-def _resolve_layout(store: RunStore, config: MakeWikiConfig, run_id: str | None) -> RunLayout | None:
-    if run_id:
-        layout = RunLayout.create(config.target_dir.resolve(), config.orchestration.state_dir, run_id)
-        return layout if layout.state_file.is_file() else None
-    return store.latest_layout()
-
-
-def _load_documents_from_output(
-    wiki_dir: Path,
-    langs: list[str],
-    default_language: str,
-) -> dict[str, list["GeneratedDocument"]]:
-    documents: dict[str, list[GeneratedDocument]] = {lang: [] for lang in langs}
-    for md_file in wiki_dir.rglob("*.md"):
-        if md_file.name == "index.md":
-            continue
-        rel = str(md_file.relative_to(wiki_dir)).replace("\\", "/")
-        language = _detect_language_from_filename(rel, langs, default_language)
-        if language not in documents:
-            documents[language] = []
-        base_name = _strip_language_suffix(rel, language, default_language)
-        content = md_file.read_text(encoding="utf-8", errors="replace")
-        documents[language].append(
-            GeneratedDocument(
-                filename=rel,
-                base_name=base_name,
-                language_code=language,
-                content=content,
-                word_count=len(content.split()),
-            )
-        )
-    return documents
-
-
-def _detect_language_from_filename(path_text: str, langs: list[str], default_language: str) -> str:
-    for lang in langs:
-        if lang == default_language:
-            continue
-        if f".{lang}." in path_text:
-            return lang
-    return default_language
-
-
-def _strip_language_suffix(path_text: str, language: str, default_language: str) -> str:
-    if language == default_language:
-        return path_text
-    return path_text.replace(f".{language}.", ".", 1)
 
 
 def _load_config(config_path: Path | None, target: Path) -> MakeWikiConfig:

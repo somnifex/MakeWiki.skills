@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Literal
 from pydantic import BaseModel, Field
 
 from makewiki_skills.config import MakeWikiConfig
@@ -12,7 +11,6 @@ from makewiki_skills.scanner.project_detector import ProjectDetectionResult, Pro
 from makewiki_skills.toolkit.cli_help_extractor import CLIHelpExtractor
 from makewiki_skills.toolkit.command_probe import CommandProbeTool
 from makewiki_skills.toolkit.comment_extractor import CommentExtractor
-from makewiki_skills.toolkit.config_access_tracker import ConfigAccessTracker
 from makewiki_skills.toolkit.config_reader import ConfigReaderTool
 from makewiki_skills.toolkit.error_extractor import ErrorStringExtractor
 from makewiki_skills.toolkit.evidence import EvidenceFact, EvidenceLink, EvidenceTool
@@ -23,8 +21,6 @@ class CollectedEvidence(BaseModel):
 
     project_dir: str
     detection: ProjectDetectionResult
-    collection_mode: Literal["python", "llm-fallback"] = "python"
-    fallback_reason: str | None = None
     facts: list[EvidenceFact] = Field(default_factory=list)
     raw_files_read: list[str] = Field(default_factory=list)
     commands_discovered: list[str] = Field(default_factory=list)
@@ -42,7 +38,6 @@ class EvidenceCollector:
         self._comment_extractor = CommentExtractor()
         self._cli_help_extractor = CLIHelpExtractor()
         self._error_extractor = ErrorStringExtractor()
-        self._config_access_tracker = ConfigAccessTracker()
 
     def collect(
         self,
@@ -297,26 +292,6 @@ class EvidenceCollector:
                     facts.extend(self._error_extractor.to_evidence_facts(error_facts))
                     if rel not in files_read:
                         files_read.append(rel)
-
-                if self._config.scan.python_ast_config_tracking:
-                    access_facts = self._config_access_tracker.to_evidence_facts(
-                        self._config_access_tracker.extract_from_file(py_file),
-                        root,
-                    )
-                    if access_facts:
-                        facts.extend(access_facts)
-                        if rel not in files_read:
-                            files_read.append(rel)
-
-                if self._config.scan.grep_fallback_for_config:
-                    fallback_facts = self._config_access_tracker.to_evidence_facts(
-                        self._config_access_tracker.grep_fallback_from_file(py_file),
-                        root,
-                    )
-                    if fallback_facts:
-                        facts.extend(fallback_facts)
-                        if rel not in files_read:
-                            files_read.append(rel)
 
                 py_files_scanned += 1
 

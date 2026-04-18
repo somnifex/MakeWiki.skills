@@ -1,198 +1,180 @@
-"""Tests for the run store and orchestration state refresh flow."""
+"""Tests for _is_detailed_mode and _build_command_groups enhancements."""
 
 from __future__ import annotations
 
-import json
-import shutil
-from pathlib import Path
-
-from makewiki_skills.config import MakeWikiConfig
-from makewiki_skills.orchestration.models import (
-    ChildSkillReceipt,
-    ModuleIndexItem,
-    PageIndexItem,
-    SemanticModelIndex,
-    WorkflowIndexItem,
+from makewiki_skills.model.semantic_model import (
+    Command,
+    ConfigItem,
+    ConfigSection,
+    UserTask,
+    UsageExample,
 )
-from makewiki_skills.orchestration.store import RunStore
-from makewiki_skills.pipeline.pipeline import Pipeline
-from makewiki_skills.scanner.evidence_collector import EvidenceCollector
-from makewiki_skills.scanner.project_detector import ProjectDetector
+from makewiki_skills.pipeline.pipeline import _build_command_groups, _is_detailed_mode
 
 
-def _write_json(path: Path, payload: object) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+# --- _is_detailed_mode tests ---
 
 
-def _write_receipt(layout, receipt: ChildSkillReceipt) -> None:
-    receipt_path = layout.receipts_dir / f"{receipt.job_id.replace(':', '__')}.{receipt.attempt}.json"
-    _write_json(receipt_path, receipt.model_dump())
+def test_detailed_mode_explicit_detailed():
+    assert _is_detailed_mode("detailed", [], [], []) is True
 
 
-def test_prepare_run_writes_evidence_index_and_initial_jobs(minimal_python_cli_dir: Path, tmp_path: Path):
-    project_dir = tmp_path / "project"
-    shutil.copytree(minimal_python_cli_dir, project_dir)
-
-    config = MakeWikiConfig.default(project_dir)
-    config.orchestration.resume = False
-    detector = ProjectDetector()
-    detection = detector.detect(project_dir)
-    collected = EvidenceCollector(config).collect(project_dir, detection)
-
-    store = RunStore(config)
-    layout, state, evidence_index, resumed = store.prepare_run(detection, collected)
-
-    assert resumed is False
-    assert layout.evidence_index_file.is_file()
-    assert evidence_index.shard_count > 0
-    assert any(job.kind == "surface-card" for job in state.jobs)
-    assert any(job.kind == "semantic-root" for job in state.jobs)
+def test_detailed_mode_explicit_compact():
+    cmds = [Command(name=f"cmd{i}") for i in range(20)]
+    assert _is_detailed_mode("compact", cmds, [], []) is False
 
 
-def test_refresh_state_adds_semantic_jobs_and_exposes_next_ready_jobs(
-    minimal_python_cli_dir: Path,
-    tmp_path: Path,
-):
-    project_dir = tmp_path / "project"
-    shutil.copytree(minimal_python_cli_dir, project_dir)
+def test_detailed_mode_auto_simple():
+    """Few commands, few config, few tasks -> not detailed."""
+    cmds = [Command(name=f"cmd{i}") for i in range(3)]
+    cfg = [ConfigSection(name="main", items=[ConfigItem(key=f"k{i}") for i in range(4)])]
+    tasks = [UserTask(title=f"task{i}") for i in range(2)]
+    assert _is_detailed_mode("auto", cmds, cfg, tasks) is False
 
-    config = MakeWikiConfig.default(project_dir)
-    config.orchestration.resume = False
-    detector = ProjectDetector()
-    detection = detector.detect(project_dir)
-    collected = EvidenceCollector(config).collect(project_dir, detection)
 
-    store = RunStore(config)
-    layout, state, _evidence_index, _resumed = store.prepare_run(detection, collected)
+def test_detailed_mode_auto_complex_multi_dimension():
+    """Two dimensions exceed thresholds -> detailed."""
+    cmds = [Command(name=f"cmd{i}") for i in range(6)]  # >= 5
+    cfg = [ConfigSection(name="main", items=[ConfigItem(key=f"k{i}") for i in range(12)])]  # >= 10
+    tasks = [UserTask(title=f"task{i}") for i in range(3)]  # < 8
+    assert _is_detailed_mode("auto", cmds, cfg, tasks) is True
 
-    for job in state.jobs:
-        if job.kind != "surface-card" or job.artifact_path is None:
-            continue
-        artifact_path = project_dir / job.artifact_path
-        artifact_path.parent.mkdir(parents=True, exist_ok=True)
-        artifact_path.write_text('{"surface":"ok"}\n', encoding="utf-8")
-        _write_receipt(
-            layout,
-            ChildSkillReceipt(
-                job_id=job.job_id,
-                status="done",
-                artifact_path=job.artifact_path,
-                trace_path=layout.rel_to_project(layout.traces_dir / f"{job.source_ref}.json"),
-                attempt=1,
-            ),
-        )
 
-    semantic_index = SemanticModelIndex(
-        run_id=layout.run_id,
-        languages=config.languages,
-        modules=[ModuleIndexItem(id="core", name="Core")],
-        workflows=[WorkflowIndexItem(id="hello-world", name="Hello World", module_ids=["core"])],
-        pages=[PageIndexItem(id="commands", kind="global", scope="global", target_ids=[])],
-    )
-    layout.project_brief_file.write_text('{"name":"mini-cli"}\n', encoding="utf-8")
-    layout.semantic_index_file.write_text(semantic_index.model_dump_json(indent=2), encoding="utf-8")
-    _write_receipt(
-        layout,
-        ChildSkillReceipt(
-            job_id="semantic-root",
-            status="done",
-            artifact_path=layout.rel_to_project(layout.semantic_index_file),
-            trace_path=layout.rel_to_project(layout.traces_dir / "semantic-root.json"),
-            attempt=1,
+def test_detailed_mode_auto_one_dimension_not_enough():
+    """Only one dimension exceeds threshold -> not detailed (unless total is high)."""
+    cmds = [Command(name=f"cmd{i}") for i in range(7)]  # >= 5
+    cfg = [ConfigSection(name="main", items=[ConfigItem(key=f"k{i}") for i in range(3)])]  # < 10
+    tasks = [UserTask(title=f"task{i}") for i in range(2)]  # < 8
+    # total = 7+3+2 = 12, < 15
+    assert _is_detailed_mode("auto", cmds, cfg, tasks) is False
+
+
+def test_detailed_mode_auto_high_total():
+    """Total >= 15 triggers detailed even if individual thresholds aren't exceeded."""
+    cmds = [Command(name=f"cmd{i}") for i in range(4)]  # < 5
+    cfg = [ConfigSection(name="main", items=[ConfigItem(key=f"k{i}") for i in range(7)])]  # < 10
+    tasks = [UserTask(title=f"task{i}") for i in range(5)]  # < 8
+    # total = 4+7+5 = 16, >= 15
+    assert _is_detailed_mode("auto", cmds, cfg, tasks) is True
+
+
+# --- _build_command_groups tests ---
+
+
+def _make_commands_from_sources(sources: dict[str, int]) -> list[Command]:
+    """Helper: create commands grouped by source file."""
+    commands = []
+    for source, count in sources.items():
+        for i in range(count):
+            commands.append(Command(name=f"{source}-cmd-{i}", source_file=source))
+    return commands
+
+
+def test_build_groups_simple_not_detailed():
+    """Not detailed -> empty groups."""
+    cmds = _make_commands_from_sources({"README.md": 3, "Makefile": 3})
+    groups = _build_command_groups(cmds, [], [], 6, False)
+    assert groups == []
+
+
+def test_build_groups_below_threshold():
+    """Below split threshold -> empty groups."""
+    cmds = _make_commands_from_sources({"README.md": 2, "Makefile": 2})
+    groups = _build_command_groups(cmds, [], [], 6, True)
+    assert groups == []
+
+
+def test_build_groups_single_source():
+    """Single source file -> no splitting."""
+    cmds = _make_commands_from_sources({"README.md": 8})
+    groups = _build_command_groups(cmds, [], [], 6, True)
+    assert groups == []
+
+
+def test_build_groups_multiple_sources():
+    """Multiple sources above threshold -> groups created."""
+    cmds = _make_commands_from_sources({"README.md": 4, "Makefile": 4})
+    groups = _build_command_groups(cmds, [], [], 6, True)
+    assert len(groups) == 2
+    slugs = {g.slug for g in groups}
+    assert "readme" in slugs
+    assert "makefile" in slugs
+
+
+def test_build_groups_config_association():
+    """Config sections are associated with groups via task.related_config."""
+    cmds = [
+        Command(name="serve --port 8080", source_file="README.md"),
+        Command(name="make serve", source_file="README.md"),
+        Command(name="make serve", source_file="Makefile"),
+        Command(name="make build", source_file="Makefile"),
+        Command(name="make deploy", source_file="Makefile"),
+        Command(name="make test", source_file="Makefile"),
+    ]
+    tasks = [
+        UserTask(
+            title="Start the application",
+            commands=["serve --port 8080"],
+            related_config=["PORT", "HOST"],
         ),
-    )
-
-    refreshed_state, refreshed_index = store.refresh_state(layout, config.languages)
-    ready_job_ids = [job.job_id for job in store.ready_jobs(refreshed_state, limit=10)]
-
-    assert refreshed_index is not None
-    assert refreshed_index.modules[0].id == "core"
-    assert any(job.job_id == "module-brief:core" for job in refreshed_state.jobs)
-    assert "module-brief:core" in ready_job_ids
-
-
-def test_done_receipt_without_artifact_becomes_stale(minimal_python_cli_dir: Path, tmp_path: Path):
-    project_dir = tmp_path / "project"
-    shutil.copytree(minimal_python_cli_dir, project_dir)
-
-    config = MakeWikiConfig.default(project_dir)
-    config.orchestration.resume = False
-    detector = ProjectDetector()
-    detection = detector.detect(project_dir)
-    collected = EvidenceCollector(config).collect(project_dir, detection)
-
-    store = RunStore(config)
-    layout, _state, _evidence_index, _resumed = store.prepare_run(detection, collected)
-
-    semantic_index = SemanticModelIndex(
-        run_id=layout.run_id,
-        languages=config.languages,
-        modules=[],
-        workflows=[],
-        pages=[PageIndexItem(id="commands", kind="global", scope="global", target_ids=[])],
-    )
-    layout.semantic_index_file.write_text(semantic_index.model_dump_json(indent=2), encoding="utf-8")
-    _write_receipt(
-        layout,
-        ChildSkillReceipt(
-            job_id="page-write:commands:en",
-            status="done",
-            artifact_path=layout.rel_to_project(layout.page_artifacts_dir / "en" / "commands.md"),
-            trace_path=layout.rel_to_project(layout.traces_dir / "commands-en.json"),
-            attempt=1,
+    ]
+    config = [
+        ConfigSection(
+            name="Server",
+            items=[ConfigItem(key="PORT"), ConfigItem(key="HOST")],
         ),
-    )
+        ConfigSection(
+            name="Database",
+            items=[ConfigItem(key="DB_URL")],
+        ),
+    ]
+    groups = _build_command_groups(cmds, tasks, [], 6, True, configuration=config)
 
-    refreshed_state, _refreshed_index = store.refresh_state(layout, ["en"])
-    page_job = next(job for job in refreshed_state.jobs if job.job_id == "page-write:commands:en")
-    assert page_job.status == "stale"
-
-
-def test_pipeline_falls_back_to_llm_scan_when_python_scan_fails(
-    minimal_python_cli_dir: Path,
-    monkeypatch,
-):
-    config = MakeWikiConfig.default(minimal_python_cli_dir)
-    config.orchestration.resume = False
-    config.scan.allow_llm_fallback_on_failure = True
-
-    def fail_collect(self, project_dir, detection):
-        raise RuntimeError("scanner import failure")
-
-    monkeypatch.setattr(EvidenceCollector, "collect", fail_collect)
-
-    ctx = Pipeline(config).run_until("prepare_run")
-
-    assert not ctx.errors
-    assert ctx.scan_fallback_required is True
-    assert ctx.collected_evidence is not None
-    assert ctx.collected_evidence.collection_mode == "llm-fallback"
-    assert ctx.evidence_index is not None
-    assert ctx.evidence_index.collection_mode == "llm-fallback"
-    assert ctx.state is not None
-    assert any(job.kind == "llm-scan" for job in ctx.state.jobs)
+    assert len(groups) == 2
+    readme_group = next(g for g in groups if g.slug == "readme")
+    # The "serve --port 8080" command matches the task, which has related_config PORT/HOST
+    assert len(readme_group.config_sections) == 1
+    assert readme_group.config_sections[0].name == "Server"
 
 
-def test_pipeline_reports_detection_fallback_when_detector_fails(
-    minimal_python_cli_dir: Path,
-    monkeypatch,
-):
-    config = MakeWikiConfig.default(minimal_python_cli_dir)
-    config.scan.allow_llm_fallback_on_failure = True
-    config.orchestration.resume = False
+def test_build_groups_description_from_tasks():
+    """Groups get descriptions generated from their tasks."""
+    cmds = [
+        Command(name="serve --port 8080", source_file="README.md"),
+        Command(name="make serve", source_file="README.md"),
+        Command(name="make serve", source_file="Makefile"),
+        Command(name="make build", source_file="Makefile"),
+        Command(name="make deploy", source_file="Makefile"),
+        Command(name="make test", source_file="Makefile"),
+    ]
+    tasks = [
+        UserTask(
+            title="Start the application",
+            user_goal="Run the project locally.",
+            commands=["serve --port 8080"],
+        ),
+    ]
+    groups = _build_command_groups(cmds, tasks, [], 6, True)
 
-    def fail_detect(self, project_dir):
-        raise RuntimeError("detector unavailable")
+    readme_group = next(g for g in groups if g.slug == "readme")
+    assert readme_group.description is not None
+    assert "Run the project locally" in readme_group.description
 
-    monkeypatch.setattr(ProjectDetector, "detect", fail_detect)
-    monkeypatch.setattr(EvidenceCollector, "collect", lambda self, project_dir, detection: (_ for _ in ()).throw(RuntimeError("scan unavailable")))
 
-    ctx = Pipeline(config).run_until("prepare_run")
+def test_build_groups_ungrouped_commands():
+    """Commands without source_file go into a General group."""
+    cmds = [
+        Command(name="cmd1", source_file="README.md"),
+        Command(name="cmd2", source_file="README.md"),
+        Command(name="cmd3", source_file="README.md"),
+        Command(name="cmd4", source_file="Makefile"),
+        Command(name="cmd5", source_file="Makefile"),
+        Command(name="cmd6", source_file="Makefile"),
+        Command(name="orphan-cmd"),  # no source_file
+    ]
+    groups = _build_command_groups(cmds, [], [], 6, True)
 
-    assert not ctx.errors
-    assert ctx.detection is not None
-    assert ctx.detection.project_name == minimal_python_cli_dir.name
-    assert ctx.scan_fallback_required is True
-    assert ctx.state is not None
-    assert ctx.state.jobs[0].kind == "llm-scan"
+    assert len(groups) == 3
+    general = next(g for g in groups if g.slug == "general")
+    assert len(general.commands) == 1
+    assert general.commands[0].name == "orphan-cmd"

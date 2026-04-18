@@ -1,12 +1,10 @@
-"""Integration test - verify output directory structure after assembly."""
+"""Integration test - verify output directory structure after full pipeline run."""
 
 import shutil
 from pathlib import Path
 
 from makewiki_skills.config import MakeWikiConfig
 from makewiki_skills.pipeline.pipeline import Pipeline
-
-from tests.integration._helpers import seed_run_artifacts
 
 
 def test_output_structure(minimal_python_cli_dir: Path, tmp_path: Path):
@@ -16,14 +14,6 @@ def test_output_structure(minimal_python_cli_dir: Path, tmp_path: Path):
 
     config = MakeWikiConfig.default(project_dir)
     config.languages = ["en", "zh-CN"]
-    seed_run_artifacts(
-        project_dir,
-        config,
-        project_name="mini-cli",
-        command="mini-cli hello --name World",
-        entry_path="./src/myapp/main.py",
-        include_integrations=True,
-    )
 
     pipeline = Pipeline(config)
     pipeline.run()
@@ -31,27 +21,21 @@ def test_output_structure(minimal_python_cli_dir: Path, tmp_path: Path):
     wiki_dir = project_dir / "makewiki"
     assert wiki_dir.is_dir()
 
+    # English files (default, no suffix)
     assert (wiki_dir / "README.md").is_file()
     assert (wiki_dir / "getting-started.md").is_file()
     assert (wiki_dir / "installation.md").is_file()
     assert (wiki_dir / "configuration.md").is_file()
-    assert (wiki_dir / "commands.md").is_file()
-    assert (wiki_dir / "modules" / "overview.md").is_file()
-    assert (wiki_dir / "modules" / "core.md").is_file()
-    assert (wiki_dir / "workflows" / "overview.md").is_file()
-    assert (wiki_dir / "workflows" / "hello-world.md").is_file()
-    assert (wiki_dir / "integrations" / "overview.md").is_file()
+    assert (wiki_dir / "usage" / "basic-usage.md").is_file()
 
+    # Chinese files (with .zh-CN suffix)
     assert (wiki_dir / "README.zh-CN.md").is_file()
     assert (wiki_dir / "getting-started.zh-CN.md").is_file()
     assert (wiki_dir / "installation.zh-CN.md").is_file()
     assert (wiki_dir / "configuration.zh-CN.md").is_file()
-    assert (wiki_dir / "commands.zh-CN.md").is_file()
-    assert (wiki_dir / "modules" / "overview.zh-CN.md").is_file()
-    assert (wiki_dir / "modules" / "core.zh-CN.md").is_file()
-    assert (wiki_dir / "workflows" / "overview.zh-CN.md").is_file()
-    assert (wiki_dir / "workflows" / "hello-world.zh-CN.md").is_file()
+    assert (wiki_dir / "usage" / "basic-usage.zh-CN.md").is_file()
 
+    # Index file
     assert (wiki_dir / "index.md").is_file()
     index_content = (wiki_dir / "index.md").read_text(encoding="utf-8")
     assert "en" in index_content or "README.md" in index_content
@@ -65,18 +49,11 @@ def test_output_within_target_dir(minimal_python_cli_dir: Path, tmp_path: Path):
 
     config = MakeWikiConfig.default(project_dir)
     config.languages = ["en"]
-    seed_run_artifacts(
-        project_dir,
-        config,
-        project_name="mini-cli",
-        command="mini-cli hello --name World",
-        entry_path="./src/myapp/main.py",
-        include_integrations=False,
-    )
 
     pipeline = Pipeline(config)
     ctx = pipeline.run()
 
+    # All written files should be under project_dir / makewiki
     wiki_dir = project_dir / "makewiki"
     for fpath in ctx.written_files:
         assert Path(fpath).resolve().is_relative_to(wiki_dir.resolve())
@@ -89,14 +66,6 @@ def test_three_languages(minimal_python_cli_dir: Path, tmp_path: Path):
 
     config = MakeWikiConfig.default(project_dir)
     config.languages = ["en", "zh-CN", "ja"]
-    seed_run_artifacts(
-        project_dir,
-        config,
-        project_name="mini-cli",
-        command="mini-cli hello --name World",
-        entry_path="./src/myapp/main.py",
-        include_integrations=False,
-    )
 
     pipeline = Pipeline(config)
     pipeline.run()

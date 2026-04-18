@@ -1,6 +1,6 @@
 [project]
 name = "mini-cli"
-version = "0.6.0"
+version = "0.5.0"
 description = "A minimal CLI for testing."
 requires-python = ">=3.11"
 dependencies = ["typer>=0.12"]

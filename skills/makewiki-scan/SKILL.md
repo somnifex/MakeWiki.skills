@@ -1,65 +1,108 @@
 ---
 name: makewiki-scan
-description: "Objective evidence scan for MakeWiki. Use when a user wants to inspect what MakeWiki can prove from the repository before semantic orchestration: commands, config keys, paths, comments, AST config access hits, grep fallback hits, and shard layout."
-version: "0.6.0"
+description: "Scan a project and output evidence summary with LLM analysis: detected project type, available commands, config keys, dependencies, file structure, and a structured project brief. Use when: user wants to understand a project before generating docs, or wants to see what MakeWiki would detect."
+version: "0.5.0"
 argument-hint: "[--format json|human]"
 license: MIT
 allowed-tools: Bash(python */scripts/bootstrap_toolkit.py) Bash(python */scripts/run_toolkit.py *) Read Glob Grep
 ---
 
-# MakeWiki Scan
+# MakeWiki Scan - Project Evidence Discovery
 
-Run an objective scan only. Do not invent module or workflow structure during this skill.
+Scan the current project and report what MakeWiki can detect, supplemented with your own analysis.
 
-## Bootstrap
+## Arguments
 
-The bootstrap script refreshes `HOME/.makewiki` and its `.venv`, preferring `uv` and falling back to `python -m venv`.
+Parse `$ARGUMENTS` for:
+- `--format json|human`: Output format. Default: try json, fall back to human.
+
+## Execution
+
+### Step 1: Bootstrap the home-scoped toolkit
+
+Use the bundled bootstrap script. It prepares `<makewiki_root>` at `HOME/.makewiki` on Windows, macOS, and Linux. The launcher at `<makewiki_root>/scripts/run_toolkit.py` then bootstraps `<makewiki_root>/.venv`, preferring `uv` and falling back to `python -m venv`.
+
+Run this bootstrap command:
 
 ```bash
 python scripts/bootstrap_toolkit.py
 ```
 
-If the launcher is available, run:
+If the script prints a path, refer to it as `<makewiki_root>` and run the toolkit scanner with structured output:
 
 ```bash
 python <makewiki_root>/scripts/run_toolkit.py scan . --format json
 ```
 
-The JSON output explicitly reports:
-
-- `scan_status`
-- `collection_mode`
-- `llm_scan_required`
-- `fallback_reason`
-- `suggested_job_kind`
-- `suggested_skill`
-
-If the user wants a full orchestration run directory, you may also run:
+If `--format json` is not available, fall back to:
 
 ```bash
-python <makewiki_root>/scripts/run_toolkit.py prepare . --format json
+python <makewiki_root>/scripts/run_toolkit.py scan .
 ```
 
-If Python scanning fails or `prepare` reports `llm_scan_required: true`, fall back to direct LLM scanning:
+If the script prints `NOT_FOUND`, or if the launcher command fails, skip the launcher and perform the scan manually from project files.
 
-- read the repository with `Read`, `Glob`, and `Grep`
-- write objective evidence shards and an updated `evidence.index.json`
-- keep semantic grouping out of this skill
-- emit a short receipt for the `llm-scan` job
+### Step 2: Supplement with your own analysis
 
-If the toolkit bootstrap itself is unavailable, create the evidence artifacts directly under `.makewiki/runs/manual-<timestamp>/` and keep the output objective.
+Read the project yourself to fill evidence gaps:
 
-## Report
+1. Read manifest files (`pyproject.toml`, `package.json`, `Cargo.toml`, `go.mod`)
+2. Read build files (`Makefile`, scripts)
+3. Read existing docs (`README.md`, `docs/`)
+4. Read example configs (`.env.example`, `config.example.yaml`)
+5. Read entry points — what does running the program actually do?
 
-Report only objective findings:
+### Step 3: Build project brief
 
-- detected project type
-- commands
-- config keys
-- config access facts from Python AST
-- grep fallback hits and their low confidence
-- source files and paths
-- error string evidence
-- evidence shard count
+Produce a structured project brief as a YAML code block:
 
-Do not build a project brief, module list, workflow grouping, or page plan in this skill.
+```yaml
+project_brief:
+  name: ""
+  version: ""
+  purpose: ""            # ONE sentence
+  target_users: []
+  project_type: ""
+
+install_path:
+  prerequisites: []
+  commands: []
+  verify: ""
+
+key_workflows:
+  - title: ""
+    user_goal: ""
+    commands: []
+
+config_semantics:
+  - key: ""
+    effect: ""
+    source_file: ""
+
+common_pitfalls:
+  - symptom: ""
+    cause: ""
+    fix: ""
+
+uncertainty_flags:
+  - claim: ""
+    reason: ""
+```
+
+### Step 4: Report findings
+
+Report a structured summary covering:
+
+- **Project type** (Python CLI, Node React, Rust, Go, etc.)
+- **Project name and version**
+- **Detected commands** (from Makefile, package.json scripts, pyproject scripts, source analysis)
+- **Configuration files** found and their key paths with descriptions
+- **Environment variables** from .env.example files
+- **Existing documentation** assets
+- **Suggested languages** based on existing docs
+- **Key workflows** identified (what users actually do with this tool)
+- **Common pitfalls** (error patterns found in source code)
+- **Evidence confidence** for key claims
+- **Uncertainty flags** — what you could not determine
+
+Flag anything uncertain with explicit hedging.
