@@ -13,11 +13,9 @@ from rich.table import Table
 from makewiki_skills.config import MakeWikiConfig
 from makewiki_skills.documents import GeneratedDocument
 from makewiki_skills.orchestration import PageArtifactAssembler, RunLayout, RunStore
-from makewiki_skills.orchestration.store import PlannedArtifactFile
-from makewiki_skills.pipeline.pipeline import Pipeline, PipelineContext
-from makewiki_skills.renderer.output_manager import OutputFilePlan, OutputManager
+from makewiki_skills.pipeline.pipeline import Pipeline
+from makewiki_skills.renderer.output_manager import OutputManager
 from makewiki_skills.renderer.validator import OutputValidator
-from makewiki_skills.scanner.project_detector import ProjectDetectionResult, ProjectType
 
 app = typer.Typer(
     name="makewiki",
@@ -63,8 +61,6 @@ def generate(
         console.print(f"[bold]State[/bold]: {ctx.run_layout.state_file}")
         console.print(f"[bold]Evidence[/bold]: {ctx.run_layout.evidence_index_file}")
 
-    ready_jobs: list[Any] = []
-    incomplete_run = False
     if ctx.warnings:
         console.print("[yellow]Warnings:[/yellow]")
         for warning in ctx.warnings:
@@ -75,7 +71,6 @@ def generate(
     if ctx.state is not None:
         store = RunStore(cfg)
         ready_jobs = store.ready_jobs(ctx.state)
-        incomplete_run = any(job.status != "done" for job in ctx.state.jobs)
         console.print(f"  Ready jobs: {len(ready_jobs)}")
 
     if ctx.validation_report is not None:
@@ -97,21 +92,12 @@ def generate(
             table.add_row(name, f"{timing:.3f}")
         console.print(table)
 
-    if incomplete_run:
-        console.print("[yellow]Run incomplete.[/yellow] Finish the remaining jobs before treating this as successful output.")
-        raise typer.Exit(2)
-
 
 @app.command()
 def prepare(
     target: Path = typer.Argument(..., help="Target project directory"),
     config_path: Optional[Path] = typer.Option(None, "--config", "-c"),
     output_format: str = typer.Option("json", "--format", "-f", help="json | human"),
-    write_run: bool = typer.Option(
-        True,
-        "--write-run/--no-write-run",
-        help="Persist objective evidence and initial run files or return them for agent-side writing",
-    ),
 ) -> None:
     """Collect objective evidence and prepare or resume a run."""
     target = Path(target).resolve()
@@ -120,29 +106,11 @@ def prepare(
         raise typer.Exit(1)
 
     cfg = _load_config(config_path, target)
-    ctx = Pipeline(cfg).run_until("collect_evidence")
-    if ctx.errors:
-        for err in ctx.errors:
-            console.print(f"[red]Error:[/red] {err}")
-        raise typer.Exit(1)
-    if ctx.detection is None or ctx.collected_evidence is None:
-        console.print("[red]Error:[/red] Failed to collect evidence")
-        raise typer.Exit(1)
+    ctx = Pipeline(cfg).run_until("prepare_run")
 
-    store = RunStore(cfg)
-    layout, state, evidence_index, resumed, planned_files = store.prepare_run(
-        ctx.detection,
-        ctx.collected_evidence,
-        persist=write_run,
-    )
-    ctx.run_layout = layout
-    ctx.state = state
-    ctx.evidence_index = evidence_index
-    if resumed:
-        ctx.warnings.append(f"Resumed existing run {layout.run_id}")
-
-    scan_job_status = store.scan_job_status(ctx.state)
-    llm_scan_required = scan_job_status in {"pending", "failed", "stale"}
+    if ctx.run_layout is None or ctx.state is None or ctx.evidence_index is None:
+        console.print("[red]Error:[/red] Failed to prepare a run")
+        raise typer.Exit(1)
 
     payload = {
         "run_id": ctx.run_layout.run_id,
@@ -151,16 +119,11 @@ def prepare(
         "evidence_index_path": str(ctx.run_layout.evidence_index_file),
         "collection_mode": ctx.evidence_index.collection_mode,
         "fallback_reason": ctx.evidence_index.fallback_reason,
-        "scan_job_status": scan_job_status,
-        "llm_scan_required": llm_scan_required,
-        "resumed": resumed,
+        "llm_scan_required": ctx.evidence_index.collection_mode == "llm-fallback",
         "warnings": ctx.warnings,
         "fact_summary": ctx.evidence_index.fact_summary,
         "shard_count": ctx.evidence_index.shard_count,
     }
-    if not write_run:
-        payload["write_mode"] = "agent"
-        payload["files"] = [_serialize_planned_file(file) for file in planned_files]
     _emit_payload(payload, output_format)
 
 
@@ -170,11 +133,6 @@ def status(
     run_id: Optional[str] = typer.Option(None, "--run-id"),
     config_path: Optional[Path] = typer.Option(None, "--config", "-c"),
     output_format: str = typer.Option("json", "--format", "-f", help="json | human"),
-    write_state: bool = typer.Option(
-        True,
-        "--write-state/--no-write-state",
-        help="Persist refreshed state.json or return it for agent-side writing",
-    ),
 ) -> None:
     """Refresh and report the current run state."""
     target = Path(target).resolve()
@@ -186,16 +144,14 @@ def status(
         raise typer.Exit(1)
 
     evidence_index = store.load_evidence_index(layout)
-    state, semantic_index = store.refresh_state(layout, cfg.languages, persist=write_state)
+    state, semantic_index = store.refresh_state(layout, cfg.languages)
     ready_jobs = store.ready_jobs(state, limit=25)
-    scan_job_status = store.scan_job_status(state)
     payload = {
         "run_id": layout.run_id,
         "state_path": str(layout.state_file),
         "collection_mode": evidence_index.collection_mode,
         "fallback_reason": evidence_index.fallback_reason,
-        "scan_job_status": scan_job_status,
-        "llm_scan_required": scan_job_status in {"pending", "failed", "stale"},
+        "llm_scan_required": evidence_index.collection_mode == "llm-fallback",
         "semantic_index_exists": semantic_index is not None,
         "semantic_index_path": str(layout.semantic_index_file),
         "module_count": len(semantic_index.modules) if semantic_index is not None else 0,
@@ -214,11 +170,6 @@ def status(
             for job in ready_jobs
         ],
     }
-    if not write_state:
-        payload["state_update"] = {
-            "path": str(layout.state_file),
-            "content": state.model_dump_json(indent=2),
-        }
     _emit_payload(payload, output_format)
 
 
@@ -229,11 +180,6 @@ def assemble(
     run_id: Optional[str] = typer.Option(None, "--run-id"),
     config_path: Optional[Path] = typer.Option(None, "--config", "-c"),
     output_format: str = typer.Option("json", "--format", "-f", help="json | human"),
-    write_output: bool = typer.Option(
-        True,
-        "--write-output/--no-write-output",
-        help="Write makewiki files or return the file plan for agent-side materialization",
-    ),
 ) -> None:
     """Assemble final docs from page plans and per-language page artifacts."""
     target = Path(target).resolve()
@@ -246,7 +192,7 @@ def assemble(
         console.print("[red]Error:[/red] No prepared run found")
         raise typer.Exit(1)
 
-    state, _semantic_index = store.refresh_state(layout, cfg.languages, persist=write_output)
+    state, _semantic_index = store.refresh_state(layout, cfg.languages)
     assembler = PageArtifactAssembler(cfg)
     documents, warnings = assembler.assemble(layout, store)
     output_dir = target / cfg.output_dir
@@ -256,20 +202,6 @@ def assemble(
         overwrite=cfg.overwrite,
         delete_stale_files=cfg.delete_stale_files,
     )
-    if not write_output:
-        planned_files, stale_files = manager.plan_output_files(documents, cfg.default_language)
-        payload = {
-            "run_id": layout.run_id,
-            "write_mode": "agent",
-            "files": [_serialize_output_file(file) for file in planned_files],
-            "stale_files": [str(path) for path in stale_files],
-            "warnings": warnings,
-            "job_counts": state.job_counts,
-            "validation": None,
-        }
-        _emit_payload(payload, output_format)
-        return
-
     written = manager.write_documents(documents)
     manager.write_index(documents, cfg.default_language)
     validation = OutputValidator(cfg.documentation_policy).validate(output_dir)
@@ -458,12 +390,6 @@ def review(
 def init_config(
     target: Path = typer.Argument(".", help="Target project directory"),
     langs: list[str] = typer.Option(["en", "zh-CN"], "--lang", "-l"),
-    output_format: str = typer.Option("human", "--format", "-f", help="json | human"),
-    write_file: bool = typer.Option(
-        True,
-        "--write/--no-write",
-        help="Write makewiki.config.yaml or return its content for agent-side writing",
-    ),
 ) -> None:
     """Generate a default makewiki.config.yaml in the target directory."""
     target = Path(target).resolve()
@@ -471,21 +397,8 @@ def init_config(
     cfg.languages = langs
 
     config_path = target / "makewiki.config.yaml"
-    config_content = cfg.to_yaml()
-    if write_file:
-        config_path.write_text(config_content, encoding="utf-8")
-        if output_format == "json":
-            _emit_payload({"path": str(config_path), "written": True}, output_format)
-        else:
-            console.print(f"[green]Created[/green] {config_path}")
-        return
-
-    payload = {
-        "path": str(config_path),
-        "content": config_content,
-        "written": False,
-    }
-    _emit_payload(payload, output_format)
+    config_path.write_text(cfg.to_yaml(), encoding="utf-8")
+    console.print(f"[green]Created[/green] {config_path}")
 
 
 @app.command(name="semantic-review")
@@ -583,31 +496,10 @@ def _emit_payload(payload: dict[str, Any], output_format: str) -> None:
         console.print(f"[bold]{key}:[/bold] {value}")
 
 
-def _serialize_output_file(file: OutputFilePlan) -> dict[str, str]:
-    return _serialize_planned_file(file)
-
-
-def _serialize_planned_file(file: OutputFilePlan | PlannedArtifactFile) -> dict[str, str]:
-    return {
-        "path": str(file.target),
-        "relative_path": file.relative_path,
-        "content": file.content,
-    }
-
-
 def _build_scan_json_payload(ctx: "PipelineContext") -> dict[str, Any]:
     files_read = ctx.collected_evidence.raw_files_read if ctx.collected_evidence else []
-    detection = ctx.detection
-    if detection is None:
-        target_dir = ctx.config.target_dir.resolve()
-        detection = ProjectDetectionResult(
-            project_type=ProjectType.GENERIC,
-            confidence=0.0,
-            project_name=target_dir.name,
-            project_dir=str(target_dir),
-        )
     bundle = ctx.evidence_registry.to_evidence_bundle(
-        detection=detection,
+        detection=ctx.detection,
         files_read=files_read,
     )
     collection_mode = ctx.collected_evidence.collection_mode if ctx.collected_evidence else "python"

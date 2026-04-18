@@ -1,7 +1,6 @@
 ---
 name: makewiki-page-write
 description: "Internal MakeWiki child skill. Use when the current job is a page-write task and you need to write one markdown page artifact for one page id and one language from a page plan plus the minimal relevant briefs."
-allowed-tools: Read Write Edit Glob Grep
 ---
 # MakeWiki Page Write
 
@@ -16,8 +15,6 @@ Write:
 - one markdown page artifact
 - one trace JSON
 - one receipt JSON
-
-Always create or update those artifacts with the built-in `Write` or `Edit` tool. Do not invoke Python, `uv`, or shell redirection to write them.
 
 Code blocks must stay identical across languages.
 

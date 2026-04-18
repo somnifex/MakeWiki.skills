@@ -1,7 +1,6 @@
 ---
 name: makewiki-llm-scan
 description: "Internal MakeWiki child skill. Use when Python-based scanning failed or the current job is `llm-scan`, and you need to scan the repository directly with LLM tools, write objective evidence shards, update evidence.index.json, and emit a short receipt."
-allowed-tools: Read Write Edit Glob Grep
 ---
 
 # MakeWiki LLM Scan
@@ -24,8 +23,6 @@ Write:
 - `evidence/shards/*.json`
 - one trace JSON
 - one receipt JSON for job `llm-scan`
-
-Use the built-in `Write` or `Edit` tool for those artifacts. Do not invoke Python, `uv`, or shell redirection to materialize them.
 
 The receipt must contain only:
 

@@ -20,7 +20,6 @@ def test_makewiki_skills_use_home_toolkit_bootstrap():
         text = (skill_root / "SKILL.md").read_text(encoding="utf-8")
         assert (skill_root / "scripts" / "bootstrap_toolkit.py").is_file()
         assert "scripts/bootstrap_toolkit.py" in text
-        assert "Bash(python */scripts/bootstrap_toolkit.py *)" in text
         assert "scripts/run_toolkit.py" in text
         assert ".makewiki" in text
         assert ".venv" in text
@@ -49,12 +48,3 @@ def test_makewiki_skill_bootstrap_scripts_are_identical():
             encoding="utf-8"
         )
         assert text == baseline
-
-
-def test_makewiki_skills_require_update_check_before_bootstrap() -> None:
-    for skill_dir in MAKEWIKI_SKILL_DIRS:
-        text = (SKILLS_DIR / skill_dir / "SKILL.md").read_text(encoding="utf-8")
-        assert "python scripts/bootstrap_toolkit.py status --format json" in text
-        assert "toolkit_root" in text
-        assert "ask the user whether to update" in text.lower()
-        assert "python scripts/bootstrap_toolkit.py update" in text

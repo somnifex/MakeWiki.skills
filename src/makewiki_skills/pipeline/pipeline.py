@@ -123,10 +123,7 @@ def stage_prepare_run(ctx: PipelineContext) -> PipelineContext:
         return ctx
 
     store = RunStore(ctx.config)
-    layout, state, evidence_index, resumed, _planned_files = store.prepare_run(
-        ctx.detection,
-        ctx.collected_evidence,
-    )
+    layout, state, evidence_index, resumed = store.prepare_run(ctx.detection, ctx.collected_evidence)
     ctx.run_layout = layout
     ctx.state = state
     ctx.evidence_index = evidence_index

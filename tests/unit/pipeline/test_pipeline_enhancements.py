@@ -41,7 +41,7 @@ def test_prepare_run_writes_evidence_index_and_initial_jobs(minimal_python_cli_d
     collected = EvidenceCollector(config).collect(project_dir, detection)
 
     store = RunStore(config)
-    layout, state, evidence_index, resumed, _planned_files = store.prepare_run(detection, collected)
+    layout, state, evidence_index, resumed = store.prepare_run(detection, collected)
 
     assert resumed is False
     assert layout.evidence_index_file.is_file()
@@ -64,10 +64,7 @@ def test_refresh_state_adds_semantic_jobs_and_exposes_next_ready_jobs(
     collected = EvidenceCollector(config).collect(project_dir, detection)
 
     store = RunStore(config)
-    layout, state, _evidence_index, _resumed, _planned_files = store.prepare_run(
-        detection,
-        collected,
-    )
+    layout, state, _evidence_index, _resumed = store.prepare_run(detection, collected)
 
     for job in state.jobs:
         if job.kind != "surface-card" or job.artifact_path is None:
@@ -115,75 +112,6 @@ def test_refresh_state_adds_semantic_jobs_and_exposes_next_ready_jobs(
     assert "module-brief:core" in ready_job_ids
 
 
-def test_refresh_state_keeps_run_languages_frozen(
-    minimal_python_cli_dir: Path,
-    tmp_path: Path,
-):
-    project_dir = tmp_path / "project"
-    shutil.copytree(minimal_python_cli_dir, project_dir)
-
-    config = MakeWikiConfig.default(project_dir)
-    config.languages = ["en"]
-    config.orchestration.resume = False
-    detector = ProjectDetector()
-    detection = detector.detect(project_dir)
-    collected = EvidenceCollector(config).collect(project_dir, detection)
-
-    store = RunStore(config)
-    layout, _state, _evidence_index, _resumed, _planned_files = store.prepare_run(
-        detection,
-        collected,
-    )
-
-    semantic_index = SemanticModelIndex(
-        run_id=layout.run_id,
-        languages=["en"],
-        modules=[],
-        workflows=[],
-        pages=[PageIndexItem(id="commands", kind="global", scope="global", target_ids=[])],
-    )
-    layout.semantic_index_file.write_text(semantic_index.model_dump_json(indent=2), encoding="utf-8")
-
-    refreshed_state, _ = store.refresh_state(layout, ["zh-CN"])
-    job_ids = {job.job_id for job in refreshed_state.jobs}
-
-    assert "page-write:commands:en" in job_ids
-    assert "page-write:commands:zh-CN" not in job_ids
-
-
-def test_prepare_run_does_not_resume_when_config_shape_changes(
-    minimal_python_cli_dir: Path,
-    tmp_path: Path,
-):
-    project_dir = tmp_path / "project"
-    shutil.copytree(minimal_python_cli_dir, project_dir)
-
-    config = MakeWikiConfig.default(project_dir)
-    config.languages = ["en"]
-    config.orchestration.resume = False
-    detector = ProjectDetector()
-    detection = detector.detect(project_dir)
-    collected = EvidenceCollector(config).collect(project_dir, detection)
-
-    store = RunStore(config)
-    first_layout, _state, _evidence_index, _resumed, _planned_files = store.prepare_run(
-        detection,
-        collected,
-    )
-
-    resume_config = MakeWikiConfig.default(project_dir)
-    resume_config.languages = ["zh-CN"]
-    resume_config.orchestration.resume = True
-    resume_store = RunStore(resume_config)
-    second_layout, _state2, _evidence_index2, resumed, _planned_files = resume_store.prepare_run(
-        detection,
-        collected,
-    )
-
-    assert resumed is False
-    assert second_layout.run_id != first_layout.run_id
-
-
 def test_done_receipt_without_artifact_becomes_stale(minimal_python_cli_dir: Path, tmp_path: Path):
     project_dir = tmp_path / "project"
     shutil.copytree(minimal_python_cli_dir, project_dir)
@@ -195,10 +123,7 @@ def test_done_receipt_without_artifact_becomes_stale(minimal_python_cli_dir: Pat
     collected = EvidenceCollector(config).collect(project_dir, detection)
 
     store = RunStore(config)
-    layout, _state, _evidence_index, _resumed, _planned_files = store.prepare_run(
-        detection,
-        collected,
-    )
+    layout, _state, _evidence_index, _resumed = store.prepare_run(detection, collected)
 
     semantic_index = SemanticModelIndex(
         run_id=layout.run_id,
@@ -226,13 +151,9 @@ def test_done_receipt_without_artifact_becomes_stale(minimal_python_cli_dir: Pat
 
 def test_pipeline_falls_back_to_llm_scan_when_python_scan_fails(
     minimal_python_cli_dir: Path,
-    tmp_path: Path,
     monkeypatch,
 ):
-    project_dir = tmp_path / "project"
-    shutil.copytree(minimal_python_cli_dir, project_dir)
-
-    config = MakeWikiConfig.default(project_dir)
+    config = MakeWikiConfig.default(minimal_python_cli_dir)
     config.orchestration.resume = False
     config.scan.allow_llm_fallback_on_failure = True
 
@@ -255,13 +176,9 @@ def test_pipeline_falls_back_to_llm_scan_when_python_scan_fails(
 
 def test_pipeline_reports_detection_fallback_when_detector_fails(
     minimal_python_cli_dir: Path,
-    tmp_path: Path,
     monkeypatch,
 ):
-    project_dir = tmp_path / "project"
-    shutil.copytree(minimal_python_cli_dir, project_dir)
-
-    config = MakeWikiConfig.default(project_dir)
+    config = MakeWikiConfig.default(minimal_python_cli_dir)
     config.scan.allow_llm_fallback_on_failure = True
     config.orchestration.resume = False
 
@@ -275,7 +192,7 @@ def test_pipeline_reports_detection_fallback_when_detector_fails(
 
     assert not ctx.errors
     assert ctx.detection is not None
-    assert ctx.detection.project_name == project_dir.name
+    assert ctx.detection.project_name == minimal_python_cli_dir.name
     assert ctx.scan_fallback_required is True
     assert ctx.state is not None
     assert ctx.state.jobs[0].kind == "llm-scan"

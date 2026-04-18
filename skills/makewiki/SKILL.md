@@ -1,10 +1,10 @@
 ---
 name: makewiki
 description: "Artifact-first multilingual documentation orchestrator for software projects. Use when a user wants project-level docs or wiki output and MakeWiki should run as the main LLM orchestrator: prepare objective evidence, read only the semantic index and short child-skill receipts, loop through module/workflow/page/language jobs, assemble markdown, and verify the final output."
-version: "0.6.1"
+version: "0.6.0"
 argument-hint: "[--lang <code>...] [--output <dir>]"
 license: MIT
-allowed-tools: Bash(python */scripts/bootstrap_toolkit.py *) Bash(python */scripts/run_toolkit.py *) Read Write Edit Glob Grep
+allowed-tools: Bash(python */scripts/bootstrap_toolkit.py) Bash(python */scripts/run_toolkit.py *) Read Write Edit Glob Grep
 ---
 
 # MakeWiki Orchestrator
@@ -16,41 +16,30 @@ Run MakeWiki as an artifact-first LLM orchestrator.
 Stay in the main conversation.
 
 - Do not use subagents or multi-agent fan-out.
-- Use the Python toolkit only to compute objective evidence, run state, assembly content, and verification results.
+- Use the Python toolkit only for objective evidence, run state, assembly, and verification.
 - Use the internal child skills for semantic understanding and page writing.
 
 ## Bootstrap
 
 Prepare the home-scoped toolkit first.
 
-The bootstrap script inspects `HOME/.makewiki`, reports whether the bundled skill checkout is newer than the installed toolkit, and can sync it on demand. The launcher at `<makewiki_root>/scripts/run_toolkit.py` then bootstraps `<makewiki_root>/.venv`, preferring `uv` and falling back to `python -m venv`.
-
-First inspect the installed toolkit:
+The bootstrap script refreshes `HOME/.makewiki` and its `.venv`, preferring `uv` and falling back to `python -m venv`.
 
 ```bash
-python scripts/bootstrap_toolkit.py status --format json
+python scripts/bootstrap_toolkit.py
 ```
 
-Use `toolkit_root` from the JSON as `<makewiki_root>`.
-
-- If `update_available` is `true`, pause and ask the user whether to update to the bundled version before continuing.
-- If the user says yes, run `python scripts/bootstrap_toolkit.py update` and keep using the printed path as `<makewiki_root>`.
-- If the user says no, keep using the existing `<makewiki_root>` from the JSON status output.
-- If `status` is `missing`, run `python scripts/bootstrap_toolkit.py` to install the toolkit and use the printed path as `<makewiki_root>`.
-
-Then prepare or resume the run:
+If the command prints a path, refer to it as `<makewiki_root>`. Then prepare or resume the run:
 
 ```bash
-python <makewiki_root>/scripts/run_toolkit.py prepare . --format json --no-write-run
+python <makewiki_root>/scripts/run_toolkit.py prepare . --format json
 ```
 
-This creates or resumes `.makewiki/runs/<run_id>/` logically and returns the initial files for:
+This creates or resumes `.makewiki/runs/<run_id>/` and writes:
 
 - `state.json`
 - `evidence.index.json`
 - `evidence/shards/*.json`
-
-Immediately materialize the returned `files` list with the built-in `Write` or `Edit` tool before moving to `status`. Do not use Python, `uv`, or shell redirection to write these objective evidence artifacts.
 
 If `prepare` reports `llm_scan_required: true`, do not stop. Switch the scan stage to the internal LLM fallback skill and continue the same run.
 
@@ -67,7 +56,7 @@ If the bootstrap command prints `NOT_FOUND`, or if `prepare` cannot run because 
 Refresh orchestration state before choosing work:
 
 ```bash
-python <makewiki_root>/scripts/run_toolkit.py status . --format json --no-write-state
+python <makewiki_root>/scripts/run_toolkit.py status . --format json
 ```
 
 Use the returned `ready_jobs` list as the only scheduler input. The loop is:
@@ -82,8 +71,6 @@ Use the returned `ready_jobs` list as the only scheduler input. The loop is:
 8. If validation fails, run `page-repair` for the specific page-language pair.
 
 Only pass the minimal artifact paths needed for the current job.
-
-After each `status` call, overwrite `state.json` with the returned `state_update.content` using the built-in `Write` or `Edit` tool. Do not use Python, `uv`, or shell redirection to update `state.json`.
 
 ## Child Skills
 
@@ -105,10 +92,8 @@ Each child skill must write its own artifact, trace, and receipt file. After a c
 When the needed page plans and page artifacts exist, assemble the output:
 
 ```bash
-python <makewiki_root>/scripts/run_toolkit.py assemble . --lang en --lang zh-CN --format json --no-write-output
+python <makewiki_root>/scripts/run_toolkit.py assemble . --lang en --lang zh-CN --format json
 ```
-
-Use the returned `files` list to create or overwrite the final `makewiki/` files with the built-in `Write` or `Edit` tool. The toolkit should compute the content, but the agent should materialize the final user-facing files.
 
 Then run the mechanical checks:
 
@@ -152,5 +137,3 @@ When `module_count > 30`, continue using only the index view and job receipts in
 If a receipt says `done` but the artifact file is missing, treat the job as stale and rerun only that job.
 
 If a receipt says `failed`, rerun only that failed job. Do not restart the whole run.
-
-Do not use Python, `uv`, shell redirection, or ad-hoc scripts to write page artifacts, receipts, traces, `state.json`, or final `makewiki/` pages when the built-in `Write` or `Edit` tool can do the job.

@@ -146,8 +146,6 @@ class RunState(BaseModel):
     run_id: str
     project_root: str
     output_dir: str
-    languages: list[str] = Field(default_factory=list)
-    default_language: str = "en"
     max_attempts: int
     created_at: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
     updated_at: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())

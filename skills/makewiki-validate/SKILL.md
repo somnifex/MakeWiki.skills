@@ -1,10 +1,10 @@
 ---
 name: makewiki-validate
 description: "Validate existing makewiki output directory for Markdown quality: heading hierarchy, broken links, empty pages, and language alignment. Use when: user wants to check quality of generated documentation."
-version: "0.6.1"
+version: "0.6.0"
 argument-hint: "[path-to-makewiki-dir]"
 license: MIT
-allowed-tools: Bash(python */scripts/bootstrap_toolkit.py *) Bash(python */scripts/run_toolkit.py *) Read Glob Grep
+allowed-tools: Bash(python */scripts/bootstrap_toolkit.py) Bash(python */scripts/run_toolkit.py *) Read Glob Grep
 ---
 
 # MakeWiki Validate - Output Quality Check
@@ -19,20 +19,15 @@ Validate the generated makewiki documentation.
 
 ### Step 1: Bootstrap the home-scoped toolkit
 
-Use the bundled bootstrap script. It inspects `<makewiki_root>` at `HOME/.makewiki`, reports whether the bundled skill checkout is newer than the installed toolkit, and can sync it on demand. The launcher at `<makewiki_root>/scripts/run_toolkit.py` then bootstraps `<makewiki_root>/.venv`, preferring `uv` and falling back to `python -m venv`.
+Use the bundled bootstrap script. It prepares `<makewiki_root>` at `HOME/.makewiki` on Windows, macOS, and Linux. The launcher at `<makewiki_root>/scripts/run_toolkit.py` then bootstraps `<makewiki_root>/.venv`, preferring `uv` and falling back to `python -m venv`.
 
-Run this status command first:
+Run this bootstrap command:
 
 ```bash
-python scripts/bootstrap_toolkit.py status --format json
+python scripts/bootstrap_toolkit.py
 ```
 
-Use `toolkit_root` from the JSON as `<makewiki_root>`.
-
-- If `update_available` is `true`, pause and ask the user whether to update to the bundled version before continuing.
-- If the user says yes, run `python scripts/bootstrap_toolkit.py update` and keep using the printed path as `<makewiki_root>`.
-- If the user says no, keep using the existing `<makewiki_root>` from the JSON status output.
-- If `status` is `missing`, run `python scripts/bootstrap_toolkit.py` to install the toolkit and use the printed path as `<makewiki_root>`.
+If the script prints a path, refer to it as `<makewiki_root>` and run the toolkit validator.
 
 After parsing `$ARGUMENTS`, build the command explicitly:
 
