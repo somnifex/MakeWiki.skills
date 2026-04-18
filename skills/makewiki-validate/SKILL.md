@@ -56,7 +56,7 @@ Read the generated files and check:
 3. **Internal links** - All `[text](file.md)` links point to existing files
 4. **Empty pages** - No pages with only a heading and no content
 5. **Language suffix consistency** - All non-default language files use correct suffixes
-6. **Entry page** - `README.md` links to the other generated pages, and should link to other language README files when they exist
+6. **Index file** - `index.md` links to all language versions
 7. **Code blocks** - All command code blocks have a language tag (`bash`, `yaml`, etc.)
 8. **Page families** - `commands.md`, `modules/`, `workflows/`, and `integrations/` should be internally consistent when present
 

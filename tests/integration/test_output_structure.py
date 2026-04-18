@@ -52,10 +52,10 @@ def test_output_structure(minimal_python_cli_dir: Path, tmp_path: Path):
     assert (wiki_dir / "workflows" / "overview.zh-CN.md").is_file()
     assert (wiki_dir / "workflows" / "hello-world.zh-CN.md").is_file()
 
-    assert not (wiki_dir / "index.md").exists()
-    readme_content = (wiki_dir / "README.md").read_text(encoding="utf-8")
-    assert "getting-started.md" in readme_content
-    assert "README.zh-CN.md" in readme_content
+    assert (wiki_dir / "index.md").is_file()
+    index_content = (wiki_dir / "index.md").read_text(encoding="utf-8")
+    assert "en" in index_content or "README.md" in index_content
+    assert "zh-CN" in index_content or "README.zh-CN.md" in index_content
 
 
 def test_output_within_target_dir(minimal_python_cli_dir: Path, tmp_path: Path):

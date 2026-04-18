@@ -270,7 +270,7 @@ def assemble(
         _emit_payload(payload, output_format)
         return
 
-    written = manager.write_documents(documents, cfg.default_language)
+    written = manager.write_documents(documents)
     manager.write_index(documents, cfg.default_language)
     validation = OutputValidator(cfg.documentation_policy).validate(output_dir)
 
