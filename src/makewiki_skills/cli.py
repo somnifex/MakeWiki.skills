@@ -108,9 +108,9 @@ def prepare(
     config_path: Optional[Path] = typer.Option(None, "--config", "-c"),
     output_format: str = typer.Option("json", "--format", "-f", help="json | human"),
     write_run: bool = typer.Option(
-        False,
+        True,
         "--write-run/--no-write-run",
-        help="Persist objective evidence and initial run files; default returns them for agent-side writing",
+        help="Persist objective evidence and initial run files or return them for agent-side writing",
     ),
 ) -> None:
     """Collect objective evidence and prepare or resume a run."""
@@ -171,9 +171,9 @@ def status(
     config_path: Optional[Path] = typer.Option(None, "--config", "-c"),
     output_format: str = typer.Option("json", "--format", "-f", help="json | human"),
     write_state: bool = typer.Option(
-        False,
+        True,
         "--write-state/--no-write-state",
-        help="Persist refreshed state.json; default returns it for agent-side writing",
+        help="Persist refreshed state.json or return it for agent-side writing",
     ),
 ) -> None:
     """Refresh and report the current run state."""
@@ -230,9 +230,9 @@ def assemble(
     config_path: Optional[Path] = typer.Option(None, "--config", "-c"),
     output_format: str = typer.Option("json", "--format", "-f", help="json | human"),
     write_output: bool = typer.Option(
-        False,
+        True,
         "--write-output/--no-write-output",
-        help="Write makewiki files; default returns the file plan for agent-side materialization",
+        help="Write makewiki files or return the file plan for agent-side materialization",
     ),
 ) -> None:
     """Assemble final docs from page plans and per-language page artifacts."""
@@ -460,9 +460,9 @@ def init_config(
     langs: list[str] = typer.Option(["en", "zh-CN"], "--lang", "-l"),
     output_format: str = typer.Option("human", "--format", "-f", help="json | human"),
     write_file: bool = typer.Option(
-        False,
+        True,
         "--write/--no-write",
-        help="Write makewiki.config.yaml; default returns its content for agent-side writing",
+        help="Write makewiki.config.yaml or return its content for agent-side writing",
     ),
 ) -> None:
     """Generate a default makewiki.config.yaml in the target directory."""

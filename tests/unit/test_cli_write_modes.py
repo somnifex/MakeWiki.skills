@@ -16,7 +16,7 @@ from makewiki_skills.orchestration.store import RunLayout
 runner = CliRunner()
 
 
-def test_prepare_returns_evidence_and_state_payloads_by_default(
+def test_prepare_no_write_run_returns_evidence_and_state_payloads(
     minimal_python_cli_dir: Path,
     tmp_path: Path,
 ) -> None:
@@ -25,7 +25,7 @@ def test_prepare_returns_evidence_and_state_payloads_by_default(
 
     result = runner.invoke(
         app,
-        ["prepare", str(project_dir), "--format", "json"],
+        ["prepare", str(project_dir), "--format", "json", "--no-write-run"],
     )
     assert result.exit_code == 0
 
@@ -47,33 +47,14 @@ def test_prepare_returns_evidence_and_state_payloads_by_default(
     assert state_payload["run_id"] == payload["run_id"]
 
 
-def test_prepare_write_run_persists_artifacts_when_requested(
+def test_status_no_write_state_returns_state_update_without_touching_disk(
     minimal_python_cli_dir: Path,
     tmp_path: Path,
 ) -> None:
     project_dir = tmp_path / "project"
     shutil.copytree(minimal_python_cli_dir, project_dir)
 
-    result = runner.invoke(
-        app,
-        ["prepare", str(project_dir), "--format", "json", "--write-run"],
-    )
-    assert result.exit_code == 0
-
-    payload = json.loads(result.stdout)
-    assert Path(payload["state_path"]).exists()
-    assert Path(payload["evidence_index_path"]).exists()
-    assert "write_mode" not in payload
-
-
-def test_status_returns_state_update_without_touching_disk_by_default(
-    minimal_python_cli_dir: Path,
-    tmp_path: Path,
-) -> None:
-    project_dir = tmp_path / "project"
-    shutil.copytree(minimal_python_cli_dir, project_dir)
-
-    prepare_result = runner.invoke(app, ["prepare", str(project_dir), "--format", "json", "--write-run"])
+    prepare_result = runner.invoke(app, ["prepare", str(project_dir), "--format", "json"])
     assert prepare_result.exit_code == 0
     prepare_payload = json.loads(prepare_result.stdout)
 
@@ -82,7 +63,7 @@ def test_status_returns_state_update_without_touching_disk_by_default(
 
     status_result = runner.invoke(
         app,
-        ["status", str(project_dir), "--format", "json"],
+        ["status", str(project_dir), "--format", "json", "--no-write-state"],
     )
     assert status_result.exit_code == 0
 
@@ -94,7 +75,7 @@ def test_status_returns_state_update_without_touching_disk_by_default(
     assert refreshed["job_counts"]
 
 
-def test_assemble_returns_file_plan_by_default(tmp_path: Path) -> None:
+def test_assemble_no_write_output_returns_file_plan(tmp_path: Path) -> None:
     project_dir = tmp_path / "project"
     project_dir.mkdir()
 
@@ -166,6 +147,7 @@ def test_assemble_returns_file_plan_by_default(tmp_path: Path) -> None:
             "zh-CN",
             "--format",
             "json",
+            "--no-write-output",
         ],
     )
 
@@ -182,10 +164,10 @@ def test_assemble_returns_file_plan_by_default(tmp_path: Path) -> None:
     assert "Inferred by fallback scan from `src/app.py`." in files["configuration.md"]["content"]
 
 
-def test_init_config_returns_yaml_without_creating_file_by_default(tmp_path: Path) -> None:
+def test_init_config_no_write_returns_yaml_without_creating_file(tmp_path: Path) -> None:
     result = runner.invoke(
         app,
-        ["init-config", str(tmp_path), "--format", "json"],
+        ["init-config", str(tmp_path), "--format", "json", "--no-write"],
     )
 
     assert result.exit_code == 0
@@ -195,17 +177,3 @@ def test_init_config_returns_yaml_without_creating_file_by_default(tmp_path: Pat
     assert payload["written"] is False
     assert "output_dir: makewiki" in payload["content"]
     assert not config_path.exists()
-
-
-def test_init_config_write_persists_file_when_requested(tmp_path: Path) -> None:
-    result = runner.invoke(
-        app,
-        ["init-config", str(tmp_path), "--format", "json", "--write"],
-    )
-
-    assert result.exit_code == 0
-    payload = json.loads(result.stdout)
-    config_path = tmp_path.resolve() / "makewiki.config.yaml"
-    assert payload["path"] == str(config_path)
-    assert payload["written"] is True
-    assert config_path.exists()

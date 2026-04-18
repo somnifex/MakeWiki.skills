@@ -118,15 +118,15 @@ review:
 `scripts/run_toolkit.py` 只给 skills 使用。当前核心内部命令包括：
 
 ```bash
-python scripts/run_toolkit.py prepare . --format json
-python scripts/run_toolkit.py status . --format json
-python scripts/run_toolkit.py assemble . --lang en --lang zh-CN --format json
+python scripts/run_toolkit.py prepare . --format json --no-write-run
+python scripts/run_toolkit.py status . --format json --no-write-state
+python scripts/run_toolkit.py assemble . --lang en --lang zh-CN --format json --no-write-output
 python scripts/run_toolkit.py verify .
 python scripts/run_toolkit.py review . --lang en --lang zh-CN
 python scripts/run_toolkit.py validate ./makewiki
 ```
 
-在 Claude Code 里，这些命令现在默认就是 agent 侧落盘：toolkit 负责计算内容与状态，再由内置 `Write` / `Edit` 工具真正写入 `state.json`、`evidence.index.json`、`evidence/shards/*.json`、`makewiki.config.yaml` 和最终 `makewiki/` 页面。只有在你显式传入 `--write-run`、`--write-state`、`--write-output` 或 `--write` 时，才会回退到 Python 直接写盘。
+在 Claude Code 里，推荐让 toolkit 负责计算内容与状态，但用内置 `Write` / `Edit` 工具真正写入 `state.json`、`evidence.index.json`、`evidence/shards/*.json`、`makewiki.config.yaml` 和最终 `makewiki/` 页面，这样能显著减少由 `python` / `uv` 落盘带来的授权弹窗。
 
 ## 内置语言
 

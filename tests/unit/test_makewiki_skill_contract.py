@@ -12,18 +12,16 @@ def test_makewiki_skill_contains_hard_rules() -> None:
 
     assert "Do not summarize or quote the content of module briefs / traces in the main conversation." in text
     assert "Only read child-skill receipts that contain status, artifact_path, trace_path, error_code, and attempt." in text
-    assert "This is the default behavior." in text
-    assert "--write-run" in text
-    assert "--write-state" in text
-    assert "--write-output" in text
+    assert "--no-write-run" in text
+    assert "--no-write-state" in text
+    assert "--no-write-output" in text
     assert "built-in `Write` or `Edit` tool" in text
 
 
 def test_makewiki_init_skill_prefers_agent_side_write() -> None:
     text = (SKILLS_DIR / "makewiki-init" / "SKILL.md").read_text(encoding="utf-8")
 
-    assert "--format json" in text
-    assert "--write" in text
+    assert "--format json --no-write" in text
     assert "built-in `Write` or `Edit` tool" in text
 
 
@@ -31,7 +29,7 @@ def test_makewiki_scan_skill_can_materialize_prepare_payloads() -> None:
     text = (SKILLS_DIR / "makewiki-scan" / "SKILL.md").read_text(encoding="utf-8")
 
     assert "allowed-tools: Bash(python */scripts/bootstrap_toolkit.py *) Bash(python */scripts/run_toolkit.py *) Read Write Edit Glob Grep" in text
-    assert "--write-run" in text
+    assert "--no-write-run" in text
     assert "built-in `Write` or `Edit` tool" in text
 
 

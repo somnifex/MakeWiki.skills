@@ -1,7 +1,7 @@
 ---
 name: makewiki-init
 description: "Generate a default makewiki.config.yaml for MakeWiki. Use when a user wants to customize scan, orchestration, semantic reasoning, render, or review behaviour before running /makewiki."
-version: "0.6.2"
+version: "0.6.1"
 argument-hint: "[--lang <code>...]"
 license: MIT
 allowed-tools: Bash(python */scripts/bootstrap_toolkit.py *) Bash(python */scripts/run_toolkit.py *) Write Edit
@@ -28,10 +28,10 @@ Use `toolkit_root` from the JSON as `<makewiki_root>`.
 
 If the launcher is available, run:
 
-- `python <makewiki_root>/scripts/run_toolkit.py init-config . --format json`
-- or `python <makewiki_root>/scripts/run_toolkit.py init-config . --lang en --lang zh-CN --format json`
+- `python <makewiki_root>/scripts/run_toolkit.py init-config . --format json --no-write`
+- or `python <makewiki_root>/scripts/run_toolkit.py init-config . --lang en --lang zh-CN --format json --no-write`
 
-Then create `makewiki.config.yaml` with the returned `content` using the built-in `Write` or `Edit` tool. This is the default behavior. Use `--write` only when you explicitly want Python to materialize the config file.
+Then create `makewiki.config.yaml` with the returned `content` using the built-in `Write` or `Edit` tool. Do not use Python, `uv`, shell redirection, or helper scripts to materialize the config file.
 
 If the launcher is unavailable, create the file manually with this content:
 
