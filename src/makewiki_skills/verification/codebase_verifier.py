@@ -10,7 +10,7 @@ import re
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Literal
+from typing import Literal
 
 from pydantic import BaseModel, Field, computed_field
 
@@ -138,7 +138,7 @@ class CodebaseVerifier:
         for path in paths:
             normalised = path.lstrip("./")
             if normalised in real or path in real:
-                results.append(self._ok(doc, path, "path", f"exists on disk"))
+                results.append(self._ok(doc, path, "path", "exists on disk"))
             elif (self._root / normalised).exists():
                 results.append(self._ok(doc, path, "path", "exists on disk (direct check)"))
             else:
@@ -263,7 +263,7 @@ class CodebaseVerifier:
     def _ok(
         doc: GeneratedDocument,
         claim: str,
-        claim_type: str,
+        claim_type: Literal["path", "command", "config_key"],
         detail: str,
     ) -> CodebaseCheck:
         return CodebaseCheck(
@@ -279,7 +279,7 @@ class CodebaseVerifier:
     def _fail(
         doc: GeneratedDocument,
         claim: str,
-        claim_type: str,
+        claim_type: Literal["path", "command", "config_key"],
         detail: str,
     ) -> CodebaseCheck:
         return CodebaseCheck(

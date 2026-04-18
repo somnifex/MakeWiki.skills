@@ -1,7 +1,7 @@
 ---
 name: makewiki
 description: "Generate multilingual user-facing wiki documentation for a software project. Scans evidence, builds a semantic model, then independently writes each language version with codebase verification. Use when: user asks to generate wiki, docs, documentation, or multilingual docs for a project."
-version: "0.5.0"
+version: "0.7.0"
 argument-hint: "[--lang <code>...] [--output <dir>]"
 license: MIT
 allowed-tools: Bash(python */scripts/bootstrap_toolkit.py) Bash(python */scripts/run_toolkit.py *) Read Write Edit Glob Grep
