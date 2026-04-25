@@ -11,6 +11,7 @@ from pydantic import BaseModel, Field
 class ScanConfig(BaseModel):
     """Controls which files and directories are scanned."""
 
+    mode: str = "auto"  # "quick" | "standard" | "deep" | "auto"
     ignore_dirs: list[str] = Field(
         default_factory=lambda: [
             "node_modules",
@@ -27,6 +28,8 @@ class ScanConfig(BaseModel):
     max_file_size_kb: int = 512
     enable_source_intelligence: bool = True
     source_intelligence_max_files: int = 50
+    max_external_urls: int = 3
+    recursive_docs: bool = True
 
 class ReviewConfig(BaseModel):
     """Controls cross-language and grounding review behaviour."""
@@ -90,6 +93,7 @@ class MakeWikiConfig(BaseModel):
     delete_stale_files: bool = False
     generate_faq: bool = True
     generate_troubleshooting: bool = True
+    generate_env_vars_page: bool = True
     strict_grounding: bool = True
     emit_uncertainty_notes: bool = True
     scan: ScanConfig = Field(default_factory=ScanConfig)

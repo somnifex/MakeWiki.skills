@@ -1,12 +1,11 @@
 ---
 name: makewiki
 description: "Generate multilingual user-facing wiki documentation for a software project. Scans evidence, builds a semantic model, then independently writes each language version with codebase verification. Use when: user asks to generate wiki, docs, documentation, or multilingual docs for a project."
-version: "0.7.0"
+version: "0.7.5"
 argument-hint: "[--lang <code>...] [--output <dir>]"
 license: MIT
-allowed-tools: Bash(python */scripts/bootstrap_toolkit.py) Bash(python */scripts/run_toolkit.py *) Read Write Edit Glob Grep
+allowed-tools: Bash(python */scripts/bootstrap_toolkit.py) Bash(python */scripts/run_toolkit.py *) Read Write Edit Glob Grep WebFetch
 ---
-
 # MakeWiki - Multilingual Wiki Documentation Generator
 
 Execute the MakeWiki skill: generate high-quality, multilingual user-facing wiki documentation for a software project.
@@ -32,12 +31,14 @@ Write a **user guide for an open-source project**, not an architecture document,
 Before writing documentation, build understanding in two mandatory phases:
 
 **Phase 1 — Architect lens** (understand the project's functional surface):
+
 - What distinct functional areas does this project expose to its users? (Not internal modules — user-visible capability groups.)
 - Which capabilities naturally cluster because users invoke them in the same workflow?
 - Where are the natural seams — operations a user can perform independently of others?
 - What is the dependency graph between user-visible features? (e.g., "you must configure auth before using the API client")
 
 **Phase 2 — User lens** (convert each area to user value):
+
 - For each functional area: what problem does a user solve with it?
 - What does the user type, click, or configure to use it?
 - What does success look like (observable output, state change, file produced)?
@@ -65,10 +66,12 @@ The document structure must emerge from your understanding of the project - not 
 Every statement must describe something the user can see, do, or experience.
 
 Good:
+
 - "Run `docker compose up` to start the service. The API will be available at `http://localhost:8080`."
 - "After login, you'll see a dashboard with your recent projects listed."
 
 Bad:
+
 - "The system employs a modern microservices architecture."
 - "The codebase follows clean architecture principles with clear separation of concerns."
 
@@ -97,12 +100,14 @@ If the project README says "high-performance" and provides benchmarks - you may 
 ### A.4 - Tasks Over Directory Listings
 
 Users do not care about:
+
 - `src/services/`
 - `internal/core/`
 - `lib/utils/`
 - "The project is organized into 12 modules..."
 
 Users care about:
+
 - How to install it
 - How to run it
 - How to configure it
@@ -114,10 +119,12 @@ Users care about:
 ### A.5 - Every Feature Must Be an Action
 
 Do not write:
+
 - "Supports file management and task execution."
 - "Provides comprehensive logging capabilities."
 
 Write:
+
 - "You can upload files, create tasks, and export results from the web interface."
 - "Run `app --verbose` to see detailed logs, or check `~/.app/logs/` for historical log files."
 
@@ -130,12 +137,15 @@ A directory named `oauth/` does not mean the project "supports OAuth." A file na
 When evidence is indirect (directory names, file names, config keys that exist but aren't documented):
 
 Good:
+
 - "The repository contains OAuth-related configuration files, suggesting the project may support OAuth authentication. Refer to the project's release notes or issue tracker for current status."
 
 Bad:
+
 - "The project supports full OAuth 2.0 authentication with SSO integration."
 
 **Hedging rules:**
+
 - File/directory exists but no docs -> "The repository contains X, which suggests Y may be available"
 - Config key exists but no explanation -> "The configuration file includes a `key` field; its exact behavior may depend on version"
 - Code references a feature but README doesn't mention it -> "The codebase includes references to X; this feature may not be fully released"
@@ -184,6 +194,7 @@ If you discover the project is a library/framework where the "user" IS a develop
 ### Arguments
 
 Parse `$ARGUMENTS` for:
+
 - `--lang <code>` (repeatable): Language codes to generate. Default: `en zh-CN`
 - `--output <dir>`: Output directory name. Default: `makewiki`
 
@@ -202,9 +213,53 @@ python scripts/bootstrap_toolkit.py
 If the script prints a path, refer to it as `<makewiki_root>` and continue to Step 2. If any launcher command fails later, do **not** stop; continue in manual mode.
 
 If it prints `NOT_FOUND`, do **not** stop. Continue in manual mode:
+
 - skip all `python <makewiki_root>/scripts/run_toolkit.py ...` commands
 - gather evidence with `Read`, `Grep`, and ordinary file inspection instead
 - make it explicit in your notes that the home-scoped launcher was unavailable
+
+### Step 1b: Scan Time Estimation and Mode Selection
+
+Before starting the full scan, estimate how long it will take:
+
+1. Count project files using Glob:
+
+   - Total files: `**/*`
+   - Source files: `**/*.py`, `**/*.js`, `**/*.ts`, `**/*.jsx`, `**/*.tsx`, `**/*.rs`, `**/*.go`
+   - Documentation files: `**/*.md`
+2. Calculate estimated scan times:
+
+   - Quick mode: 30 + (doc_files × 0.5) seconds
+   - Standard mode: 30 + (doc_files × 2) + (source_files × 1) seconds
+   - Deep mode: 30 + (doc_files × 2) + (source_files × 5) + 60 seconds
+3. If deep mode estimate exceeds 30 minutes (1800 seconds):
+
+   - Present the estimation to the user
+   - Explain what each mode includes
+   - Ask which mode to use
+   - Example output:
+     ```
+     Project scan estimation:
+     - Total files: 1,247
+     - Source files: 423
+     - Documentation files: 89
+
+     Estimated scan times:
+     - Quick mode: ~2 minutes (README + basic docs only)
+     - Standard mode: ~8 minutes (all docs + basic code analysis)
+     - Deep mode: ~35 minutes (full AST analysis + API reference + external URLs)
+
+     Recommended: standard mode
+
+     Which mode would you like to use? (quick/standard/deep)
+     ```
+4. Set the scan mode based on user choice or use recommended mode if no response
+
+**Mode behaviors:**
+
+- **Quick**: README + `docs/*.md` only, regex-based analysis, no external URLs, no API reference
+- **Standard**: All docs including CHANGELOG + `docs/**/*.md`, basic code analysis, no external URLs
+- **Deep**: All docs + CONTRIBUTING, full AST analysis, external URL fetching (max 3), API reference for libraries
 
 ### Step 2: Collect structured evidence
 
@@ -217,11 +272,13 @@ python <makewiki_root>/scripts/run_toolkit.py scan . --format json
 This produces a JSON evidence bundle containing every individual fact the scanner found — commands, config keys, file paths, version strings, config comments, CLI help text, and error messages — each with source file locations and confidence levels.
 
 Parse the JSON output. Identify **evidence gaps** — areas where the toolkit could not extract enough information:
+
 - Config keys with no `config_comment` facts → you need to read the config file to understand what they do
 - Commands with no `cli_help` facts → you need to read the entry point source to understand usage
 - Few or no `error_message` facts → check source code for error handling patterns
 
 If the toolkit is unavailable, build the same evidence set manually from the project:
+
 - commands from `README`, `Makefile`, task files, scripts, and entry points
 - config keys from config files, `.env.example`, and comments
 - file paths, version strings, and install steps from manifests and existing docs
@@ -235,6 +292,25 @@ Then **read the project yourself**, targeting the gaps:
 4. **Read example configs** - `.env.example`, `config.example.yaml` - what does the user need to configure?
 5. **Read entry points** - main files, CLI entry points - what does running the program actually do?
 6. **Read existing docs** - Are there already docs, tutorials, or usage examples?
+
+### Step 2b: Fetch External Documentation (Deep Mode Only)
+
+**Only execute this step if scan mode is "deep".**
+
+After reading local files, check for external documentation URLs:
+
+- `pyproject.toml` [project.urls] section (documentation, homepage)
+- `package.json` "homepage" and "docs" fields
+- README links to online documentation (look for patterns like `https://docs.example.com`, `https://example.com/docs`)
+
+Use WebFetch to retrieve up to 3 external docs. Mark all facts extracted from external sources with `source: "external:<url>"` in the project brief.
+
+**Important:**
+
+- Code is the source of truth. External docs are supplementary context only.
+- If external docs conflict with code, trust the code and note the discrepancy.
+- Time budget: Limit external fetching to 60 seconds total. Skip if URLs are slow to respond.
+- Only fetch documentation pages, not marketing pages or blog posts.
 
 ### Step 3: Build project brief (required — do not skip)
 
@@ -299,6 +375,7 @@ uncertainty_flags:       # things you're NOT sure about — be explicit
 ```
 
 **Rules for the project brief:**
+
 - Every `purpose` statement must be verifiable from README or source entry point behavior.
 - Every workflow `command` must appear in the evidence bundle OR in a file you personally read.
 - `config_semantics` must only include keys where you found the comment or can infer the effect from usage context.
@@ -309,21 +386,22 @@ uncertainty_flags:       # things you're NOT sure about — be explicit
 
 Based on the project brief (NOT from the directory tree), decide which pages to create. The default set is:
 
-| Base file | Purpose |
-|---|---|
-| `README.md` | Project overview, table of contents, quick start |
-| `getting-started.md` | What it is, prerequisites, first run, verify |
-| `installation.md` | Detailed installation, platform notes |
-| `configuration.md` | Config files, env vars, options table |
-| `usage/basic-usage.md` | Common tasks, commands, examples |
-| `faq.md` | Common questions from issues/docs |
-| `troubleshooting.md` | Error messages, symptoms, fixes |
+| Base file                | Purpose                                          |
+| ------------------------ | ------------------------------------------------ |
+| `README.md`            | Project overview, table of contents, quick start |
+| `getting-started.md`   | What it is, prerequisites, first run, verify     |
+| `installation.md`      | Detailed installation, platform notes            |
+| `configuration.md`     | Config files, env vars, options table            |
+| `usage/basic-usage.md` | Common tasks, commands, examples                 |
+| `faq.md`               | Common questions from issues/docs                |
+| `troubleshooting.md`   | Error messages, symptoms, fixes                  |
 
 You may **add** pages if the project warrants it (e.g., a `deployment.md` for a web service, a `plugins.md` for an extensible tool). You may **skip** pages if the project is too simple to warrant them (e.g., skip `configuration.md` if the tool has no configuration). Do not generate empty or near-empty pages.
 
 #### Step 4a: Assess complexity
 
 Count from your project brief:
+
 - **T** = number of distinct `key_workflows`
 - **C** = number of primary user-facing commands (excluding install/test/lint/format/build)
 - **K** = number of user-facing config keys (from `config_semantics`)
@@ -340,18 +418,19 @@ When a project has many commands, multiple distinct user-facing functional areas
 
 **Hub-and-spoke layout:**
 
-| Base file | Purpose |
-|---|---|
-| `README.md` | Unchanged |
-| `getting-started.md` | Unchanged |
-| `installation.md` | Unchanged |
-| `configuration.md` | All config sections (module pages cross-reference back here for relevant keys) |
-| `usage/overview.md` | **Hub page**: table of functional areas with descriptions, links to each module page, shared cross-module tasks |
-| `usage/<slug>.md` | One page per `feature_module`: tasks, commands, examples, and related config for that area |
-| `faq.md` | Unchanged |
-| `troubleshooting.md` | Unchanged |
+| Base file              | Purpose                                                                                                               |
+| ---------------------- | --------------------------------------------------------------------------------------------------------------------- |
+| `README.md`          | Unchanged                                                                                                             |
+| `getting-started.md` | Unchanged                                                                                                             |
+| `installation.md`    | Unchanged                                                                                                             |
+| `configuration.md`   | All config sections (module pages cross-reference back here for relevant keys)                                        |
+| `usage/overview.md`  | **Hub page**: table of functional areas with descriptions, links to each module page, shared cross-module tasks |
+| `usage/<slug>.md`    | One page per `feature_module`: tasks, commands, examples, and related config for that area                          |
+| `faq.md`             | Unchanged                                                                                                             |
+| `troubleshooting.md` | Unchanged                                                                                                             |
 
 **How to build the hub-and-spoke structure:**
+
 1. Identify logical groups from the project brief's `feature_modules` — each module becomes a sub-page under `usage/`
 2. Create `usage/overview.md` as the entry point: briefly describe each functional area, show its top 2 user tasks as bullet points, and link to its dedicated page
 3. Create `usage/<slug>.md` for each module, containing:
@@ -363,6 +442,7 @@ When a project has many commands, multiple distinct user-facing functional areas
 4. Update the README navigation to list the sub-pages under the Usage section
 
 **Example structure for a complex project:**
+
 ```
 usage/
   overview.md           # Entry point: what each module does, links to sub-pages
@@ -372,6 +452,7 @@ usage/
 ```
 
 **Rules for module pages:**
+
 1. Each module page covers ONE functional area, answering: "I want to do X — how?"
 2. A module page needs **>= 2 tasks OR >= 3 commands** to justify its existence. Otherwise merge it into the hub.
 3. Tasks that span multiple modules go on `usage/overview.md` (the hub), not duplicated across modules.
@@ -381,6 +462,7 @@ usage/
 7. **The same grouping structure must be used for ALL languages** — do not split in one language but not another. All languages get the same set of module slugs.
 
 **Content depth:** When using modular documentation, you may include more detail per topic:
+
 - Up to 10 FAQ items (vs 4 for simple projects)
 - Up to 8 usage examples (vs 4 for simple projects)
 - Up to 8 troubleshooting entries (vs 3 for simple projects)
@@ -388,6 +470,7 @@ usage/
 - Related configuration keys rendered as tables within each module page
 
 The `content_depth` field in `makewiki.config.yaml` controls this behavior:
+
 - `auto` (default): automatically detect based on project complexity
 - `detailed`: always use modular documentation with higher content caps
 - `compact`: always use a single basic-usage page with lower content caps
@@ -403,6 +486,7 @@ For each requested language, **independently** generate the full documentation s
 Work through the requested languages **sequentially in the current conversation**. Do not spawn a helper agent per language.
 
 **How the brief drives generation:**
+
 - `project_brief.purpose` → project overview (not the README's full text verbatim)
 - `key_workflows` → Usage and Getting Started sections
 - `config_semantics` → config table descriptions (use `effect` and `comment_text`, not just key names)
@@ -413,24 +497,24 @@ Work through the requested languages **sequentially in the current conversation*
 
 Create `<project_root>/<output_dir>/` with files per language:
 
-| Base file | Default (en) | zh-CN | ja |
-|---|---|---|---|
-| README.md | README.md | README.zh-CN.md | README.ja.md |
-| getting-started.md | getting-started.md | getting-started.zh-CN.md | getting-started.ja.md |
-| installation.md | installation.md | installation.zh-CN.md | installation.ja.md |
-| configuration.md | configuration.md | configuration.zh-CN.md | configuration.ja.md |
+| Base file            | Default (en)         | zh-CN                      | ja                      |
+| -------------------- | -------------------- | -------------------------- | ----------------------- |
+| README.md            | README.md            | README.zh-CN.md            | README.ja.md            |
+| getting-started.md   | getting-started.md   | getting-started.zh-CN.md   | getting-started.ja.md   |
+| installation.md      | installation.md      | installation.zh-CN.md      | installation.ja.md      |
+| configuration.md     | configuration.md     | configuration.zh-CN.md     | configuration.ja.md     |
 | usage/basic-usage.md | usage/basic-usage.md | usage/basic-usage.zh-CN.md | usage/basic-usage.ja.md |
-| faq.md | faq.md | faq.zh-CN.md | faq.ja.md |
-| troubleshooting.md | troubleshooting.md | troubleshooting.zh-CN.md | troubleshooting.ja.md |
+| faq.md               | faq.md               | faq.zh-CN.md               | faq.ja.md               |
+| troubleshooting.md   | troubleshooting.md   | troubleshooting.zh-CN.md   | troubleshooting.ja.md   |
 
 For complex projects using modular documentation, the usage section expands:
 
-| Base file | Default (en) | zh-CN |
-|---|---|---|
-| usage/overview.md | usage/overview.md | usage/overview.zh-CN.md |
-| usage/scanning.md | usage/scanning.md | usage/scanning.zh-CN.md |
+| Base file           | Default (en)        | zh-CN                     |
+| ------------------- | ------------------- | ------------------------- |
+| usage/overview.md   | usage/overview.md   | usage/overview.zh-CN.md   |
+| usage/scanning.md   | usage/scanning.md   | usage/scanning.zh-CN.md   |
 | usage/generation.md | usage/generation.md | usage/generation.zh-CN.md |
-| ... | ... | ... |
+| ...                 | ...                 | ...                       |
 
 Plus an `index.md` linking all language versions with hierarchical sub-page navigation.
 
@@ -477,6 +561,7 @@ The toolkit can only do string matching. **You** must verify semantic accuracy. 
 
 **1. Command verification:**
 For every command in your generated code blocks that is NOT a generic tool (git, pip, npm, etc.):
+
 - Find its definition: Makefile target? package.json script? pyproject.toml entry-point? CLI subcommand?
 - Read the actual implementation or help text
 - Verify: Does the command accept the flags/arguments you documented? Does it produce the output you described?
@@ -485,6 +570,7 @@ For every command in your generated code blocks that is NOT a generic tool (git,
 
 **2. Configuration key verification:**
 For every config key in your configuration table:
+
 - Open the actual config file (not the evidence bundle — the real file)
 - Verify the key exists, its default value is correct, and its type matches
 - For non-obvious keys: read the source code that consumes them to confirm the described effect
@@ -493,12 +579,14 @@ For every config key in your configuration table:
 
 **3. Path verification:**
 For every file path mentioned in the docs:
+
 - Confirm the file or directory exists in the project
 - If referencing a config file ("Edit `config/settings.yaml`..."), confirm that file is the right one
 - If a path doesn't exist → **remove the reference or correct it**
 
 **4. Behavioral claims verification:**
 For any claim about what happens when the user runs a command or changes a config value:
+
 - Read the source code entry point or handler
 - Trace the behavior: does the code actually do what you claimed?
 - Pay special attention to:
@@ -508,12 +596,14 @@ For any claim about what happens when the user runs a command or changes a confi
   - Error messages and their conditions
 
 **5. Version and prerequisite verification:**
+
 - Read `pyproject.toml` / `package.json` / `Cargo.toml` directly for version constraints
 - Do NOT rely on the evidence bundle for versions — it may be stale
 
 #### Step 6c: Fix and re-verify
 
 For each discrepancy found:
+
 1. Fix the generated document **in place**
 2. If the fix affects multiple languages, fix all of them
 3. If the fix changes a code block, ensure all language versions get the identical code block
@@ -535,6 +625,7 @@ python <makewiki_root>/scripts/run_toolkit.py review . --lang en --lang zh-CN
 ```
 
 Always manually verify:
+
 1. **All languages have the same pages** - no missing pages, including all sub-pages under `usage/`
 2. **Commands are identical** across all languages (code blocks must match exactly)
 3. **Config keys are identical** - same keys, same defaults
@@ -552,18 +643,21 @@ After the structural check above, perform a **semantic pass** across all languag
 
 **Hedging consistency check:**
 For each uncertain claim in one language that uses hedging language (“may”, “appears to”, “suggests”, “the repository contains X which suggests Y”):
+
 1. Find the equivalent passage in each other language
 2. Verify the hedge is preserved with equivalent epistemic force
 3. A hedge removed in translation is a documentation accuracy failure — fix it
 
 **Semantic drift check:**
 For each observable-behavior description (e.g., “After running the command, you'll see X”):
+
 1. Find the equivalent in other languages
 2. Verify the described observable outcome matches
 3. Different prose is acceptable; different observable outcomes are not
 
 **Cultural appropriateness check:**
 For any examples that use:
+
 - Personal names as example values → are they culturally appropriate for the locale?
 - Currency or date format examples → do they match the locale's conventions?
 - Humor or idiomatic expressions → are they natural in the target language?
@@ -577,6 +671,7 @@ python <makewiki_root>/scripts/run_toolkit.py validate <output_dir>
 ```
 
 Then check manually:
+
 - Every page has a proper H1 heading
 - No broken internal links
 - No empty pages
@@ -585,6 +680,7 @@ Then check manually:
 ### Step 9: Report
 
 After completion, report:
+
 - Number of files generated per language
 - Codebase verification score (from Step 6) and any items that required correction
 - Cross-language consistency score (structural + semantic)

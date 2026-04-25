@@ -1,7 +1,7 @@
 {
   "name": "makewiki-skills",
   "description": "Generate evidence-backed multilingual user documentation with cross-language review.",
-  "version": "0.7.0",
+  "version": "0.7.5",
   "author": {
     "name": "somnifex"
   },

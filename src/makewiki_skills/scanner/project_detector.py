@@ -38,6 +38,18 @@ class ProjectDetectionResult(BaseModel):
     project_dir: str = ""
 
 
+class ScanTimeEstimate(BaseModel):
+    """Estimated scan time for different modes."""
+
+    total_files: int
+    source_files: int
+    doc_files: int
+    estimated_quick_seconds: int
+    estimated_standard_seconds: int
+    estimated_deep_seconds: int
+    recommended_mode: str  # "quick" | "standard" | "deep"
+
+
 DEFAULT_RULES: list[DetectionRule] = [
     DetectionRule(project_type=ProjectType.PYTHON_CLI, indicators=["pyproject.toml"], weight=8),
     DetectionRule(project_type=ProjectType.PYTHON_CLI, indicators=["setup.py"], weight=6),
@@ -121,3 +133,52 @@ class ProjectDetector:
                 pass
 
         return root.name
+
+    def estimate_scan_time(self, project_dir: Path) -> ScanTimeEstimate:
+        """Estimate scan time based on project size."""
+        root = Path(project_dir).resolve()
+
+        # Count files (with reasonable limits to avoid hanging on huge projects)
+        total_files = 0
+        source_files = 0
+        doc_files = 0
+
+        # Use iterative approach with limit to avoid memory issues
+        max_count = 10000
+        for i, path in enumerate(root.rglob("*")):
+            if i >= max_count:
+                break
+            if path.is_file():
+                total_files += 1
+                suffix = path.suffix.lower()
+                if suffix in [".py", ".js", ".ts", ".jsx", ".tsx", ".rs", ".go"]:
+                    source_files += 1
+                elif suffix == ".md":
+                    doc_files += 1
+
+        # Estimate time (empirical values based on typical performance)
+        base_time = 30  # seconds for basic setup
+        doc_time = doc_files * 2  # 2 seconds per doc file
+        source_time = source_files * 5  # 5 seconds per source file for AST analysis
+
+        quick_time = int(base_time + (doc_files * 0.5))
+        standard_time = int(base_time + doc_time + (source_files * 1))
+        deep_time = int(base_time + doc_time + source_time + 60)  # +60 for external URLs
+
+        # Recommend mode based on deep time estimate
+        if deep_time > 1800:  # > 30 minutes
+            recommended = "quick"
+        elif deep_time > 600:  # > 10 minutes
+            recommended = "standard"
+        else:
+            recommended = "standard"
+
+        return ScanTimeEstimate(
+            total_files=total_files,
+            source_files=source_files,
+            doc_files=doc_files,
+            estimated_quick_seconds=quick_time,
+            estimated_standard_seconds=standard_time,
+            estimated_deep_seconds=deep_time,
+            recommended_mode=recommended,
+        )

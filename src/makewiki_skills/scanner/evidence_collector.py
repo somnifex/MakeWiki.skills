@@ -132,7 +132,25 @@ class EvidenceCollector:
     def _collect_docs(self, root: Path) -> tuple[list[EvidenceFact], list[str]]:
         facts: list[EvidenceFact] = []
         files_read: list[str] = []
-        doc_patterns = ["README.md", "README.rst", "README.txt", "docs/*.md", "doc/*.md"]
+
+        # Mode-aware doc patterns
+        mode = self._config.scan.mode
+        if mode == "quick":
+            doc_patterns = ["README.md", "README.rst", "README.txt", "docs/*.md"]
+        elif mode in ["standard", "auto"]:
+            doc_patterns = [
+                "README.md", "README.rst", "README.txt",
+                "CHANGELOG.md", "CHANGELOG", "CHANGELOG.rst", "HISTORY.md",
+                "docs/**/*.md", "doc/**/*.md",
+            ]
+        else:  # deep mode
+            doc_patterns = [
+                "README.md", "README.rst", "README.txt",
+                "CHANGELOG.md", "CHANGELOG", "CHANGELOG.rst", "HISTORY.md",
+                "CONTRIBUTING.md",
+                "docs/**/*.md", "doc/**/*.md", "documentation/**/*.md",
+            ]
+
         for pattern in doc_patterns:
             for p in root.glob(pattern):
                 if p.is_file() and p.stat().st_size < self._config.scan.max_file_size_kb * 1024:
@@ -244,7 +262,16 @@ class EvidenceCollector:
     ) -> tuple[list[EvidenceFact], list[str]]:
         facts: list[EvidenceFact] = []
         files_read: list[str] = []
-        max_files = self._config.scan.source_intelligence_max_files
+
+        # Mode-aware limits
+        mode = self._config.scan.mode
+        if mode == "quick":
+            max_files = 10
+        elif mode in ["standard", "auto"]:
+            max_files = 50
+        else:  # deep
+            max_files = 200
+
         max_depth = self._config.scan.max_depth
 
         config_patterns = ["*.yaml", "*.yml", "*.toml", ".env", ".env.example", "*.cfg", "*.ini"]

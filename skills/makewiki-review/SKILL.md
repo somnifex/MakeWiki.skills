@@ -1,7 +1,7 @@
 ---
 name: makewiki-review
 description: "Verify and review existing makewiki documentation: checks factual accuracy against project source code, then compares structured facts and semantic meaning across all language versions. Use when: user has generated multilingual docs and wants to verify consistency and accuracy."
-version: "0.7.0"
+version: "0.7.5"
 argument-hint: "[--lang <code>...]"
 license: MIT
 allowed-tools: Bash(python */scripts/bootstrap_toolkit.py) Bash(python */scripts/run_toolkit.py *) Read Glob Grep

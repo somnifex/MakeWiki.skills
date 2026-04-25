@@ -32,6 +32,7 @@ DOCUMENT_TEMPLATES: list[tuple[str, str]] = [
     ("getting-started.md", "base/getting-started.md.j2"),
     ("installation.md", "base/installation.md.j2"),
     ("configuration.md", "base/configuration.md.j2"),
+    ("environment-variables.md", "base/environment-variables.md.j2"),
     ("faq.md", "base/faq.md.j2"),
     ("troubleshooting.md", "base/troubleshooting.md.j2"),
     ("usage/basic-usage.md", "base/usage/basic-usage.md.j2"),
@@ -49,6 +50,8 @@ def _resolve_templates(
         if base_name == "faq.md" and not config.generate_faq:
             continue
         if base_name == "troubleshooting.md" and not config.generate_troubleshooting:
+            continue
+        if base_name == "environment-variables.md" and not config.generate_env_vars_page:
             continue
         if base_name == "usage/basic-usage.md" and model.command_groups:
             pages.append(

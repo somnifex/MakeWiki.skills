@@ -65,6 +65,18 @@ class ConfigSection(BaseModel):
     evidence: list[EvidenceLink] = Field(default_factory=list)
 
 
+class EnvVar(BaseModel):
+    """Environment variable configuration."""
+
+    name: str
+    description: str | None = None
+    default_value: str | None = None
+    required: bool = False
+    example_value: str | None = None
+    source_file: str = ".env.example"
+    evidence: list[EvidenceLink] = Field(default_factory=list)
+
+
 class CommandParam(BaseModel):
     name: str
     param_type: str = "option"  # "argument" | "option" | "flag"
@@ -145,6 +157,7 @@ class SemanticModel(BaseModel):
     identity: ProjectIdentity = Field(default_factory=ProjectIdentity)
     installation: InstallationGuide = Field(default_factory=InstallationGuide)
     configuration: list[ConfigSection] = Field(default_factory=list)
+    env_vars: list[EnvVar] = Field(default_factory=list)
     commands: list[Command] = Field(default_factory=list)
     user_tasks: list[UserTask] = Field(default_factory=list)
     usage_examples: list[UsageExample] = Field(default_factory=list)
