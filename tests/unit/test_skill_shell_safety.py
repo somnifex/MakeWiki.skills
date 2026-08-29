@@ -5,7 +5,7 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
-SKILLS_DIR = Path(__file__).resolve().parents[2] / "skills"
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
 CODE_FENCE_RE = re.compile(r"```(?P<lang>[^\n]*)\n(?P<body>.*?)```", re.DOTALL)
 COMMAND_FENCE_LANGS = {"!", "bash", "sh", "shell"}
 BANNED_PATTERNS = {
@@ -19,7 +19,10 @@ BANNED_PATTERNS = {
 
 
 def iter_command_fences():
-    for skill_file in sorted(SKILLS_DIR.glob("*/SKILL.md")):
+    skill_files = list(PROJECT_ROOT.glob("SKILL.md")) + list(
+        PROJECT_ROOT.glob("subskills/**/SKILL.md")
+    )
+    for skill_file in sorted(set(skill_files)):
         text = skill_file.read_text(encoding="utf-8")
         for match in CODE_FENCE_RE.finditer(text):
             lang = match.group("lang").strip()
@@ -36,7 +39,7 @@ def test_skill_command_fences_avoid_shell_only_patterns():
             if pattern.search(lang) or pattern.search(body):
                 first_line = body.splitlines()[0] if body else "<empty>"
                 violations.append(
-                    f"{skill_file.relative_to(SKILLS_DIR.parent)} uses {description}: {first_line}"
+                    f"{skill_file.relative_to(PROJECT_ROOT)} uses {description}: {first_line}"
                 )
 
     assert not violations, "Unsafe skill command snippets found:\n" + "\n".join(violations)

@@ -19,10 +19,6 @@ Scan the current project, assess complexity (Tier S / M / L), and report structu
 
 ### Step 1: Bootstrap the home-scoped toolkit
 
-Use the bundled bootstrap script. It prepares `<makewiki_root>` at `HOME/.makewiki` on Windows, macOS, and Linux. The launcher at `<makewiki_root>/scripts/run_toolkit.py` then bootstraps `<makewiki_root>/.venv`, preferring `uv` and falling back to `python -m venv`.
-
-Run this bootstrap command:
-
 ```bash
 python scripts/bootstrap_toolkit.py
 ```

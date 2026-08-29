@@ -6,6 +6,7 @@ argument-hint: "[--lang <code>...]"
 license: MIT
 allowed-tools: Bash(python */scripts/bootstrap_toolkit.py) Bash(python */scripts/run_toolkit.py *) Write
 ---
+
 # MakeWiki Init - Generate Configuration
 
 Create a default `makewiki.config.yaml` in the current project root.
@@ -13,10 +14,6 @@ Create a default `makewiki.config.yaml` in the current project root.
 ## Execution
 
 ### Step 1: Bootstrap the home-scoped toolkit
-
-Use the bundled bootstrap script. It prepares `<makewiki_root>` at `HOME/.makewiki` on Windows, macOS, and Linux. The launcher at `<makewiki_root>/scripts/run_toolkit.py` then bootstraps `<makewiki_root>/.venv`, preferring `uv` and falling back to `python -m venv`.
-
-Run this bootstrap command:
 
 ```bash
 python scripts/bootstrap_toolkit.py
