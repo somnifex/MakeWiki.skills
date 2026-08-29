@@ -61,6 +61,12 @@ two_plane_topology:
 
 ### Cognitive Authority Boundary
 
+LLM Agents are the authoritative decision makers for semantic work. Python
+tooling MUST NOT invent semantic conclusions. When deterministic tooling
+cannot mechanically establish a fact, it MUST return UNKNOWN rather than
+guess. Python-generated semantic conclusions MUST NOT override LLM Agent
+adjudication in the authoritative `/makewiki` path.
+
 **LLM = final judge of truth. Python = final judge of mechanical proof.**
 
 - Python MUST NOT invent semantic conclusions (FAQ, troubleshooting, usage,
@@ -200,6 +206,21 @@ Layer ownership:
   Auditor reasons over it.
 - The Gate surfaces every layer status. `pending` means "evidence available,
   judgment still owed" — never silently hidden.
+
+Layer status semantics (honest contract, matches `verification/report.py`):
+
+- `passed` — a verifier actually executed and proved the layer.
+- `failed` — a verifier ran and found a contradiction.
+- `pending` — no verifier ran / not yet proven (LLM-judged layers: L3
+  behavior, L4 prose-parity, L5 epistemic, plus un-resolved claims).
+- `unknown` — insufficient evidence to decide either way.
+- `not_applicable` — genuinely irrelevant (e.g. L4 cross-language parity for a
+  single-language project).
+- `warning` — advisory; does not fail the gate.
+
+Python never marks a layer `passed` without actually proving it; the Quality
+Gate reports LLM-judged `pending` layers transparently rather than auto-
+adjudicating semantics.
 
 ---
 
@@ -512,7 +533,8 @@ returns `UNKNOWN`. None of them produce narrative content.
 | `verify-claim <json>`    | —            | Verify one or many Claims against the codebase               |
 | `verify-model <json>`    | —            | Schema + evidence-ref validation for a SemanticModel         |
 | `verify-docs <target>`   | `verify`     | Unified L0 - L5 verification + Quality Gate + CI exit code   |
-| `parity <target>`        | `review`     | L4 exact-block parity + aligned passages for LLM prose audit |
+| `parity <target>`        | —            | L4 exact-block parity + aligned passages for LLM prose audit |
+| `review <wiki_dir>`      | —            | Standalone cross-language review (runs `CrossLanguageReviewer`) |
 | `semantic-review <dir>`  | —            | Prepare aligned passages for LLM cross-language review       |
 | `validate <wiki_dir>`    | —            | Markdown structure & link validation (L0 helper)             |
 | `build-site <wiki_dir>`  | —            | Compile Markdown into offline SPA HTML site                  |
@@ -520,10 +542,13 @@ returns `UNKNOWN`. None of them produce narrative content.
 | `sync-bundle <wiki_dir>` | `sync`       | Prepare Confluence / Notion bundles; **does NOT publish**    |
 | `init-config <target>`   | —            | Generate default `makewiki.config.yaml`                      |
 | `rebattle-diff <files>`  | —            | Deterministic dispute organizer over multiple ClaimSets      |
-| `deterministic-generate` | `generate`   | Mechanical scaffold only — **NOT** the authoritative flow   |
+| `legacy-generate`        | `generate`   | Mechanical scaffold only (deprecated) — **NOT** the authoritative flow |
 
 Backward-compat aliases (`scan`, `verify`, `sync`, `generate`) remain so
-existing scripts keep working. The authoritative flow is `/makewiki`.
+existing scripts keep working. `generate` is the deprecated alias of
+`legacy-generate` (the non-authoritative mechanical scaffold). The
+authoritative flow is `/makewiki`. `review` is a standalone command, not an
+alias of `parity`.
 
 ### Config Consumption Contract
 

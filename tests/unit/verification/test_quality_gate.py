@@ -107,6 +107,26 @@ def test_pending_layer_does_not_fail_gate_by_default():
     assert result.passed is True
 
 
+def test_llm_layer_passed_flags_reflect_actual_layer_status():
+    """L3/L4/L5 passed flags must mirror the real per-layer verdict.
+
+    Regression guard: these fields were once ``bool == "passed"`` which made
+    them always False regardless of the layer actually passing.
+    """
+    report = _make_report()
+    result = evaluate_quality_gate(report, MakeWikiConfig.default(Path(".")))
+    assert result.behavior_passed is True
+    assert result.cross_language_passed is True
+    assert result.epistemic_passed is True
+
+    # A failed LLM-judged layer drives its own flag False.
+    report.layers["L3"] = _layer_with_failure("L3", "Behavior", "x")
+    result = evaluate_quality_gate(report, MakeWikiConfig.default(Path(".")))
+    assert result.behavior_passed is False
+    assert result.cross_language_passed is True
+    assert result.epistemic_passed is True
+
+
 def test_orchestrator_runs_all_layers_on_directory():
     """verify-docs path: orchestrator produces L0-L5 on a real wiki directory."""
     from makewiki_skills.generator.language_generator import GeneratedDocument

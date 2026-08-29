@@ -13,9 +13,7 @@ specific behaviour Phase-7 and Phase-8 promised:
 from __future__ import annotations
 
 import importlib.util
-import io
 import json
-import os
 from pathlib import Path
 
 import pytest
@@ -32,7 +30,6 @@ from makewiki_skills.verification.report import (
     LayerReport,
     VerificationCheck,
 )
-
 
 # ---------- Quality Gate pass/fail + CI exit codes ----------------------------
 

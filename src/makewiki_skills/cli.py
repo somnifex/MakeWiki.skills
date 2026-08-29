@@ -6,7 +6,7 @@ from typing import Any, cast
 if hasattr(sys.stdout, "reconfigure"):
     try:
         sys.stdout.reconfigure(encoding="utf-8", errors="replace")
-        sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+        sys.stderr.reconfigure(encoding="utf-8", errors="replace")  # type: ignore[union-attr]
     except Exception:
         pass
 
@@ -24,7 +24,7 @@ app = typer.Typer(
 console = Console()
 
 
-@app.command(name="deterministic-generate")
+@app.command(name="legacy-generate")
 def deterministic_generate(
     target: Path = typer.Argument(..., help="Target project directory"),
     langs: list[str] = typer.Option(["en", "zh-CN"], "--lang", "-l", help="Languages to generate"),
@@ -34,13 +34,15 @@ def deterministic_generate(
     output: str | None = typer.Option(None, "--output", "-o", help="Output directory name"),
     verbose: bool = typer.Option(False, "--verbose", "-v", help="Verbose output"),
 ) -> None:
-    """Deterministic scaffold generator — NOT the authoritative /makewiki path.
+    """LEGACY/regression scaffold only — NOT the authoritative /makewiki path.
 
-    This command drives Python's *mechanical* pipeline (extract evidence, build
-    identity/installation/configuration/commands, render Jinja templates). It
-    produces structurally grounded scaffolding but never invents semantic content
-    (FAQ, troubleshooting, usage, workflows). The authoritative, LLM-driven flow is
-    `/makewiki` in the Skill layer.
+    Drives Python's *mechanical* pipeline (extract evidence, build
+    identity/installation/configuration/commands, render Jinja templates) and
+    produces UNKNOWN-marked structural scaffolding, not full semantic docs — it
+    never invents FAQ, troubleshooting, usage, or workflow prose. Retained
+    solely as a regression scaffold for deterministic tests. The authoritative,
+    LLM-driven flow that authors real documentation is `/makewiki` in the Skill
+    layer.
     """
     from makewiki_skills.pipeline.pipeline import Pipeline
 
@@ -117,11 +119,12 @@ def generate_alias(
     output: str | None = typer.Option(None, "--output", "-o", help="Output directory name"),
     verbose: bool = typer.Option(False, "--verbose", "-v", help="Verbose output"),
 ) -> None:
-    """Deprecated alias for `deterministic-generate`.
+    """Deprecated alias for `legacy-generate`.
 
-    Retained for backward compatibility. It runs the same deterministic,
-    non-authoritative scaffold pipeline. Prefer `deterministic-generate`; the
-    authoritative, LLM-driven flow is `/makewiki` in the Skill layer.
+    LEGACY/regression scaffold only — NOT the authoritative `/makewiki` path.
+    Retained for backward compatibility; it runs the same deterministic,
+    non-authoritative UNKNOWN-marked scaffold pipeline. Prefer the
+    authoritative, LLM-driven `/makewiki` skill flow for real documentation.
     """
     deterministic_generate(target, langs, config_path, output, verbose)
 
@@ -389,10 +392,10 @@ def verify_claim(
 
     Loads a Claim or ClaimSet document (as produced by the Skill's Claim step
     or Python's evidence extraction), runs ``verify_claims_against_codebase``
-    on it, and reports each claim's per-layer verification status (L0-L5).
-    This is the mechanical proof half of the Cognitive Authority Boundary:
-    Python proves what it can (L0 syntax, L1 existence) and marks everything
-    else pending for LLM judgment.
+    on it, and reports each ``MechanicalAssertion``'s per-layer verification
+    status (L0-L5). This is the mechanical proof half of the Cognitive
+    Authority Boundary: Python proves what it can (L0 syntax, L1 existence)
+    and marks everything else pending for LLM judgment.
     """
     from makewiki_skills.model.claim import ClaimSet, verify_claims_against_codebase
 
@@ -545,9 +548,9 @@ def parity(
     Skill's LLM Auditor to reason over prose parity. Mechanical exactness is
     Python's proof; semantic prose equality is the LLM's judgment.
     """
+    from makewiki_skills.generator.language_generator import GeneratedDocument
     from makewiki_skills.languages.registry import LanguageRegistry
     from makewiki_skills.verification.orchestrator import VerificationOrchestrator
-    from makewiki_skills.generator.language_generator import GeneratedDocument
 
     target = Path(target).resolve()
     cfg = _load_config(config_path, target)
@@ -596,7 +599,6 @@ def parity(
     # Aligned passages (prose parity input for the LLM Auditor), matched by
     # H2 position like semantic-review does.
     pages: dict[str, dict[str, str]] = {}
-    default_lang = langs[0] if langs else "en"
     for lang_code, doc_list in documents.items():
         for doc in doc_list:
             pages.setdefault(doc.base_name, {})[lang_code] = doc.content
@@ -981,16 +983,16 @@ def rebattle_diff(
     ),
 ) -> None:
     """Compare Claims from multiple agents and output dispute/discrepancy matrix."""
-    from makewiki_skills.model.rebattle import ClaimSet, ReBattleArena
+    from makewiki_skills.model.rebattle import AgentClaimSet, ReBattleArena
 
-    claim_sets: list[ClaimSet] = []
+    claim_sets: list[AgentClaimSet] = []
     for cf in claims_files:
         p = Path(cf).resolve()
         if not p.is_file():
             console.print(f"[red]Error:[/red] File does not exist: {p}")
             raise typer.Exit(1)
         data = json_lib.loads(p.read_text(encoding="utf-8"))
-        claim_sets.append(ClaimSet.model_validate(data))
+        claim_sets.append(AgentClaimSet.model_validate(data))
 
     discrepancies = ReBattleArena.detect_discrepancies(claim_sets)
     typer.echo(

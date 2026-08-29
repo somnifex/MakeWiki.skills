@@ -7,13 +7,13 @@
 <p align="center">
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="License MIT"></a>
   <a href="pyproject.toml"><img src="https://img.shields.io/badge/python-3.11%2B-blue.svg" alt="Python 3.11+"></a>
-  <a href="tests/"><img src="https://img.shields.io/badge/tests-181%20passed-brightgreen.svg" alt="Tests"></a>
-  <a href="skills/makewiki/"><img src="https://img.shields.io/badge/architecture-LLM%2Dfirst-orange.svg" alt="LLM-first"></a>
+  <a href="tests/"><img src="https://img.shields.io/badge/tests-passing-brightgreen.svg" alt="Tests"></a>
+  <a href="SKILL.md"><img src="https://img.shields.io/badge/architecture-LLM%2Dfirst-orange.svg" alt="LLM-first"></a>
   <a href="references/grounding_policy.md"><img src="https://img.shields.io/badge/verification-L0%E2%80%93L5-purple.svg" alt="L0-L5 Verification"></a>
-  <a href="skills/makewiki/"><img src="https://img.shields.io/badge/quality%20gate-PASS%2FFAIL-success.svg" alt="Quality Gate"></a>
-  <a href="makewiki/site/"><img src="https://img.shields.io/badge/site-Offline%20SPA-purple.svg" alt="Static Site"></a>
-  <a href="makewiki/export/"><img src="https://img.shields.io/badge/export-HTML%20%7C%20EPUB-blueviolet.svg" alt="Export HTML/EPUB"></a>
-  <a href="makewiki/sync/"><img src="https://img.shields.io/badge/sync-Confluence%20%7C%20Notion-teal.svg" alt="Sync Knowledge Base"></a>
+  <a href="SKILL.md"><img src="https://img.shields.io/badge/quality%20gate-PASS%2FFAIL-success.svg" alt="Quality Gate"></a>
+  <a href="subskills/site/"><img src="https://img.shields.io/badge/site-Offline%20SPA-purple.svg" alt="Static Site"></a>
+  <a href="subskills/export/"><img src="https://img.shields.io/badge/export-HTML%20%7C%20EPUB-blueviolet.svg" alt="Export HTML/EPUB"></a>
+  <a href="subskills/sync/"><img src="https://img.shields.io/badge/sync-Confluence%20%7C%20Notion-teal.svg" alt="Sync Knowledge Base"></a>
 </p>
 
 ---
@@ -50,26 +50,26 @@ The orchestrator runs the authoritative pipeline — Sizing → Scout → ReBatt
 
 The CLI surface is designed around authoritative names with backward-compatible aliases. The Python side is strictly mechanical; cognition lives in the LLM plane.
 
-| Plane                           | Authority                                | Aliases             | Role                                                                 |
-| ------------------------------- | ---------------------------------------- | ------------------- | -------------------------------------------------------------------- |
-| Full Skill                      | `/makewiki`                              | —                   | Full pipeline: Sizing → Scout → ReBattle → Writer → Review → Compile |
-| Site                            | `/makewiki-site`                         | —                   | Compile Markdown into offline static Wiki                            |
-| Validation                      | `/makewiki-validate`                     | —                   | Markdown structure & link integrity                                  |
-| Quality Review                  | `/makewiki-review`                       | `semantic-review`   | Extract cross-language alignments + behavior evidence                |
-| Project Sizing                  | `/makewiki-scan`                         | —                   | Tier assessment + fact extraction (calls `evidence`)                 |
-| Config Init                     | `/makewiki-init`                         | —                   | Generate default `makewiki.config.yaml`                              |
-| Toolkit: Sizing                 | `makewiki sizing <path>`                 | —                   | Tier S/M/L classification                                            |
-| Toolkit: Evidence               | `makewiki evidence <path>`               | `makewiki scan`     | Fact JSON (no interpretation)                                        |
-| Toolkit: Verify                 | `makewiki verify-docs <path>`            | `makewiki verify`   | L0–L5 + QualityGate → PASS/FAIL + CI exit code                       |
-| Toolkit: Claim verify           | `makewiki verify-claim <claim.json>`     | —                   | Per-claim L-status                                                   |
-| Toolkit: Model verify           | `makewiki verify-model <model.json>`     | —                   | SemanticModel schema + evidence-ref validation                       |
-| Toolkit: Parity                 | `makewiki parity <path>`                 | —                   | Block-ID exact match + aligned passages                              |
-| Toolkit: ReBattle diff          | `makewiki rebattle-diff`                 | —                   | Deterministic dispute organizer                                      |
-| Toolkit: Site                   | `makewiki build-site <path>`             | —                   | Compile offline static site                                          |
-| Toolkit: Export                 | `makewiki export <path> --format html\   | epub\               | all`                                                                 | — | Single-file export (rejects `pdf`) |
-| Toolkit: Sync bundle            | `makewiki sync-bundle <path>`            | `makewiki sync`     | Prepare Confluence/Notion bundles (no publish)                       |
-| Toolkit: Deterministic scaffold | `makewiki deterministic-generate <path>` | `makewiki generate` | **Non-authoritative**, regression only                               |
-| Toolkit: Config init            | `makewiki init-config`                   | —                   | Generate default `makewiki.config.yaml`                              |
+| Plane                           | Authority                              | Aliases             | Role                                                                 |
+| ------------------------------- | -------------------------------------- | ------------------- | -------------------------------------------------------------------- |
+| Full Skill                      | `/makewiki`                            | —                   | Full pipeline: Sizing → Scout → ReBattle → Writer → Review → Compile |
+| Site                            | `/makewiki-site`                       | —                   | Compile Markdown into offline static Wiki                            |
+| Validation                      | `/makewiki-validate`                   | —                   | Markdown structure & link integrity                                  |
+| Quality Review                  | `/makewiki-review`                     | `semantic-review`   | Extract cross-language alignments + behavior evidence                |
+| Project Sizing                  | `/makewiki-scan`                       | —                   | Tier assessment + fact extraction (calls `evidence`)                 |
+| Config Init                     | `/makewiki-init`                       | —                   | Generate default `makewiki.config.yaml`                              |
+| Toolkit: Sizing                 | `makewiki sizing <path>`               | —                   | Tier S/M/L classification                                            |
+| Toolkit: Evidence               | `makewiki evidence <path>`             | `makewiki scan`     | Fact JSON (no interpretation)                                        |
+| Toolkit: Verify                 | `makewiki verify-docs <path>`          | `makewiki verify`   | L0–L5 + QualityGate → PASS/FAIL + CI exit code                       |
+| Toolkit: Claim verify           | `makewiki verify-claim <claim.json>`   | —                   | Per-claim L-status                                                   |
+| Toolkit: Model verify           | `makewiki verify-model <model.json>`   | —                   | SemanticModel schema + evidence-ref validation                       |
+| Toolkit: Parity                 | `makewiki parity <path>`               | —                   | Block-ID exact match + aligned passages                              |
+| Toolkit: ReBattle diff          | `makewiki rebattle-diff`               | —                   | Deterministic dispute organizer                                      |
+| Toolkit: Site                   | `makewiki build-site <path>`           | —                   | Compile offline static site                                          |
+| Toolkit: Export                 | `makewiki export <path> --format html\ | epub\               | all`                                                                 | — | Single-file export (rejects `pdf`) |
+| Toolkit: Sync bundle            | `makewiki sync-bundle <path>`          | `makewiki sync`     | Prepare Confluence/Notion bundles (no publish)                       |
+| Toolkit: Deterministic scaffold | `makewiki legacy-generate <path>`      | `makewiki generate` | **Non-authoritative**, regression only                               |
+| Toolkit: Config init            | `makewiki init-config`                 | —                   | Generate default `makewiki.config.yaml`                              |
 
 ---
 

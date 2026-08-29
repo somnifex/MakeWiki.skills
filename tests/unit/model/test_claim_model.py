@@ -243,6 +243,40 @@ def test_claim_provenance_default_and_llm():
     assert s.get_by_id("FW_AUTH_FLOW").claim_type == "workflow"
 
 
+def test_mechanical_assertion_alias_is_claim():
+    """MechanicalAssertion is a type alias over the core Claim class."""
+    from makewiki_skills.model.claim import Claim, MechanicalAssertion
+
+    assert MechanicalAssertion is Claim
+    assert MechanicalAssertion.__name__ == "Claim"
+
+
+def test_adjudicated_provenance_value():
+    """The provenance literal now supports the 'adjudicated' value."""
+    from makewiki_skills.model.claim import Claim
+
+    claim = Claim(
+        claim_id="CMD_RUN",
+        claim_type="command",
+        semantic_key="cli.command.run",
+        subject="myapp",
+        predicate="executes",
+        object="myapp run",
+        provenance="adjudicated",
+    )
+    assert claim.provenance == "adjudicated"
+
+
+def test_model_package_exports_vocabulary():
+    """The model package re-exports the unified four-layer claim vocabulary."""
+    from makewiki_skills import model
+
+    assert model.MechanicalAssertion is model.Claim
+    assert hasattr(model, "AgentClaim")
+    assert hasattr(model, "AgentClaimSet")
+    assert hasattr(model, "AdjudicatedClaim")
+
+
 def test_verify_claims_no_hardcoded_behavior():
     """L2/L3 must never be blindly marked passed/not_applicable."""
     from pathlib import Path
@@ -261,3 +295,164 @@ def test_verify_claims_no_hardcoded_behavior():
     verified = verify_claims_against_codebase(ClaimSet(project_name="myapp", claims=[claim]), Path("."))
     assert verified.get_by_id("CMD_RUN").verification.l2_interface in ("pending", "passed", "failed")
     assert verified.get_by_id("CMD_RUN").verification.l3_behavior in ("pending", "passed", "failed")
+
+
+def test_l5_is_always_pending_never_auto_passed():
+    """High confidence must never make Python assert epistemic (L5) soundness."""
+    from pathlib import Path
+
+    from makewiki_skills.model.claim import (
+        Claim,
+        ClaimEvidence,
+        ClaimSet,
+        verify_claims_against_codebase,
+    )
+
+    claim = Claim(
+        claim_id="CMD_RUN",
+        claim_type="command",
+        semantic_key="cli.command.run",
+        subject="myapp",
+        predicate="executes",
+        object="myapp run",
+        confidence="high",
+        evidence=[
+            ClaimEvidence(
+                source_file="src/cli.py",
+                raw_text="def run(): ...",
+                confidence="high",
+            )
+        ],
+    )
+    verified = verify_claims_against_codebase(ClaimSet(project_name="myapp", claims=[claim]), Path("."))
+    assert verified.get_by_id("CMD_RUN").verification.l5_epistemic == "pending"
+
+    # Low/inferred confidence still records the uncertainty reason.
+    low = Claim(
+        claim_id="CMD_LOW",
+        claim_type="command",
+        semantic_key="cli.command.low",
+        subject="myapp",
+        predicate="executes",
+        object="myapp run",
+        confidence="inferred",
+    )
+    verified_low = verify_claims_against_codebase(ClaimSet(project_name="myapp", claims=[low]), Path("."))
+    assert verified_low.get_by_id("CMD_LOW").verification.l5_epistemic == "pending"
+    assert verified_low.get_by_id("CMD_LOW").uncertainty == "Inferred from configuration or heuristic scan"
+
+
+def test_l0_syntax_check_is_genuine():
+    """L0 must pass only for truly well-formed claims, not mere non-empty fields."""
+    from pathlib import Path
+
+    from makewiki_skills.model.claim import Claim, ClaimSet, verify_claims_against_codebase
+
+    malformed_cases = [
+        # bad claim_id pattern
+        Claim(
+            claim_id="not_a_valid_id!",
+            claim_type="command",
+            semantic_key="cli.command.run",
+            subject="myapp",
+            predicate="executes",
+            object="myapp run",
+        ),
+        # unhandled/unknown claim type
+        Claim(
+            claim_id="CMD_RUN",
+            claim_type="bogus_type",
+            semantic_key="cli.command.run",
+            subject="myapp",
+            predicate="executes",
+            object="myapp run",
+        ),
+        # semantic_key not slash/dot-path shaped
+        Claim(
+            claim_id="CFG_PORT",
+            claim_type="config",
+            semantic_key="justonepart",
+            subject="PORT",
+            predicate="configures",
+            object="8080",
+        ),
+        # empty subject
+        Claim(
+            claim_id="CMD_RUN",
+            claim_type="command",
+            semantic_key="cli.command.run",
+            subject="   ",
+            predicate="executes",
+            object="myapp run",
+        ),
+    ]
+    verified = verify_claims_against_codebase(ClaimSet(project_name="myapp", claims=malformed_cases), Path("."))
+    for c in verified.claims:
+        assert c.verification.l0_syntax != "passed"
+
+    # A genuinely well-formed claim passes L0.
+    good = Claim(
+        claim_id="CMD_RUN",
+        claim_type="command",
+        semantic_key="cli.command.run",
+        subject="myapp",
+        predicate="executes",
+        object="myapp run",
+    )
+    verified_good = verify_claims_against_codebase(ClaimSet(project_name="myapp", claims=[good]), Path("."))
+    assert verified_good.get_by_id("CMD_RUN").verification.l0_syntax == "passed"
+
+
+def test_l1_command_without_evidence_is_pending_not_passed():
+    """A command claim with no high/medium evidence must never be bare-passed."""
+    from pathlib import Path
+
+    from makewiki_skills.model.claim import Claim, ClaimSet, verify_claims_against_codebase
+
+    claim = Claim(
+        claim_id="CMD_RUN",
+        claim_type="command",
+        semantic_key="cli.command.run",
+        subject="myapp",
+        predicate="executes",
+        object="myapp run",
+        confidence="high",  # high confidence alone is not proof of existence
+    )
+    verified = verify_claims_against_codebase(ClaimSet(project_name="myapp", claims=[claim]), Path("."))
+    assert verified.get_by_id("CMD_RUN").verification.l1_existence == "pending"
+
+
+def test_l1_unhandled_claim_type_is_pending_not_passed():
+    """An unhandled claim type means no L1 check ran, so it must be pending."""
+    from pathlib import Path
+
+    from makewiki_skills.model.claim import Claim, ClaimSet, verify_claims_against_codebase
+
+    claim = Claim(
+        claim_id="CMD_RUN",
+        claim_type="workflow",
+        semantic_key="workflow.auth",
+        subject="myapp",
+        predicate="authenticates",
+        object="auth flow",
+    )
+    verified = verify_claims_against_codebase(ClaimSet(project_name="myapp", claims=[claim]), Path("."))
+    assert verified.get_by_id("CMD_RUN").verification.l1_existence == "pending"
+
+
+def test_l1_path_with_non_string_object_is_pending():
+    """A path claim whose object is not a string gets no existence check -> pending."""
+    from pathlib import Path
+
+    from makewiki_skills.model.claim import Claim, ClaimSet, verify_claims_against_codebase
+
+    claim = Claim(
+        claim_id="PATH_OBJ",
+        claim_type="path",
+        semantic_key="filesystem.path.obj",
+        subject="cfg",
+        predicate="exists_in_repository",
+        object={"not": "a string"},
+    )
+    verified = verify_claims_against_codebase(ClaimSet(project_name="myapp", claims=[claim]), Path("."))
+    assert verified.get_by_id("PATH_OBJ").verification.l1_existence == "pending"

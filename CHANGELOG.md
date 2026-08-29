@@ -7,6 +7,39 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [2.0.0] — 2026-08-29
 
+### Docs consolidation — accurate surface, honest statuses
+
+A final documentation pass aligning every doc to the implemented reality:
+
+- **Command rename**: the CLI command is `legacy-generate` (function
+
+  `deterministic_generate`); `generate` remains as a deprecated alias. Both
+  are explicitly non-authoritative / mechanical scaffold only — NOT the
+  `/makewiki` path.
+- **Revision engine**: the semantic revision engine is now
+
+  `MechanicalRepairEngine` (module `makewiki_skills.revision`; `RevisionEngine`
+  alias kept). It performs **mechanical repairs only** — cross-language
+  code-block parity by stable `[[id:...]]` block ID and canned UNKNOWN
+  evidence caveats. Anti-cliché prose rewriting is the LLM Auditor's job.
+- **Four-layer claim vocabulary**: `EvidenceFact` → `MechanicalAssertion` →
+
+  `AgentClaim` → `AdjudicatedClaim`, threaded by
+  `provenance: python_fact | llm_claim | adjudicated`.
+- **Honest L0–L5 statuses**: `passed` / `failed` / `pending` / `unknown` /
+
+  `not_applicable` / `warning` per `verification/report.py`. Python never marks
+  a layer `passed` without actually proving it; LLM-judged pending layers are
+  reported transparently.
+- Consistent Cognitive Authority Boundary wording across `SKILL.md`,
+
+  `AGENTS.md`, `CLAUDE.md`, `references/architecture.md`,
+  `references/grounding_policy.md`.
+- Quick-start selection is explicit (`is_quick_start: bool` only); config
+
+  classification is mechanical (facts only, no fuzzy narrative label);
+  cross-language code blocks are matched by stable IDs, not position.
+
 ### Refactor — LLM-first, evidence-backed architecture
 
 MakeWiki v2 splits the system cleanly along a **Cognitive Authority Boundary**:
@@ -34,8 +67,8 @@ MakeWiki v2 splits the system cleanly along a **Cognitive Authority Boundary**:
 - Stable block IDs (`getting_started.install`, `usage.scan_json`, `config.database_url`, etc.) carry identical technical blocks across languages for exact L4 mechanical parity.
 
 **Authoritative CLI surface (mechanical-only)**
-- `sizing`, `evidence` (alias `scan`), `verify-claim`, `verify-model`, `verify-docs` (alias `verify`), `parity`, `semantic-review` (alias `review`), `validate`, `build-site`, `export` (`html|epub|all`, **rejects pdf**), `sync-bundle` (alias `sync`, **bundle-prep only**), `rebattle-diff`, `init-config`.
-- `deterministic-generate` (alias `generate`) is the mechanical scaffold only — explicitly **not** the authoritative `/makewiki` flow.
+- `sizing`, `evidence` (alias `scan`), `verify-claim`, `verify-model`, `verify-docs` (alias `verify`), `parity`, `review` (standalone `CrossLanguageReviewer`, not an alias of `parity`), `semantic-review`, `validate`, `build-site`, `export` (`html|epub|all`, **rejects pdf**), `sync-bundle` (alias `sync`, **bundle-prep only**), `rebattle-diff`, `init-config`.
+- `legacy-generate` (alias `generate`, deprecated) is the mechanical scaffold only — explicitly **not** the authoritative `/makewiki` flow.
 - First-party console script `makewiki = "makewiki_skills.cli:app"` registered in `pyproject.toml`.
 
 **Bootstrap version pinning**
@@ -46,7 +79,7 @@ MakeWiki v2 splits the system cleanly along a **Cognitive Authority Boundary**:
 - `tests/contracts/test_cli_skill_contract.py` — every documented toolkit command resolves to a registered Typer command.
 - `tests/contracts/test_config_consumption_contract.py` — every `MakeWikiConfig` field is either Python-consumed or explicitly annotated LLM-consumed; no dead config.
 - `tests/contracts/test_subskill_cli_contract.py` — subskill flags map to actual CLI flags.
-- `tests/contracts/test_pipeline_docs_contract.py` — deterministic-generate output contains no invented FAQ/troubleshooting and uses `UNKNOWN` markers.
+- `tests/contracts/test_pipeline_docs_contract.py` — `legacy-generate` output contains no invented FAQ/troubleshooting and uses `UNKNOWN` markers.
 - `tests/contracts/test_feature_test_contract.py` — each advertised feature (`evidence-backed`, L0–L5, Quality Gate, `sync-bundle = bundle-prep`) has at least one covering test.
 - `tests/contracts/test_skill_shell_safety.py` — bans `&&`, `||`, `/dev/null`, `${}`, `!` fences, raw `$ARGUMENTS` across `tasks/**/*.md` and `references/**/*.md`.
 

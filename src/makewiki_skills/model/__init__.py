@@ -7,17 +7,29 @@ from makewiki_skills.model.claim import (
     ClaimEvidence,
     ClaimSet,
     Confidence,
+    MechanicalAssertion,
     VerificationState,
     VerificationStatus,
     build_claims_from_evidence,
     verify_claims_against_codebase,
 )
+from makewiki_skills.model.rebattle import (
+    AdjudicatedClaim,
+    AdjudicationResult,
+    AgentClaim,
+    AgentClaimSet,
+)
 
 __all__ = [
+    "AdjudicatedClaim",
+    "AdjudicationResult",
+    "AgentClaim",
+    "AgentClaimSet",
     "Claim",
     "ClaimEvidence",
     "ClaimSet",
     "Confidence",
+    "MechanicalAssertion",
     "VerificationState",
     "VerificationStatus",
     "build_claims_from_evidence",

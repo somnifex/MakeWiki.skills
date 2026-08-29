@@ -241,7 +241,6 @@ class L2InterfaceVerifier:
                         # Inspect default value or typer.Option / typer.Argument
                         flags = [f"--{p_name.replace('_', '-')}"]
                         choices: list[str] = []
-                        param_type = "str"
 
                         # Try to extract typer.Option / Argument arguments
                         for default_node in node.args.defaults:

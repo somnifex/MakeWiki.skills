@@ -127,30 +127,36 @@ class LanguageGenerator:
             return profile.get_filename(base)
 
         quick_start_example: dict[str, Any] | None = None
-        preferred_example = next(
-            (example for example in model.usage_examples if "start" in example.title.lower()),
+        # A quick-start item is chosen ONLY by the explicit ``is_quick_start``
+        # flag (LLM-authored). Python never guesses a quick-start by matching
+        # the word "start" in a title — that is a semantic decision. When no
+        # item is explicitly flagged, an honest UNKNOWN marker is rendered
+        # instead (or nothing at all when uncertainty notes are disabled).
+        flagged_example = next(
+            (example for example in model.usage_examples if example.is_quick_start),
             None,
         )
-        preferred_task = next(
-            (task for task in model.user_tasks if "start" in task.title.lower()),
+        flagged_task = next(
+            (task for task in model.user_tasks if task.is_quick_start),
             None,
         )
-        if preferred_example is not None:
-            quick_start_example = preferred_example.model_dump()
-        elif preferred_task is not None:
+        if flagged_example is not None:
+            quick_start_example = flagged_example.model_dump()
+        elif flagged_task is not None:
             quick_start_example = {
-                "title": preferred_task.title,
-                "description": preferred_task.user_goal,
-                "commands": preferred_task.commands,
+                "title": flagged_task.title,
+                "description": flagged_task.user_goal,
+                "commands": flagged_task.commands,
             }
-        elif model.usage_examples:
-            quick_start_example = model.usage_examples[0].model_dump()
-        elif model.user_tasks:
-            task = model.user_tasks[0]
+        elif config.emit_uncertainty_notes:
             quick_start_example = {
-                "title": task.title,
-                "description": task.user_goal,
-                "commands": task.commands,
+                "title": self._uncertainty(
+                    profile,
+                    "No explicit quick-start example was identified for this project.",
+                    config.emit_uncertainty_notes,
+                ),
+                "description": None,
+                "commands": [],
             }
 
         ctx = model.to_context_dict()
@@ -273,6 +279,7 @@ class LanguageGenerator:
             "No user-facing configuration was found in the scanned project files.": "\u626b\u63cf\u5230\u7684\u9879\u76ee\u6587\u4ef6\u91cc\u6ca1\u6709\u8bc6\u522b\u51fa\u9762\u5411\u7528\u6237\u7684\u914d\u7f6e\u9879\u3002",
             "No recurring questions stood out in the scanned project files. Check the repository discussions for more context.": "\u626b\u63cf\u5230\u7684\u9879\u76ee\u6587\u4ef6\u91cc\u6ca1\u6709\u6c89\u6dc0\u51fa\u660e\u786e\u7684\u5e38\u89c1\u95ee\u9898\uff0c\u53ef\u4ee5\u518d\u67e5\u770b\u4ed3\u5e93\u91cc\u7684 issue \u6216\u8ba8\u8bba\u533a\u3002",
             "No common failure patterns were found in the scanned project files.": "\u626b\u63cf\u5230\u7684\u9879\u76ee\u6587\u4ef6\u91cc\u6ca1\u6709\u53d1\u73b0\u660e\u663e\u7684\u5e38\u89c1\u6545\u969c\u6a21\u5f0f\u3002",
+            "No explicit quick-start example was identified for this project.": "\u8fd9\u4e2a\u9879\u76ee\u91cc\u6ca1\u6709\u8bc6\u522b\u51fa\u660e\u786e\u7684\u5feb\u901f\u4e0a\u624b\u793a\u4f8b\uff0c\u65e0\u6cd5\u673a\u68b0\u9a8c\u8bc1\u3002",
             "No repeatable usage patterns were clear from the scanned project files.": "\u626b\u63cf\u5230\u7684\u9879\u76ee\u6587\u4ef6\u91cc\u6ca1\u6709\u63d0\u70bc\u51fa\u7a33\u5b9a\u7684\u4f7f\u7528\u6d41\u7a0b\u3002",
             "No platform-specific notes were found in the scanned project files.": "\u626b\u63cf\u5230\u7684\u9879\u76ee\u6587\u4ef6\u91cc\u6ca1\u6709\u53d1\u73b0\u660e\u663e\u7684\u5e73\u53f0\u5dee\u5f02\u8bf4\u660e\u3002",
             "Platform": "\u5e73\u53f0",
@@ -289,6 +296,7 @@ class LanguageGenerator:
             "No user-facing configuration was found in the scanned project files.": "\u30b9\u30ad\u30e3\u30f3\u3057\u305f\u30d7\u30ed\u30b8\u30a7\u30af\u30c8\u30d5\u30a1\u30a4\u30eb\u304b\u3089\u3001\u30e6\u30fc\u30b6\u30fc\u5411\u3051\u306e\u8a2d\u5b9a\u306f\u78ba\u8a8d\u3067\u304d\u307e\u305b\u3093\u3067\u3057\u305f\u3002",
             "No recurring questions stood out in the scanned project files. Check the repository discussions for more context.": "\u30b9\u30ad\u30e3\u30f3\u3057\u305f\u30d7\u30ed\u30b8\u30a7\u30af\u30c8\u30d5\u30a1\u30a4\u30eb\u304b\u3089\u3001\u7e70\u308a\u8fd4\u3057\u51fa\u3066\u304f\u308b\u8cea\u554f\u306f\u898b\u5f53\u305f\u308a\u307e\u305b\u3093\u3067\u3057\u305f\u3002\u8a73\u3057\u304f\u306f\u30ea\u30dd\u30b8\u30c8\u30ea\u306e issue \u3084 discussion \u3092\u78ba\u8a8d\u3057\u3066\u304f\u3060\u3055\u3044\u3002",
             "No common failure patterns were found in the scanned project files.": "\u30b9\u30ad\u30e3\u30f3\u3057\u305f\u30d7\u30ed\u30b8\u30a7\u30af\u30c8\u30d5\u30a1\u30a4\u30eb\u304b\u3089\u3001\u5178\u578b\u7684\u306a\u30c8\u30e9\u30d6\u30eb\u306f\u78ba\u8a8d\u3067\u304d\u307e\u305b\u3093\u3067\u3057\u305f\u3002",
+            "No explicit quick-start example was identified for this project.": "\u3053\u306e\u30d7\u30ed\u30b8\u30a7\u30af\u30c8\u3067\u660e\u793a\u7684\u306a\u30af\u30a4\u30c3\u30af\u30b9\u30bf\u30fc\u30c8\u4f8b\u306f\u7279\u5b9a\u3055\u308c\u3066\u3044\u307e\u305b\u3093\u3002",
             "No repeatable usage patterns were clear from the scanned project files.": "\u30b9\u30ad\u30e3\u30f3\u3057\u305f\u30d7\u30ed\u30b8\u30a7\u30af\u30c8\u30d5\u30a1\u30a4\u30eb\u304b\u3089\u3001\u5b9a\u578b\u7684\u306a\u4f7f\u3044\u65b9\u306f\u8aad\u307f\u53d6\u308c\u307e\u305b\u3093\u3067\u3057\u305f\u3002",
             "No platform-specific notes were found in the scanned project files.": "\u30b9\u30ad\u30e3\u30f3\u3057\u305f\u30d7\u30ed\u30b8\u30a7\u30af\u30c8\u30d5\u30a1\u30a4\u30eb\u304b\u3089\u3001\u30d7\u30e9\u30c3\u30c8\u30d5\u30a9\u30fc\u30e0\u56fa\u6709\u306e\u6ce8\u610f\u70b9\u306f\u78ba\u8a8d\u3067\u304d\u307e\u305b\u3093\u3067\u3057\u305f\u3002",
             "Platform": "\u30d7\u30e9\u30c3\u30c8\u30d5\u30a9\u30fc\u30e0",

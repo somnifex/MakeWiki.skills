@@ -16,10 +16,8 @@ Python-consumed but never wiring it up).
 
 from __future__ import annotations
 
-from pathlib import Path
 import re
-
-import pytest
+from pathlib import Path
 
 from makewiki_skills.config import (
     iter_config_models,

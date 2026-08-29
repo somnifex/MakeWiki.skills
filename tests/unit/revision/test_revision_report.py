@@ -20,10 +20,10 @@ def test_revision_report_initialization():
                 description="Hedged 1 ungrounded command",
             ),
             RevisionAction(
-                action_type="anti_cliche",
+                action_type="harmonize_code_block",
                 file_slug="README.zh-CN.md",
                 language="zh-CN",
-                description="Removed AI cliches",
+                description="Harmonized a README code block by stable ID",
             ),
         ],
     )

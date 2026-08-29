@@ -1,8 +1,13 @@
-"""Unit tests for RevisionEngine."""
+"""Unit tests for MechanicalRepairEngine.
+
+The engine performs MECHANICAL repairs only. Semantic prose rewriting
+(anti-cliché) is NOT part of the normal repair loop — it lives behind the
+explicit ``legacy_anti_cliche=True`` scaffold flag.
+"""
 
 from makewiki_skills.generator.language_generator import GeneratedDocument
 from makewiki_skills.review.cross_language_reviewer import CrossLanguageReview, FactDelta
-from makewiki_skills.revision.revision_engine import RevisionEngine
+from makewiki_skills.revision.revision_engine import MechanicalRepairEngine
 from makewiki_skills.verification.code_grounding_verifier import (
     GroundingClaim,
     GroundingReport,
@@ -14,35 +19,73 @@ from makewiki_skills.verification.codebase_verifier import (
 )
 
 
-def test_revision_engine_anti_cliche_sanitization():
-    engine = RevisionEngine()
+def _doc(filename: str, base_name: str, language_code: str, content: str) -> GeneratedDocument:
+    return GeneratedDocument(
+        filename=filename,
+        base_name=base_name,
+        language_code=language_code,
+        content=content,
+    )
+
+
+def test_mechanical_repair_engine_does_not_rewrite_prose():
+    """The normal repair loop must NOT apply anti-cliché / semantic prose edits."""
+    engine = MechanicalRepairEngine()
     docs = {
         "zh-CN": [
-            GeneratedDocument(
-                filename="README.zh-CN.md",
-                base_name="README.md",
-                language_code="zh-CN",
-                content="## 步骤 1：安装依赖\nMakeWiki 不仅是一个文档工具，更是为一个静态网站生成器。不是简单的工具，而是高效编译器。提供赋能与底层逻辑。",
+            _doc(
+                "README.zh-CN.md",
+                "README.md",
+                "zh-CN",
+                "## 步骤 1：安装依赖\nMakeWiki 不仅是一个文档工具，更是为一个静态网站生成器。",
             )
         ]
     }
     revised, report = engine.revise(docs)
-    assert report.total_actions > 0
-    content = revised["zh-CN"][0].content
+    # No semantic prose actions on a clean(with-respect-to-mechanics) document.
+    assert all(a.action_type != "format_normalize" for a in report.actions)
+    # The colon and cliché phrasing are left untouched by the mechanical loop.
+    assert "## 步骤 1：安装依赖" in revised["zh-CN"][0].content
+    assert "不仅是一个文档工具" in revised["zh-CN"][0].content
+
+
+def test_legacy_anti_cliche_cleanup_only_with_flag():
+    """The legacy anti-cliché cleanup runs ONLY under ``legacy_anti_cliche=True``."""
+    docs = {
+        "zh-CN": [
+            _doc(
+                "README.zh-CN.md",
+                "README.md",
+                "zh-CN",
+                "## 步骤 1：安装依赖\nMakeWiki 不仅是一个文档工具，更是为一个静态网站生成器。提供赋能与底层逻辑。",
+            )
+        ]
+    }
+
+    # Default: flag off -> no rewrite.
+    engine = MechanicalRepairEngine()
+    revised, report = engine.revise(docs)
+    assert report.total_actions == 0
+    assert "## 步骤 1：安装依赖" in revised["zh-CN"][0].content
+
+    # Flag on -> legacy scaffold cleanup applies.
+    legacy_engine = MechanicalRepairEngine(legacy_anti_cliche=True)
+    legacy_revised, legacy_report = legacy_engine.revise(docs)
+    assert legacy_report.total_actions > 0
+    content = legacy_revised["zh-CN"][0].content
     assert "## 步骤 1 安装依赖" in content
-    assert "不是" not in content or "高效编译器" in content
     assert "核心机制" in content or "支持" in content
 
 
-def test_revision_engine_hedging_ungrounded_command():
-    engine = RevisionEngine(auto_hedge=True)
+def test_mechanical_repair_engine_hedging_ungrounded_command():
+    engine = MechanicalRepairEngine(auto_hedge=True)
     docs = {
         "en": [
-            GeneratedDocument(
-                filename="usage.md",
-                base_name="usage.md",
-                language_code="en",
-                content="Run the following:\n```bash\nmyapp run --fake-flag\n```\nDone.",
+            _doc(
+                "usage.md",
+                "usage.md",
+                "en",
+                "Run the following:\n```bash\nmyapp run --fake-flag\n```\nDone.",
             )
         ]
     }
@@ -62,19 +105,22 @@ def test_revision_engine_hedging_ungrounded_command():
     )
     revised, report = engine.revise(docs, grounding_report=grounding_report)
     assert report.total_actions > 0
+    assert any(a.action_type == "hedge_ungrounded" for a in report.actions)
     assert "[!NOTE]" in revised["en"][0].content
-    assert "inferred from configuration" in revised["en"][0].content
+    # Canned UNKNOWN evidence marker — no invented "may be experimental" prose.
+    assert "could not be mechanically verified against the codebase" in revised["en"][0].content
+    assert "may be experimental" not in revised["en"][0].content
 
 
-def test_revision_engine_hedging_from_codebase_report():
-    engine = RevisionEngine(auto_hedge=True)
+def test_mechanical_repair_engine_hedging_from_codebase_report():
+    engine = MechanicalRepairEngine(auto_hedge=True)
     docs = {
         "zh-CN": [
-            GeneratedDocument(
-                filename="usage.zh-CN.md",
-                base_name="usage.md",
-                language_code="zh-CN",
-                content="执行命令：\n```bash\nmyapp start --unknown\n```",
+            _doc(
+                "usage.zh-CN.md",
+                "usage.md",
+                "zh-CN",
+                "执行命令：\n```bash\nmyapp start --unknown\n```",
             )
         ]
     }
@@ -94,26 +140,29 @@ def test_revision_engine_hedging_from_codebase_report():
     assert report.total_actions > 0
     content = revised["zh-CN"][0].content
     assert "[!NOTE]" in content
-    assert "未找到显式 AST 声明" in content
+    # Canned Chinese UNKNOWN evidence marker (fixed, per-language).
+    assert "无法机械验证" in content
 
 
-def test_revision_engine_harmonize_code_blocks():
-    engine = RevisionEngine(auto_harmonize=True)
+def test_mechanical_repair_engine_harmonize_by_stable_id():
+    """Code blocks are harmonized by stable [[id:...]] marker, not position."""
+    engine = MechanicalRepairEngine(auto_harmonize=True)
     docs = {
         "en": [
-            GeneratedDocument(
-                filename="README.md",
-                base_name="README.md",
-                language_code="en",
-                content="# Welcome\n\n```bash\nmyapp init\n```\n\n```bash\nmyapp build\n```",
+            _doc(
+                "README.md",
+                "README.md",
+                "en",
+                "# Welcome\n\n[[id:install.init]]\n```bash\nmyapp init\n```\n\n"
+                "[[id:install.build]]\n```bash\nmyapp build\n```\n",
             )
         ],
         "zh-CN": [
-            GeneratedDocument(
-                filename="README.zh-CN.md",
-                base_name="README.md",
-                language_code="zh-CN",
-                content="# 欢迎\n\n```bash\nmyapp init\n```",
+            _doc(
+                "README.zh-CN.md",
+                "README.md",
+                "zh-CN",
+                "# 欢迎\n\n[[id:install.init]]\n```bash\nmyapp init\n```\n",
             )
         ],
     }
@@ -131,18 +180,50 @@ def test_revision_engine_harmonize_code_blocks():
     )
     revised, report = engine.revise(docs, cross_language_report=cross_report)
     assert any(a.action_type == "harmonize_code_block" for a in report.actions)
+    # The missing build block (keyed by its stable ID) is appended to zh.
     assert "myapp build" in revised["zh-CN"][0].content
+    # The existing init block was NOT duplicated.
+    assert revised["zh-CN"][0].content.count("myapp init") == 1
 
 
-def test_revision_engine_clean_documents_no_actions():
-    engine = RevisionEngine()
+def test_mechanical_repair_engine_harmonizes_diverged_block_by_id():
+    """A block sharing an ID but differing in body is replaced byte-exactly."""
+    engine = MechanicalRepairEngine(auto_harmonize=True)
     docs = {
         "en": [
-            GeneratedDocument(
-                filename="README.md",
-                base_name="README.md",
-                language_code="en",
-                content="# Welcome\nClean documentation content with no issues.",
+            _doc(
+                "README.md",
+                "README.md",
+                "en",
+                "# Welcome\n\n[[id:install.init]]\n```bash\nmyapp init --force\n```\n",
+            )
+        ],
+        "zh-CN": [
+            _doc(
+                "README.zh-CN.md",
+                "README.md",
+                "zh-CN",
+                "# 欢迎\n\n[[id:install.init]]\n```bash\nmyapp init\n```\n",
+            )
+        ],
+    }
+    cross_report = CrossLanguageReview(languages_reviewed=["en", "zh-CN"])
+    revised, report = engine.revise(docs, cross_language_report=cross_report)
+    assert any(a.action_type == "harmonize_code_block" for a in report.actions)
+    content = revised["zh-CN"][0].content
+    assert "myapp init --force" in content
+    assert "myapp init\n" not in content.replace("myapp init --force", "")
+
+
+def test_mechanical_repair_engine_clean_documents_no_actions():
+    engine = MechanicalRepairEngine()
+    docs = {
+        "en": [
+            _doc(
+                "README.md",
+                "README.md",
+                "en",
+                "# Welcome\nClean documentation content with no issues.",
             )
         ]
     }

@@ -28,7 +28,10 @@ def test_orchestrator_runs_all_layers(tmp_path: Path):
     assert len(report.layers) == 6
     assert set(report.layers.keys()) == {"L0", "L1", "L2", "L3", "L4", "L5"}
     assert report.passed
-    assert report.score == 1.0
+    # No layer may be falsely "passed": the LLM-judged / vacuous L3/L4/L5 layers
+    # report pending checks that do not count toward the score, so the aggregate
+    # score is honest (below 1.0) rather than inflated to a vacuous 1.0.
+    assert report.score < 1.0
 
 
 def test_orchestrator_verify_single_layer(tmp_path: Path):

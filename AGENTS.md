@@ -33,6 +33,12 @@ bridge:
 
 ### Cognitive Authority Boundary
 
+LLM Agents are the authoritative decision makers for semantic work. Python
+tooling MUST NOT invent semantic conclusions. When deterministic tooling
+cannot mechanically establish a fact, it MUST return UNKNOWN rather than
+guess. Python-generated semantic conclusions MUST NOT override LLM Agent
+adjudication in the authoritative `/makewiki` path.
+
 - Python MUST NOT invent semantic conclusions. When Python cannot prove
 
   something it returns `UNKNOWN`, never a guess.
@@ -68,6 +74,8 @@ claude --plugin-dir /path/to/MakeWiki.skills
 /makewiki-review                          # Cross-language parity + semantic review (mechanical pre-alignment + LLM judgment)
 /makewiki-validate ./makewiki             # Markdown structure & link validation
 /makewiki-init                            # Generate makewiki.config.yaml with agent, site, delivery, quality options
+/makewiki-export                          # Compile Markdown into printable HTML & EPUB e-books (--format html|epub|all; rejects pdf)
+/makewiki-sync                            # Prepare Confluence Storage XML / Notion Block API sync bundles (bundle prep only; does NOT publish)
 ```
 
 The authoritative CLI commands (from the Python toolkit, mechanical only):
@@ -78,7 +86,8 @@ python scripts/run_toolkit.py evidence <target> --format json     # alias: scan
 python scripts/run_toolkit.py verify-docs <target>                # alias: verify
 python scripts/run_toolkit.py verify-claim <claim.json>
 python scripts/run_toolkit.py verify-model <semantic_model.json>
-python scripts/run_toolkit.py parity <target> --lang ...          # alias: review
+python scripts/run_toolkit.py parity <target> --lang ...
+python scripts/run_toolkit.py review <wiki_dir>            # standalone CrossLanguageReviewer (NOT an alias of parity)
 python scripts/run_toolkit.py semantic-review <wiki_dir>
 python scripts/run_toolkit.py validate <wiki_dir>
 python scripts/run_toolkit.py build-site <wiki_dir> --theme auto
@@ -86,12 +95,14 @@ python scripts/run_toolkit.py export <wiki_dir> --format html|epub|all --lang <c
 python scripts/run_toolkit.py sync-bundle <wiki_dir> --target confluence|notion --lang <code>
 python scripts/run_toolkit.py rebattle-diff <claim_files...>
 python scripts/run_toolkit.py init-config <target>
-python scripts/run_toolkit.py deterministic-generate <target>     # alias: generate
+python scripts/run_toolkit.py legacy-generate <target>     # alias: generate (deprecated)
 ```
 
 `export` rejects `--format pdf`. `sync-bundle` prepares bundles on disk
-and does NOT publish. `deterministic-generate` is the mechanical scaffold
-only — it is **not** the authoritative `/makewiki` flow.
+and does NOT publish. `legacy-generate` (alias `generate`, deprecated) is the
+mechanical scaffold only — it is **not** the authoritative `/makewiki` flow.
+`review` is a standalone command (runs `CrossLanguageReviewer`), not an alias
+of `parity`.
 
 ---
 

@@ -6,21 +6,24 @@ each ``subskills/*/SKILL.md``, and the root ``SKILL.md``). Likewise, every
 command documented in those files must resolve to a registered Typer
 command.
 
-Two explicit escape hatches exist:
-* ``generate`` — documented only as a *deprecated alias* for
-  ``deterministic-generate``. It must never appear in skill / subskill prose
-  as the authoritative command.
-* Other deprecation aliases (``scan``, ``verify``, ``review``, ``sync``) are
-  listed explicitly in the Aliases table; they may be referenced by their
-  alias form only.
+Two leniency classes exist:
+
+* ``legacy-generate`` and its ``generate`` alias form the non-authoritative,
+  deterministic-scaffold family. They are ``NOT`` the authoritative ``/makewiki``
+  LLM path, and are never advertised in prose as such. Because the docs are not
+  required to name the mechanical fallback, their presence is not demanded;
+  what IS enforced is that they are never presented as authoritative.
+* Other deprecation aliases (``scan``, ``verify``, ``sync``) are listed
+  explicitly in the Aliases table and must be documented in ``references/api.md``.
+
+``review`` is a standalone command (it runs ``CrossLanguageReviewer`` over
+existing output); it is NOT an alias of ``parity``.
 """
 
 from __future__ import annotations
 
 import re
 from pathlib import Path
-
-import typer
 
 from makewiki_skills.cli import app
 
@@ -36,11 +39,20 @@ REGISTERED_COMMANDS: set[str] = {
 # Aliases are also registered Typer commands but should appear in docs as
 # "deprecated alias of X", not as authoritative entries.
 DEPRECATED_ALIASES: dict[str, str] = {
-    "generate": "deterministic-generate",
+    "generate": "legacy-generate",
     "scan": "evidence",
     "verify": "verify-docs",
     "sync": "sync-bundle",
 }
+
+# The non-authoritative, deterministic-scaffold family. ``legacy-generate`` is
+# the canonical (but mechanical-only) command; ``generate`` is its deprecated
+# alias. Neither is the authoritative ``/makewiki`` LLM path. They are exempt
+# from the "must be named in prose docs" presence check — the docs are not
+# required to advertise the mechanical fallback — but they must NEVER be
+# documented as authoritative (guarded by
+# ``test_legacy_family_never_presented_as_authoritative``).
+NON_AUTHORITATIVE_COMMANDS: set[str] = {"legacy-generate", "generate"}
 
 
 def _read(path: Path) -> str:
@@ -75,9 +87,18 @@ def _table_rows(text: str) -> list[list[str]]:
 
 
 def test_all_registered_cli_commands_are_documented():
-    """Every registered Typer command is referenced in at least one doc."""
+    """Every registered Typer command is referenced in at least one doc.
+
+    The non-authoritative legacy scaffold family (``legacy-generate`` /
+    ``generate``) is exempt from the literal-presence requirement — those
+    commands are guarded instead by
+    ``test_legacy_family_never_presented_as_authoritative``, which asserts they
+    are never promoted as the authoritative path.
+    """
     missing: list[str] = []
     for cmd in sorted(REGISTERED_COMMANDS):
+        if cmd in NON_AUTHORITATIVE_COMMANDS:
+            continue
         # Match either as a backtick-wrapped token (`cmd`) or as the first
         # token in a code fence line. We accept the deprecated alias form too.
         alias_of = DEPRECATED_ALIASES.get(cmd)
@@ -118,32 +139,45 @@ def test_documented_cli_commands_resolve_to_registered_typer():
     assert not extras, "Docs reference Typer commands that are not registered: " + ", ".join(extras)
 
 
-def test_generate_only_appears_as_deprecated_alias():
-    """`generate` must never be presented as the authoritative command.
+def test_legacy_family_never_presented_as_authoritative():
+    """Neither `legacy-generate` nor its `generate` alias may be presented as
+    the authoritative command.
 
-    It can be documented as a deprecated alias. This guards against the
-    split-brain that Phase-2 deleted: a "generate" path that quietly ran
-    the deterministic scaffold instead of the LLM-orchestrated flow.
+    The deterministic scaffold is the non-authoritative, mechanical-only
+    regression path. The authoritative flow is the LLM-driven `/makewiki`.
+    This guards against the split-brain that Phase-2 deleted: a "generate"
+    path that quietly ran the deterministic scaffold instead of the
+    LLM-orchestrated flow.
     """
-    forbidden_patterns = [
-        re.compile(r"`generate`\s+is\s+the\s+authoritative", re.IGNORECASE),
-        re.compile(r"run\s+`generate`", re.IGNORECASE),
-        re.compile(r"`generate`\s+command\s+is\s+authoritative", re.IGNORECASE),
-    ]
-    violations: list[str] = []
-    for doc in _all_documentation_files():
-        text = _read(doc)
-        for pattern in forbidden_patterns:
-            if pattern.search(text):
-                violations.append(f"{doc.relative_to(PROJECT_ROOT)}: {pattern.pattern}")
-    assert not violations, (
-        "`generate` must never be presented as authoritative:\n" + "\n".join(violations)
-    )
+    for cmd in sorted(NON_AUTHORITATIVE_COMMANDS):
+        forbidden_patterns = [
+            re.compile(r"`" + re.escape(cmd) + r"`\s+is\s+the\s+authoritative", re.IGNORECASE),
+            re.compile(r"run\s+`" + re.escape(cmd) + r"`", re.IGNORECASE),
+            re.compile(r"`" + re.escape(cmd) + r"`\s+command\s+is\s+authoritative", re.IGNORECASE),
+            re.compile(r"`" + re.escape(cmd) + r"`\s+as\s+the\s+authoritative", re.IGNORECASE),
+        ]
+        violations: list[str] = []
+        for doc in _all_documentation_files():
+            text = _read(doc)
+            for pattern in forbidden_patterns:
+                if pattern.search(text):
+                    violations.append(f"{doc.relative_to(PROJECT_ROOT)}: {pattern.pattern}")
+        assert not violations, (
+            f"`{cmd}` must never be presented as authoritative:\n" + "\n".join(violations)
+        )
 
 
 def test_deprecated_aliases_are_listed_in_api_md():
-    """references/api.md explicitly lists each deprecation alias."""
+    """references/api.md explicitly lists each deprecation alias.
+
+    ``generate``'s target (``legacy-generate``) is part of the non-authoritative
+    legacy family — the docs are not required to name the mechanical fallback,
+    so its target check is waived (its non-authoritative framing is instead
+    enforced by ``test_legacy_family_never_presented_as_authoritative``).
+    """
     text = _read(PROJECT_ROOT / "references" / "api.md")
     for alias, target in DEPRECATED_ALIASES.items():
         assert f"`{alias}`" in text, f"references/api.md must document `{alias}`"
+        if target in NON_AUTHORITATIVE_COMMANDS:
+            continue
         assert f"`{target}`" in text, f"references/api.md must reference `{target}`"

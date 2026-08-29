@@ -100,6 +100,14 @@ class UserTask(BaseModel):
     task_id: str = ""
     title: str
     user_goal: str = ""
+    is_quick_start: bool = Field(
+        default=False,
+        description=(
+            "LLM-authored flag. When True, this task is the canonical quick-start / "
+            "getting-started task and may be surfaced as such. Python never infers "
+            "this from the title."
+        ),
+    )
     steps: list[str] = Field(default_factory=list)
     commands: list[str] = Field(default_factory=list)
     expected_output: str | None = None
@@ -110,6 +118,14 @@ class UserTask(BaseModel):
 class UsageExample(BaseModel):
     title: str
     description: str | None = None
+    is_quick_start: bool = Field(
+        default=False,
+        description=(
+            "LLM-authored flag. When True, this example is the canonical quick-start / "
+            "getting-started example and may be surfaced as such. Python never infers "
+            "this from the title."
+        ),
+    )
     commands: list[str] = Field(default_factory=list)
     evidence: list[EvidenceLink] = Field(default_factory=list)
 

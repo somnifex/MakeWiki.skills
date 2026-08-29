@@ -12,6 +12,55 @@ over-assertion review at L5.
 
 ---
 
+## 0. The Four-Layer Claim Vocabulary
+
+Claims flow through four layers from raw mechanical evidence to accepted
+documentation fact:
+
+```
+EvidenceFact        -> scanner raw deterministic facts
+     │  (Python normalizes provenance="python_fact")
+     ▼
+MechanicalAssertion -> Python normalized statement of deterministic evidence
+     │  (LLM Scout authors provenance="llm_claim")
+     ▼
+AgentClaim          -> LLM-authored semantic claims
+     │  (ReBattle cross-examination + Judge ruling)
+     ▼
+AdjudicatedClaim    -> accepted post-ReBattle consensus fact
+     │
+     ▼
+SemanticModel
+```
+
+| Layer                 | Class (import path)                                                      | Provenance    | Producer                                            | Keyed by                   |
+| --------------------- | ------------------------------------------------------------------------ | ------------- | --------------------------------------------------- | -------------------------- |
+| `EvidenceFact`        | `toolkit.evidence.EvidenceFact`                                          | — (raw)       | scanner                                             | claim text                 |
+| `MechanicalAssertion` | `model.claim.MechanicalAssertion` == `model.claim.Claim` (`python_fact`) | `python_fact` | `build_claims_from_evidence`                        | `project_name`             |
+| `AgentClaim`          | `model.rebattle.AgentClaim`                                              | `llm_claim`   | Scout / debate LLM agents; `ClaimSet.from_llm_json` | `agent_id` / `perspective` |
+| `AdjudicatedClaim`    | `model.rebattle.AdjudicatedClaim`                                        | `adjudicated` | ReBattle + Judge (`synthesize_consensus`)           | wrapped `AgentClaim`       |
+
+**Provenance values** carried on `model.claim.Claim`:
+
+- `python_fact` — deterministic fact extracted and normalized by Python. This
+
+  is the **MechanicalAssertion** layer. Python is allowed to prove it.
+- `llm_claim` — semantic claim authored by an LLM subagent (the **AgentClaim**
+
+  layer). Python validates schema and verifies, but never invents it.
+- `adjudicated` — an accepted post-ReBattle consensus fact (an AgentClaim that
+
+  survived cross-examination and received a Judge ruling, once folded back
+  into the model). Guarantees the claim has been reviewed and upheld.
+
+> Note: `model.rebattle.Claim` / `model.rebattle.ClaimSet` are **deprecated
+>
+> canonical `AgentClaim*` names. `model.claim.Claim` (the mechanical /
+>
+> the same as `model.rebattle.AgentClaim`.
+
+---
+
 ## 1. Claim Data Model
 
 ```json

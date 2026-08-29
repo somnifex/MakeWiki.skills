@@ -49,6 +49,12 @@ two_plane_architecture:
 
 ## Cognitive Authority Boundary
 
+LLM Agents are the authoritative decision makers for semantic work. Python
+tooling MUST NOT invent semantic conclusions. When deterministic tooling
+cannot mechanically establish a fact, it MUST return UNKNOWN rather than
+guess. Python-generated semantic conclusions MUST NOT override LLM Agent
+adjudication in the authoritative `/makewiki` path.
+
 The final truth value of any documentation decision lives in the cognitive
 plane; the final proof value of any mechanical check lives in the mechanical
 plane. The two never overlap.
@@ -118,7 +124,9 @@ authoritative_pipeline:
   phase_4_audit_and_revise:
     cognitive_subagents: "Auditor (LLM) — L3, L4-prose, L5"
     mechanical_helper: "run_toolkit.py verify-docs <target>"
+    mechanical_revision: "MechanicalRepairEngine (module makewiki_skills.revision) applies MECHANICAL repairs only: cross-language code-block parity by stable [[id:...]] block ID and canned UNKNOWN evidence caveats."
     revision_loop: "Auditor edits Markdown in place until Quality Gate passes"
+    anti_cliche: "Anti-cliché prose rewriting is the LLM Auditor's job, never a mechanical rewrite"
 
   phase_5_site:
     cognitive: "none"

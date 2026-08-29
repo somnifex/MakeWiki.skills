@@ -89,7 +89,7 @@ def evaluate_quality_gate(
         if isinstance(revision, MakeWikiConfig):
             min_score = revision.revision.min_grounding_score
         elif revision is not None:
-            min_score = revision.min_grounding_score  # type: ignore[attr-defined]
+            min_score = revision.min_grounding_score
         else:
             min_score = 1.0
 
@@ -108,15 +108,25 @@ def evaluate_quality_gate(
 
     grounding_score = report.score
 
-    # Unresolved counts come from failed checks across the mechanical layers and
-    # the verification score shortfall. We surface the tally for the Skill gate
-    # step rather than silently dropping any.
-    failed_checks = sum(
-        lr.failed_count for name, lr in report.layers.items() if name != "L5"
+    # Unresolved counts come from failed checks and are accounted honestly and
+    # distinctly by severity, rather than collapsing everything into one tally:
+    #   critical - mechanically-failed checks in the mechanical layers (L0-L2)
+    #              plus the grounding-score shortfall (1 if below threshold).
+    #   major    - failed checks in the LLM-judged layers (L3-L5), i.e. a doc
+    #              asserted something that contradicts or was never proven there.
+    #   minor    - advisory warning-level items across all layers.
+    mechanical_failed = sum(
+        lr.failed_count for name, lr in report.layers.items() if name in ("L0", "L1", "L2")
     )
+    llm_failed = sum(
+        lr.failed_count for name, lr in report.layers.items() if name in ("L3", "L4", "L5")
+    )
+    warning_count = sum(lr.warning_count for lr in report.layers.values())
     unresolved_critical = (
-        failed_checks + (0 if grounding_score >= min_score else 1)
+        mechanical_failed + (0 if grounding_score >= min_score else 1)
     )
+    unresolved_major = llm_failed
+    unresolved_minor = warning_count
 
     meets_score = grounding_score >= min_score
     all_mechanical = syntax_passed and existence_passed and interface_passed
@@ -138,13 +148,13 @@ def evaluate_quality_gate(
         syntax_passed=syntax_passed,
         existence_passed=existence_passed,
         interface_passed=interface_passed,
-        behavior_passed=behavior_passed == "passed",
-        cross_language_passed=cross_language_passed == "passed",
-        epistemic_passed=epistemic_passed == "passed",
+        behavior_passed=behavior_passed,
+        cross_language_passed=cross_language_passed,
+        epistemic_passed=epistemic_passed,
         grounding_score=round(grounding_score, 3),
         unresolved_critical=unresolved_critical,
-        unresolved_major=failed_checks,
-        unresolved_minor=0,
+        unresolved_major=unresolved_major,
+        unresolved_minor=unresolved_minor,
         revision_rounds=resolved_critical_in_rounds,
         details={
             "min_grounding_score": min_score,

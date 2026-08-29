@@ -41,3 +41,39 @@ def run():
     err_checks = [c for c in report.checks if "Configuration file not found" in c.claim_text]
     assert len(err_checks) == 1
     assert err_checks[0].verified
+
+
+def test_l3_unmatched_error_symptom_is_pending_not_passed(tmp_path):
+    # tmp_path has no Python source, so the documented symptom cannot be matched
+    # to any declared handler. It must never be reported as passed.
+    doc = GeneratedDocument(
+        filename="troubleshooting.md",
+        base_name="troubleshooting.md",
+        language_code="en",
+        content='# Troubleshooting\nSymptom: `"mystery component failed"` during startup.',
+    )
+    verifier = L3BehaviorVerifier(tmp_path)
+    report = verifier.verify_documents({"en": [doc]})
+
+    err_checks = [c for c in report.checks if "mystery component failed" in c.claim_text]
+    assert len(err_checks) == 1
+    assert err_checks[0].verified is False
+    assert err_checks[0].status == "pending"
+    assert err_checks[0].verification_source == "heuristic"
+
+
+def test_l3_empty_layer_is_pending_not_passed(tmp_path):
+    # A document with no error/exit-code content yields no real L3 checks; the
+    # layer must report pending, never a vacuous pass.
+    doc = GeneratedDocument(
+        filename="guide.md",
+        base_name="guide.md",
+        language_code="en",
+        content="# Guide\nJust some plain prose without errors or exit codes.",
+    )
+    verifier = L3BehaviorVerifier(tmp_path)
+    report = verifier.verify_documents({"en": [doc]})
+
+    assert len(report.checks) == 1
+    assert report.checks[0].status == "pending"
+    assert report.checks[0].verified is False

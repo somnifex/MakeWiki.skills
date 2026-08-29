@@ -10,6 +10,8 @@ from makewiki_skills.model.semantic_model import (
     Prerequisite,
     ProjectIdentity,
     SemanticModel,
+    UsageExample,
+    UserTask,
 )
 from makewiki_skills.scanner.project_detector import ProjectType
 
@@ -160,3 +162,114 @@ def test_emit_uncertainty_notes_enabled():
     assert (
         "No user-facing configuration was found in the scanned project files." in config_doc.content
     )
+
+
+def _readme(docs):
+    return next(d for d in docs if d.base_name == "README.md")
+
+
+def test_quick_start_requires_explicit_flag_not_substring():
+    """A title containing 'start' must NOT be picked as quick-start without the flag."""
+    LanguageRegistry.load_builtins()
+    profile = LanguageRegistry.get("en")
+    config = MakeWikiConfig.default()
+    config.emit_uncertainty_notes = True
+    gen = LanguageGenerator()
+
+    model = SemanticModel(
+        identity=ProjectIdentity(name="app"),
+        installation=InstallationGuide(
+            steps=[InstallStep(order=1, title="Install", commands=["npm install"])]
+        ),
+        usage_examples=[UsageExample(title="Get Started Fast", description="d", commands=["app go"])],
+        project_type=ProjectType.GENERIC,
+    )
+
+    docs = gen.generate(model, profile, config)
+    readme = _readme(docs)
+    # The substring heuristic is gone: the 'start'-titled example is NOT selected.
+    assert "Get Started Fast" not in readme.content
+    # Instead an honest UNKNOWN marker appears.
+    assert "No explicit quick-start example was identified for this project." in readme.content
+
+
+def test_quick_start_uses_explicitly_flagged_example():
+    """An example with is_quick_start=True is surfaced as the quick start."""
+    LanguageRegistry.load_builtins()
+    profile = LanguageRegistry.get("en")
+    config = MakeWikiConfig.default()
+    gen = LanguageGenerator()
+
+    model = SemanticModel(
+        identity=ProjectIdentity(name="app"),
+        installation=InstallationGuide(
+            steps=[InstallStep(order=1, title="Install", commands=["npm install"])]
+        ),
+        usage_examples=[
+            UsageExample(title="Not This One", description="a", commands=["app a"]),
+            UsageExample(
+                title="Canonical Quick Start",
+                description="b",
+                commands=["app go"],
+                is_quick_start=True,
+            ),
+        ],
+        project_type=ProjectType.GENERIC,
+    )
+
+    docs = gen.generate(model, profile, config)
+    readme = _readme(docs)
+    assert "Canonical Quick Start" in readme.content
+    assert "No explicit quick-start example was identified for this project." not in readme.content
+
+
+def test_quick_start_uses_explicitly_flagged_task():
+    """A task with is_quick_start=True is surfaced as the quick start."""
+    LanguageRegistry.load_builtins()
+    profile = LanguageRegistry.get("en")
+    config = MakeWikiConfig.default()
+    gen = LanguageGenerator()
+
+    model = SemanticModel(
+        identity=ProjectIdentity(name="app"),
+        installation=InstallationGuide(
+            steps=[InstallStep(order=1, title="Install", commands=["npm install"])]
+        ),
+        user_tasks=[
+            UserTask(
+                title="Quick Start: Serve",
+                user_goal="run the server",
+                commands=["app serve"],
+                is_quick_start=True,
+            )
+        ],
+        project_type=ProjectType.GENERIC,
+    )
+
+    docs = gen.generate(model, profile, config)
+    readme = _readme(docs)
+    assert "Quick Start: Serve" in readme.content
+
+
+def test_quick_start_no_marker_when_uncertainty_disabled():
+    """With uncertainty notes disabled and no flag, quick-start is omitted (not guessed)."""
+    LanguageRegistry.load_builtins()
+    profile = LanguageRegistry.get("en")
+    config = MakeWikiConfig.default()
+    config.emit_uncertainty_notes = False
+    gen = LanguageGenerator()
+
+    model = SemanticModel(
+        identity=ProjectIdentity(name="app"),
+        installation=InstallationGuide(
+            steps=[InstallStep(order=1, title="Install", commands=["npm install"])]
+        ),
+        usage_examples=[UsageExample(title="Get Started Fast", description="d", commands=["app go"])],
+        project_type=ProjectType.GENERIC,
+    )
+
+    docs = gen.generate(model, profile, config)
+    readme = _readme(docs)
+    # No guess, no marker when uncertainty notes are off.
+    assert "Get Started Fast" not in readme.content
+    assert "No explicit quick-start example was identified for this project." not in readme.content

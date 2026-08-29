@@ -8,9 +8,23 @@ from typing import Literal
 
 from pydantic import BaseModel, Field, computed_field
 
-from makewiki_skills.generator.language_generator import GeneratedDocument
-
-VerificationStatus = Literal["passed", "failed", "warning", "pending", "not_applicable"]
+# Verification honesty contract:
+#   passed         - a verifier actually executed the check and proved it.
+#   failed         - a verifier ran and found a contradiction.
+#   pending        - no verifier ran / not yet proven (never "not verified -> passed").
+#   unknown        - insufficient evidence to decide either way.
+#   not_applicable - the level is genuinely irrelevant (emitted only there, e.g.
+#                    cross-language parity for a single-language project).
+# A check must never be marked "passed" unless it genuinely ran and proved the
+# outcome.
+VerificationStatus = Literal[
+    "passed",
+    "failed",
+    "warning",
+    "pending",
+    "unknown",
+    "not_applicable",
+]
 
 VerificationSource = Literal[
     "verified_from_repository",
@@ -20,6 +34,7 @@ VerificationSource = Literal[
     "markdown_linter",
     "cross_language_analyzer",
     "heuristic",
+    "not_executed",
 ]
 
 

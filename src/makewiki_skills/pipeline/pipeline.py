@@ -21,8 +21,8 @@ from makewiki_skills.model.semantic_model import (
     Command,
     ConfigItem,
     ConfigSection,
-    InstallStep,
     InstallationGuide,
+    InstallStep,
     Prerequisite,
     ProjectIdentity,
     SemanticModel,
@@ -35,7 +35,7 @@ from makewiki_skills.review.cross_language_reviewer import (
     CrossLanguageReviewer,
 )
 from makewiki_skills.revision.revision_engine import (
-    RevisionEngine,
+    MechanicalRepairEngine,
     RevisionReport,
 )
 from makewiki_skills.scanner.evidence_collector import CollectedEvidence, EvidenceCollector
@@ -251,7 +251,7 @@ def stage_revision(ctx: PipelineContext) -> PipelineContext:
 
     current_docs = ctx.generated_documents
 
-    engine = RevisionEngine(
+    engine = MechanicalRepairEngine(
         auto_hedge=ctx.config.revision.auto_hedge_ungrounded,
         auto_harmonize=ctx.config.revision.auto_harmonize_code_blocks,
     )
@@ -552,6 +552,17 @@ def _build_prerequisites(
 
 
 def _build_configuration(registry: EvidenceRegistry) -> list[ConfigSection]:
+    """Build configuration sections as MECHANICAL extraction.
+
+    Every config source that yields ``config_key`` facts is recorded with its
+    raw filename as a neutral label. Python does NOT decide narrative labeling
+    ("user-facing" vs "manifest", "Environment variables" vs "Configuration
+    file") — that is the LLM/Skill's job. The only exclusion is mechanical:
+    build-metadata schema files (``pyproject.toml``, ``package.json``, …) are
+    provably build/packaging metadata, not runtime user configuration, so they
+    are skipped by exact filename, never by fuzzy narrative judgment. A source
+    whose name cannot be attributed is dropped (UNKNOWN), never guessed.
+    """
     cfg_facts = registry.query(fact_type="config_key")
     if not cfg_facts:
         return []
@@ -559,12 +570,19 @@ def _build_configuration(registry: EvidenceRegistry) -> list[ConfigSection]:
     by_source: dict[str, list[EvidenceFact]] = {}
     for fact in cfg_facts:
         source = _primary_source(fact) or "unknown"
-        if not _is_user_facing_config(source):
-            continue
         by_source.setdefault(source, []).append(fact)
 
     sections: list[ConfigSection] = []
     for source, facts in sorted(by_source.items()):
+        if source == "unknown":
+            # Cannot mechanically attribute the keys to a file; record UNKNOWN
+            # (omit) rather than fabricating a source identity.
+            continue
+        if Path(source).name in _BUILD_METADATA_FILES:
+            # Exact, mechanical build-metadata schema exclusion. Not a
+            # narrative "user-facing" decision — these are provably build
+            # manifests, not runtime user configuration.
+            continue
         leaf_facts = _leaf_config_facts(facts)
         if not leaf_facts:
             continue
@@ -682,6 +700,13 @@ def _leaf_config_facts(facts: list[EvidenceFact]) -> list[EvidenceFact]:
 
 
 def _command_description(fact: EvidenceFact) -> str | None:
+    """Return the mechanically-extracted description only.
+
+    Boilerplate mechanical claims ("Available command: …", "Command from …",
+    "CLI entrypoint: …") carry no real description — Python returns UNKNOWN
+    (``None``) rather than fabricating one. Narrative description of a command
+    is the LLM/Skill's job.
+    """
     name = fact.value or fact.claim
     claim = fact.claim.strip()
     if claim == f"Available command: {name}":
@@ -689,24 +714,22 @@ def _command_description(fact: EvidenceFact) -> str | None:
     if claim.startswith("Command from ") or claim.startswith("Command:"):
         return None
     if claim.startswith("CLI entrypoint:"):
-        return "CLI entrypoint exposed by the project."
+        return None  # no prose description is proven -> UNKNOWN, never fabricated
     return claim
 
 
-def _is_user_facing_config(source: str) -> bool:
-    name = Path(source).name.lower()
-    if name in _MANIFEST_CONFIG_FILES:
-        return False
-    if name.startswith(".env") or name.endswith(".env") or name.endswith(".md") or "doc" in name:
-        return True
-    return any(token in name for token in ("config", "settings", "appsettings"))
-
-
 def _configuration_section_name(source: str) -> str:
-    name = Path(source).name.lower()
-    if name.startswith(".env") or name.endswith(".env") or name.endswith(".md") or "doc" in name:
-        return "Environment variables"
-    return "Configuration file"
+    """Return a MECHANICAL, neutral label for a config source.
+
+    The neutral label is the raw filename. Python deliberately does NOT decide
+    narrative labels ("user-facing", "Environment variables", "Configuration
+    file") — deciding what a config file means for users is the LLM/Skill's
+    job. A name that cannot be derived from the raw path is left as-is (the
+    raw filename is always provable, so this never fabricates a label).
+    """
+    if not source:
+        return "UNKNOWN"
+    return Path(source).name
 
 
 def _is_repo_navigation_command(command: str) -> bool:
@@ -751,12 +774,22 @@ _USAGE_SECTION_KEYWORDS = (
     "use",
 )
 
-_MANIFEST_CONFIG_FILES = {
-    "package-lock.json",
-    "package.json",
-    "pnpm-lock.yaml",
-    "poetry.lock",
-    "pyproject.toml",
-    "uv.lock",
-    "yarn.lock",
-}
+# Build-metadata schema files, excluded from user-facing configuration by
+# EXACT mechanical filename. These are deterministically build/packaging
+# manifests (per their declared schemas), not runtime user configuration. This
+# is a mechanical proof, not a narrative "user-facing" judgment.
+_BUILD_METADATA_FILES = frozenset(
+    {
+        "package-lock.json",
+        "package.json",
+        "pnpm-lock.yaml",
+        "poetry.lock",
+        "pyproject.toml",
+        "uv.lock",
+        "yarn.lock",
+        "Cargo.toml",
+        "Cargo.lock",
+        "go.mod",
+        "go.sum",
+    }
+)

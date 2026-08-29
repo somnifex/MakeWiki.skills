@@ -7,6 +7,7 @@ overwrite: true                    # Python-consumed (OutputManager.overwrite)
 delete_stale_files: false          # Python-consumed (OutputManager.delete_stale_files)
 generate_faq: true                 # Python-consumed (LanguageGenerator)
 generate_troubleshooting: true     # Python-consumed (LanguageGenerator)
+generate_env_vars_page: true       # Python-consumed (LanguageGenerator env-vars page)
 strict_grounding: true             # Python-consumed (CodeGroundingVerifier.strict)
 emit_uncertainty_notes: true       # Python-consumed (LanguageGenerator uncertainty notes)
 
@@ -24,11 +25,13 @@ site:
   output_subdir: site              # Python-consumed (Pipeline.site_output)
 
 # LLM-consumed: delivery scope sections chosen by the writers.
-delivery:
-  audience: dual                   # LLM-consumed
+delivery:                          # LLM-consumed
   include_deployment_runbook: true # LLM-consumed
   include_compatibility_matrix: true # LLM-consumed
   include_health_checks: true      # LLM-consumed
+# NOTE: `delivery.audience` (config.py) is redundant with
+# `documentation_policy.audience` below — the single canonical
+# "who the docs are for" field. It is omitted here to avoid the ambiguity.
 
 # Python-consumed (evidence collector / scanner).
 scan:

@@ -3,9 +3,8 @@
 from __future__ import annotations
 
 import re
-import uuid
 from pathlib import Path
-from typing import Any, Literal
+from typing import Any, Literal, cast
 
 from pydantic import BaseModel, Field
 
@@ -18,6 +17,7 @@ VerificationStatus = Literal[
     "pending",
     "passed",
     "failed",
+    "unknown",
     "not_applicable",
 ]
 
@@ -45,7 +45,24 @@ class VerificationState(BaseModel):
 
 
 class Claim(BaseModel):
-    """A structured, verifiable proposition about project capabilities."""
+    """A structured, verifiable proposition about project capabilities.
+
+    In the four-layer claim vocabulary this model serves two layers
+    depending on ``provenance``:
+
+    * ``provenance == "python_fact"`` — the **MechanicalAssertion** layer: a
+      Python-normalized, deterministic statement of evidence (e.g. built by
+      :func:`build_claims_from_evidence`).
+    * ``provenance == "llm_claim"`` — the **AgentClaim** layer: a semantic
+      claim authored by an LLM scout/debate agent (ingressed via
+      :meth:`ClaimSet.from_llm_json`).
+    * ``provenance == "adjudicated"`` — an accepted post-ReBattle consensus
+      fact (an AgentClaim that survived cross-examination and carries the
+      Judge's ruling once folded into the model).
+
+    Keep ``Claim``/``ClaimSet`` as the canonical class names here — the
+    pipeline and CLI depend on them.
+    """
 
     claim_id: str
     claim_type: str  # "command" | "config" | "path" | "version" | "behavior" | "workflow" | "ngx"
@@ -63,7 +80,15 @@ class Claim(BaseModel):
     # Provenance distinguishes deterministic facts extracted by Python from
     # semantic claims authored by LLM subagents. Python never invents the
     # latter; it validates and verifies them.
-    provenance: Literal["python_fact", "llm_claim"] = "python_fact"
+    provenance: Literal["python_fact", "llm_claim", "adjudicated"] = "python_fact"
+
+
+# MechanicalAssertion is the Python-normalized, deterministic statement of
+# evidence produced by the scanner/builders (provenance == "python_fact").
+# It is a type alias over Claim so downstream consumers can name the layer
+# explicitly without creating a second, unrelated class. Not to be confused
+# with AgentClaim (LLM-authored) or AdjudicatedClaim (post-ReBattle ruling).
+MechanicalAssertion = Claim
 
 
 class ClaimSet(BaseModel):
@@ -79,13 +104,14 @@ class ClaimSet(BaseModel):
         return next((c for c in self.claims if c.claim_id == claim_id), None)
 
     @classmethod
-    def from_llm_json(cls, project_name: str, data: list[dict[str, Any]] | dict[str, Any]) -> "ClaimSet":
+    def from_llm_json(cls, project_name: str, data: list[dict[str, Any]] | dict[str, Any]) -> ClaimSet:
         """Build a ClaimSet from LLM-authored claim JSON.
 
-        The Skill layer's Claim step emits semantic claims (workflows, personas,
-        FAQ topics, troubleshooting root causes) as JSON. Python validates their
-        schema and marks ``provenance="llm_claim"`` so downstream verifiers know
-        these require LLM judgment rather than mechanical proof.
+        This is the **AgentClaim** ingress: the Skill layer's Claim step emits
+        semantic claims (workflows, personas, FAQ topics, troubleshooting root
+        causes) as JSON. Python validates their schema and marks
+        ``provenance="llm_claim"`` so downstream verifiers know these require
+        LLM judgment rather than mechanical proof.
         """
         raw = data.get("claims", data) if isinstance(data, dict) else data
         if not isinstance(raw, list):
@@ -133,7 +159,9 @@ def build_claims_from_evidence(
         ]
 
         conf: Confidence = (
-            fact.best_confidence if fact.best_confidence in ("high", "medium", "low", "inferred") else "medium"
+            cast(Confidence, fact.best_confidence)
+            if fact.best_confidence in ("high", "medium", "low", "inferred")
+            else "medium"
         )
 
         if fact.fact_type == "command":
@@ -244,10 +272,34 @@ def verify_claims_against_codebase(
     """Verify claims against project filesystem and mark verification states."""
     target_dir = Path(target_dir).resolve()
 
+    allowed_claim_types = {"command", "config", "path", "version", "behavior", "workflow", "ngx"}
+    claim_id_pattern = re.compile(r"^(CMD|CFG|PATH|VER)_[A-Z0-9_]+$", re.IGNORECASE)
+    # A semantic key is a slash-shaped dotted path, e.g. "cli.command.scan" or
+    # "config.parameter.foo" — at least one dot-separated component.
+    semantic_key_pattern = re.compile(r"^[a-zA-Z0-9_]+(?:\.[a-zA-Z0-9_]+)+$")
+
     for claim in claim_set.claims:
-        # L0 Syntax check: valid id, type, key, subject
-        if claim.claim_id and claim.semantic_key and claim.subject:
+        # L0 Syntax check: genuine well-formedness, not mere field non-emptiness.
+        # A claim passes only when the verifier actually validated its structure;
+        # anything malformed is "failed", anything uncheckable is "pending".
+        l0_ok = (
+            isinstance(claim.claim_id, str)
+            and bool(claim_id_pattern.match(claim.claim_id.strip()))
+            and claim.claim_type in allowed_claim_types
+            and isinstance(claim.semantic_key, str)
+            and bool(semantic_key_pattern.match(claim.semantic_key.strip()))
+            and isinstance(claim.subject, str)
+            and bool(claim.subject.strip())
+        )
+        if l0_ok:
             claim.verification.l0_syntax = "passed"
+        elif (
+            not isinstance(claim.claim_id, str)
+            or not isinstance(claim.semantic_key, str)
+            or not isinstance(claim.subject, str)
+        ):
+            # Missing/unknown fields mean we cannot even assess well-formedness.
+            claim.verification.l0_syntax = "pending"
         else:
             claim.verification.l0_syntax = "failed"
 
@@ -261,17 +313,22 @@ def verify_claims_against_codebase(
                 else:
                     claim.verification.l1_existence = "failed"
             else:
-                claim.verification.l1_existence = "passed"
+                # Path object of unexpected type: no existence check was executed.
+                claim.verification.l1_existence = "pending"
         elif claim.claim_type == "command":
-            # If evidence exists with high/medium confidence
+            # Only pass when there is genuine high/medium evidence that proves
+            # existence, or when the L1 verifier resolves the command against a
+            # known command table. A command claim with no such proof is never
+            # passed here - it is reported pending (not yet proven).
             if any(e.confidence in ("high", "medium") for e in claim.evidence):
                 claim.verification.l1_existence = "passed"
             else:
-                claim.verification.l1_existence = "passed" if claim.confidence != "low" else "failed"
+                claim.verification.l1_existence = "pending"
         elif claim.claim_type in ("config", "version"):
             claim.verification.l1_existence = "passed" if claim.evidence else "failed"
         else:
-            claim.verification.l1_existence = "passed"
+            # Unhandled claim type: no L1 check was executed.
+            claim.verification.l1_existence = "pending"
 
         # L2 Interface check — delegated to the real L2InterfaceVerifier, which
         # runs in the VerificationOrchestrator. Here we only note that a
@@ -294,11 +351,11 @@ def verify_claims_against_codebase(
         # L4 Cross-language
         claim.verification.l4_cross_language = "pending"
 
-        # L5 Epistemic check
+        # L5 Epistemic check — LLM-judged. Python never asserts epistemic
+        # soundness, so L5 is always left "pending" for the Skill's Auditor to
+        # reason over. Low/inferred confidence additionally records the reason.
         if claim.confidence == "inferred" or claim.confidence == "low":
             claim.uncertainty = "Inferred from configuration or heuristic scan"
-            claim.verification.l5_epistemic = "pending"
-        else:
-            claim.verification.l5_epistemic = "passed"
+        claim.verification.l5_epistemic = "pending"
 
     return claim_set

@@ -15,9 +15,6 @@ from __future__ import annotations
 import inspect
 import re
 from pathlib import Path
-from typing import Any
-
-import typer
 
 from makewiki_skills.cli import app
 

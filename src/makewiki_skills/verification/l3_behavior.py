@@ -60,6 +60,12 @@ class L3BehaviorVerifier:
                             err_text.lower() in ke.lower() or ke.lower() in err_text.lower()
                             for ke in known_errors
                         )
+                        dest = "ast_declaration" if matched else "heuristic"
+                        detail = (
+                            "Documented error symptom verified against source handlers"
+                            if matched
+                            else "Documented error symptom not found in source; asserted without mechanical proof"
+                        )
                         checks.append(
                             VerificationCheck(
                                 layer="L3",
@@ -67,25 +73,28 @@ class L3BehaviorVerifier:
                                 language_code=lang,
                                 claim_type="behavior",
                                 claim_text=err_text[:60],
-                                verified=True,
-                                status="passed" if matched else "passed",
-                                verification_source="ast_declaration" if matched else "heuristic",
-                                detail="Documented error symptom verified against source handlers" if matched else "Documented error message",
+                                verified=matched,
+                                status="passed" if matched else "pending",
+                                verification_source=dest,
+                                detail=detail,
                             )
                         )
 
         if not checks:
+            # No L3 checks were performed (e.g. no error/exit-code content in any
+            # document). Emit an honest pending check rather than a vacuous pass,
+            # so the layer is reported as pending LLM judgment - never "passed".
             checks.append(
                 VerificationCheck(
                     layer="L3",
                     target="all",
                     language_code="all",
                     claim_type="behavior",
-                    claim_text="Default behavioral verification",
-                    verified=True,
-                    status="passed",
-                    verification_source="ast_declaration",
-                    detail="No disputed behavioral claims found in documents",
+                    claim_text="No behavioral claims to verify",
+                    verified=False,
+                    status="pending",
+                    verification_source="not_executed",
+                    detail="No L3 checks were performed; layer is pending LLM judgment",
                 )
             )
 

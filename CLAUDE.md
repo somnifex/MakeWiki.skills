@@ -21,6 +21,14 @@ MakeWiki runs on **two planes** separated by a Cognitive Authority Boundary:
 The **Quality Gate** is the single PASS / FAIL decision over L0 - L5 (CI exit
 code 0 / 1). It is the only place where the two planes meet.
 
+### Cognitive Authority Boundary
+
+LLM Agents are the authoritative decision makers for semantic work. Python
+tooling MUST NOT invent semantic conclusions. When deterministic tooling
+cannot mechanically establish a fact, it MUST return UNKNOWN rather than
+guess. Python-generated semantic conclusions MUST NOT override LLM Agent
+adjudication in the authoritative `/makewiki` path.
+
 When a host has **no subagent API**, MakeWiki runs sequentially on one agent —
 the Main Agent assumes each role in sequence. No semantics are lost, only
 wall-clock changes.
@@ -63,25 +71,27 @@ wall-clock changes.
 
 Python toolkit commands (mechanical only):
 
-| Command                  | Alias      | Purpose                                                 |
-| ------------------------ | ---------- | ------------------------------------------------------- |
-| `sizing`                 | —          | Tier (S / M / L) + subagent budget                      |
-| `evidence`               | `scan`     | Deterministic fact extraction (JSON / human)            |
-| `verify-claim <json>`    | —          | Verify one or many Claims against the codebase          |
-| `verify-model <json>`    | —          | Schema + evidence-ref validation for a SemanticModel    |
-| `verify-docs <target>`   | `verify`   | Unified L0 - L5 verification + Quality Gate + exit code |
-| `parity <target>`        | `review`   | L4 exact-block parity + aligned passages                |
-| `semantic-review <dir>`  | —          | Aligned passages for LLM cross-language review          |
-| `validate <wiki_dir>`    | —          | Markdown structure & link validation                    |
-| `build-site <wiki_dir>`  | —          | Compile Markdown into offline SPA HTML site             |
-| `export <wiki_dir>`      | —          | `--format html                                          | epub | all`; **rejects pdf** |
-| `sync-bundle <wiki_dir>` | `sync`     | Prepare Confluence / Notion bundles; does NOT publish   |
-| `init-config <target>`   | —          | Generate default `makewiki.config.yaml`                 |
-| `rebattle-diff <files>`  | —          | Deterministic dispute organizer over multiple ClaimSets |
-| `deterministic-generate` | `generate` | Mechanical scaffold only — NOT the authoritative flow   |
+| Command                  | Alias      | Purpose                                                            |
+| ------------------------ | ---------- | ------------------------------------------------------------------ |
+| `sizing`                 | —          | Tier (S / M / L) + subagent budget                                 |
+| `evidence`               | `scan`     | Deterministic fact extraction (JSON / human)                       |
+| `verify-claim <json>`    | —          | Verify one or many Claims against the codebase                     |
+| `verify-model <json>`    | —          | Schema + evidence-ref validation for a SemanticModel               |
+| `verify-docs <target>`   | `verify`   | Unified L0 - L5 verification + Quality Gate + exit code            |
+| `parity <target>`        | —          | L4 exact-block parity + aligned passages                           |
+| `review <wiki_dir>`      | —          | Standalone cross-language review (runs `CrossLanguageReviewer`)    |
+| `semantic-review <dir>`  | —          | Aligned passages for LLM cross-language review                     |
+| `validate <wiki_dir>`    | —          | Markdown structure & link validation                               |
+| `build-site <wiki_dir>`  | —          | Compile Markdown into offline SPA HTML site                        |
+| `export <wiki_dir>`      | —          | `--format html                                                     | epub | all`; **rejects pdf** |
+| `sync-bundle <wiki_dir>` | `sync`     | Prepare Confluence / Notion bundles; does NOT publish              |
+| `init-config <target>`   | —          | Generate default `makewiki.config.yaml`                            |
+| `rebattle-diff <files>`  | —          | Deterministic dispute organizer over multiple ClaimSets            |
+| `legacy-generate`        | `generate` | Mechanical scaffold only (deprecated) — NOT the authoritative flow |
 
-`deterministic-generate` is the non-authoritative mechanical scaffold; the
-authoritative flow is `/makewiki` (LLM-orchestrated).
+`legacy-generate` (alias `generate`, deprecated) is the non-authoritative
+mechanical scaffold; the authoritative flow is `/makewiki` (LLM-orchestrated).
+`review` is a standalone command, not an alias of `parity`.
 
 ## Working notes
 

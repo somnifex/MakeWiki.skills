@@ -7,6 +7,14 @@ verification**. Every documented capability is anchored to one of the six
 verification layers (L0 - L5); the Quality Gate aggregates them into a single
 PASS / FAIL decision that maps to a CI exit code (0 / 1).
 
+### Cognitive Authority Boundary
+
+LLM Agents are the authoritative decision makers for semantic work. Python
+tooling MUST NOT invent semantic conclusions. When deterministic tooling
+cannot mechanically establish a fact, it MUST return UNKNOWN rather than
+guess. Python-generated semantic conclusions MUST NOT override LLM Agent
+adjudication in the authoritative `/makewiki` path.
+
 ---
 
 ## 1. The L0 - L5 Verification Hierarchy
@@ -62,10 +70,13 @@ quality_gate:
 
 ```yaml
 layer_status:
-  passed: "All checks in the layer succeeded"
-  failed: "One or more checks failed; gate fails (when fail_on_critical)"
-  pending: "No checks yet performed, or checks deferred to LLM judgment"
-  rule: "pending is reported transparently; it does not by itself fail the gate"
+  passed: "A verifier actually executed the check and proved it. Never marked 'passed' merely because it was not run."
+  failed: "A verifier ran and found a contradiction."
+  pending: "No verifier ran / not yet proven (LLM-judged layers: L3 behavior, L4 prose-parity, L5 epistemic, and un-resolved command/behavior claims)."
+  unknown: "Insufficient evidence to decide either way."
+  not_applicable: "Genuinely irrelevant (e.g. L4 cross-language parity for a single-language project)."
+  warning: "Advisory; does not fail the gate."
+  rule: "Python never marks a layer 'passed' without actually proving it; the Quality Gate reports LLM-judged 'pending' layers transparently."
 ```
 
 ### Gate Decision Rules
@@ -104,6 +115,14 @@ llm_verification_role:
 
   rule: "Python returns evidence; LLM returns judgment; Quality Gate combines."
 ```
+
+### Mechanical Repair Boundary
+
+The semantic revision path is `MechanicalRepairEngine` (module
+`makewiki_skills.revision`; `RevisionEngine` retained as an alias). It applies
+**mechanical repairs only**: cross-language code-block parity by stable block
+ID and canned UNKNOWN evidence caveats. Anti-cliché prose rewriting is the LLM
+Auditor's domain; Python never rewrites narrative voice.
 
 ---
 

@@ -5,7 +5,6 @@ from __future__ import annotations
 from pathlib import Path
 
 from makewiki_skills.generator.language_generator import GeneratedDocument
-from makewiki_skills.model.claim import ClaimSet
 from makewiki_skills.scanner.evidence_registry import EvidenceRegistry
 from makewiki_skills.verification.l0_syntax import L0SyntaxVerifier
 from makewiki_skills.verification.l1_existence import L1ExistenceVerifier

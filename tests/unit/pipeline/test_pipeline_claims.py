@@ -4,9 +4,6 @@ from pathlib import Path
 
 from makewiki_skills.config import MakeWikiConfig
 from makewiki_skills.pipeline.pipeline import Pipeline
-from makewiki_skills.scanner.evidence_registry import EvidenceRegistry
-from makewiki_skills.scanner.project_detector import ProjectDetectionResult, ProjectType
-from makewiki_skills.toolkit.evidence import EvidenceFact, EvidenceLink
 
 
 def test_pipeline_runs_claim_stages_successfully(tmp_path: Path):

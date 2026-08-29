@@ -19,6 +19,9 @@ class L4CrossLanguageVerifier:
     ) -> LayerReport:
         languages = list(documents.keys())
         if len(languages) < 2:
+            # With a single language there is nothing to compare for parity, so
+            # cross-language verification is genuinely not applicable. It must
+            # never be reported as "passed" - no parity check actually ran.
             return LayerReport(
                 layer="L4",
                 name="Cross-Language",
@@ -29,10 +32,10 @@ class L4CrossLanguageVerifier:
                         language_code="all",
                         claim_type="cross_language",
                         claim_text="Single language generation",
-                        verified=True,
-                        status="passed",
-                        verification_source="cross_language_analyzer",
-                        detail="Single language generated; cross-language parity trivially satisfied",
+                        verified=False,
+                        status="not_applicable",
+                        verification_source="not_executed",
+                        detail="Single language generated; cross-language parity is not applicable",
                     )
                 ],
             )
@@ -59,17 +62,19 @@ class L4CrossLanguageVerifier:
             )
 
         if not checks:
+            # No parity deltas or comparisons were produced. Emit an honest
+            # pending check so the layer reports pending, never a vacuous pass.
             checks.append(
                 VerificationCheck(
                     layer="L4",
                     target="all",
                     language_code="all",
                     claim_type="cross_language",
-                    claim_text="100% Code Block and Command Parity",
-                    verified=True,
-                    status="passed",
-                    verification_source="cross_language_analyzer",
-                    detail="All commands, config keys, and code blocks match character-for-character across languages",
+                    claim_text="Cross-language parity",
+                    verified=False,
+                    status="pending",
+                    verification_source="not_executed",
+                    detail="No L4 parity checks were performed; layer is pending LLM judgment",
                 )
             )
 

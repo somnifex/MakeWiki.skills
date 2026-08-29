@@ -178,6 +178,8 @@ class L5EpistemicVerifier:
                             )
 
         if not checks:
+            # No L5 checks were performed. Emit an honest pending check so the
+            # layer reports pending (LLM judgment), never a vacuous pass.
             checks.append(
                 VerificationCheck(
                     layer="L5",
@@ -185,10 +187,10 @@ class L5EpistemicVerifier:
                     language_code="all",
                     claim_type="epistemic",
                     claim_text="Epistemic verification",
-                    verified=True,
-                    status="passed",
-                    verification_source="hedging_caveat",
-                    detail="All claims carry proper epistemic grounding",
+                    verified=False,
+                    status="pending",
+                    verification_source="not_executed",
+                    detail="No L5 epistemic checks were performed; layer is pending LLM judgment",
                 )
             )
 
