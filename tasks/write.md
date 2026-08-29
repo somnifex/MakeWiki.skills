@@ -1,8 +1,8 @@
-# Task: Parallel Multilingual Writing (多语言独立撰写)
+# Task: Parallel Multilingual Writing with Subagent Self-Reflection (多语言自反思撰写)
 
 ## Overview
 
-Writing is Phase 3 of MakeWiki. Parallel Language Writer subagents generate native documentation for each target language directly from the unified `SemanticModel`.
+Writing is Phase 3 of MakeWiki. Parallel Language Writer subagents generate native documentation for each target language directly from the unified `SemanticModel`, followed by a mandatory internal self-reflection pass.
 
 ---
 
@@ -12,11 +12,11 @@ Writing is Phase 3 of MakeWiki. Parallel Language Writer subagents generate nati
 2. **100% Code Block & Config Key Parity**:
    - Commands, flags, options, and code samples must match identically across all languages.
    - Configuration key names, env var keys, and default values must match identically across all languages.
-3. **Anti-AI-Cliché Technical Prose**:
-   - Ban binary antitheses ("不是……而是……", "不仅……而且……").
-   - Ban buzzwords ("收敛", "赋能", "对齐", "底层逻辑").
-   - Ban redundant colons in headings (`## 步骤 1：安装` $\rightarrow$ `## 步骤 1 安装`).
-   - Use direct, active, engineer-to-engineer phrasing.
+3. **Subagent 4-Dimensional Self-Reflection Pass**:
+   - *Grounding*: Check that every command is backed by `SemanticModel`.
+   - *Parity*: Ensure no omitted flags or drifted commands compared to the English baseline.
+   - *Anti-AI Cliché*: Purge binary tropes ("不是……而是……"), buzzwords ("收敛", "赋能"), and redundant colons.
+   - *Tone*: Deliver direct, professional engineer prose.
 
 ---
 

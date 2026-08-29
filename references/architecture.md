@@ -1,35 +1,37 @@
-# Architecture: Subagent-First Multi-Agent Collaboration
+# Architecture: Autonomous Self-Reflecting Subagent System
 
 ## Core Philosophy
 
-MakeWiki is designed on a **Subagent-First Cognitive Paradigm**:
-- **Cognitive & Analytical Tasks**: Delegated exclusively to autonomous LLM Subagents (Scouts, ReBattle debate team, native Writers, Auditor).
-- **Deterministic Plumbing**: Scripts are strictly limited to mechanical operations (HTML SPA bundling, EPUB zip packaging, and payload formatting).
+MakeWiki operates on a **Subagent-First Cognitive Paradigm with Embedded Self-Reflection**:
+- **Cognitive & Analytical Tasks**: Delegated to autonomous LLM Subagents with internal 4-dimensional self-critique loops.
+- **Dynamic Role Synthesis**: The Orchestrator dynamically configures specialized Subagent roles based on repository characteristics (monorepos, FFI bindings, plugin ecosystems).
+- **Deterministic Plumbing**: Python scripts are strictly limited to mechanical operations (HTML SPA bundling, EPUB zip packaging, and payload formatting).
 
 ```yaml
 system_topology:
   orchestrator:
     agent: "Main Agent (Orchestrator & Chief Adjudicator)"
     responsibilities:
-      - Assess project tier (S / M / L) and allocate dynamic subagent budget
+      - Dynamic project sizing, role synthesis, and elastic budgeting (capped at 10)
       - Dispatch autonomous subagents with standardized role prompts
       - Arbitrate ReBattle cross-examination disputes
       - Compile unified SemanticModel (single source of truth)
 
   cognitive_phases:
     phase_1_recon:
-      subagents: ["Scout-Structure", "Scout-Surface"]
+      subagents: ["Scout-Structure", "Scout-Surface", "Dynamic Specialized Scouts"]
       tools: ["Glob", "Grep", "Read"]
+      reflection: "Self-check file paths and source citations before submission"
       artifact: "evidence_bundle.json"
 
     phase_2_rebattle:
       subagents: ["Agent Red (User/DX)", "Agent Blue (Code AST)", "Agent Green (Ops)"]
-      interaction: "3-way adversarial cross-examination debate"
+      interaction: "3-way adversarial cross-examination debate with self-reflection & claim retraction"
       artifact: "semantic_model.json"
 
     phase_3_writers:
       subagents: ["English Writer", "Chinese Writer", "Other Language Writers"]
-      execution: "Parallel native generation directly from SemanticModel"
+      execution: "Parallel native generation directly from SemanticModel with anti-cliché self-critique"
       artifact: "*.md documentation files"
 
     phase_4_review:
@@ -42,13 +44,9 @@ system_topology:
     sync: "SyncEngine (run_toolkit.py sync) -> Confluence & Notion API bundles"
 ```
 
-## Subagent Specialization
+## Subagent Self-Reflection Invariants
 
-1. **`Scout-Structure`**: Autonomous inspection of manifests, build targets, Docker, CI/CD, directory tree.
-2. **`Scout-Surface`**: Autonomous extraction of CLI flags, REST route endpoints, config templates.
-3. **`Agent Red` (User DX)**: User-first workflows, quickstart guides, expected terminal outputs.
-4. **`Agent Blue` (Code AST)**: Code-first AST auditing, argument verification, objection formulation.
-5. **`Agent Green` (Ops)**: Environment matrix, deployment dependencies, error log runbooks.
-6. **`Main Agent / Judge`**: Arbitrates disputes and compiles authoritative `SemanticModel`.
-7. **`Language Writers`**: Parallel native authoring directly from `SemanticModel`.
-8. **`Auditor`**: Side-by-side cross-language code block parity check, anti-AI-cliché audit, and in-place self-healing.
+1. **Grounding Invariant**: No undocumented or unreferenced commands allowed.
+2. **Parity Invariant**: 100% parameter, key, and code block equivalence across languages.
+3. **Anti-Cliché Invariant**: Zero tolerance for "不是……而是……", "不仅……而且……", "收敛", "赋能", and trailing colons in headings.
+4. **Adversarial Invariant**: Unprovable claims must be hedged or retracted during ReBattle.

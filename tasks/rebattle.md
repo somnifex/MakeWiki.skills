@@ -1,12 +1,12 @@
-# Task: ReBattle Competitive Verification (多 Subagent 对抗审查与辩论仲裁)
+# Task: ReBattle Competitive Verification with Subagent Self-Reflection (自反思对抗审查)
 
 ## Overview
 
-ReBattle is Phase 2 of MakeWiki. It utilizes **autonomous Subagents representing 3 distinct cognitive perspectives (Red, Blue, Green)** to engage in an adversarial cross-examination debate, eliminating single-agent bias and hallucinations before documentation is generated.
+ReBattle is Phase 2 of MakeWiki. It utilizes **autonomous Subagents with internal self-reflection loops** across 3 distinct perspectives (Red, Blue, Green) to debate, challenge, and converge on facts.
 
 ---
 
-## 1. The Three Battle Subagents
+## 1. Subagent ReBattle Topology
 
 ```yaml
 rebattle_topology:
@@ -31,29 +31,27 @@ rebattle_topology:
       output: "claims_green.json"
 ```
 
-1. **Agent Red (User & Developer Experience Subagent)**:
-   - Primary Focus: 5-minute onboarding tutorial, runnable commands, CLI arguments, expected terminal output.
-   - Output: `claims_red.json` (Runnable commands and user workflows with confidence scores).
-2. **Agent Blue (Source AST & Implementation Subagent)**:
-   - Primary Focus: Source code AST, actual argument parser schemas, default fallback logic, stub / unreleased code warnings.
-   - Output: `claims_blue.json` (Ground-truth implementation facts and objection challenges against fake/unsupported flags).
-3. **Agent Green (Enterprise Deployment & Ops Subagent)**:
-   - Primary Focus: Runtime dependencies, OS compatibility, port mappings, environment variable matrix, error codes and logs.
-   - Output: `claims_green.json` (Ops runbook facts and failure recovery procedures).
+---
+
+## 2. Mandatory Subagent Self-Reflection Pass
+
+Before issuing any claim or challenge, each Subagent executes an internal self-critique:
+1. **Self-Check Grounding**: Is every claimed command or flag directly backed by a line in source code?
+2. **Confidence Grading**:
+   - `CONFIRMED_AST`: 100% verified in source argument parser/handler.
+   - `DERIVED_CONFIG`: Inferred from `.env.example` or manifest settings.
+   - `HYPOTHESIS_HEDGED`: Provisional/uncertain capability requiring explicit caveat.
+3. **Adversarial Self-Correction**: When countered with AST evidence, immediately concede and retract invalid claims without stubborn persistence.
 
 ---
 
-## 2. Multi-Agent Cross-Examination Debate Protocol
+## 3. Multi-Agent Cross-Examination Debate Protocol
 
-1. **Round 1 (Blind Independent Extraction)**:
-   - Red, Blue, Green Subagents explore the codebase simultaneously and produce independent claim sets.
+1. **Round 1 (Blind Independent Extraction + Self-Reflection)**:
+   - Red, Blue, Green Subagents independently extract facts, self-critique, and formulate their initial claim sets.
 2. **Round 2 (Adversarial Challenge & Cross-Examination)**:
-   - Agent Blue inspects Agent Red's claims against AST definitions:
-     - *"Objection: `--fast` flag proposed by Agent Red does not exist in cli.py parser; flag is invalid."*
-   - Agent Green audits Agent Red's quickstart tutorial:
-     - *"Objection: Quickstart tutorial omits mandatory `DB_PORT` environment variable."*
-   - Agent Red challenges Agent Blue:
-     - *"Clarification: Function `export_csv` is exposed via CLI even though marked internal in comments."*
+   - Agent Blue challenges Agent Red: *"Objection: `--fast` flag proposed by Agent Red does not exist in cli.py parser; flag is invalid."*
+   - Agent Green challenges Agent Red: *"Objection: Quickstart tutorial omits mandatory `DB_PORT` environment variable."*
+   - Agent Red challenges Agent Blue: *"Clarification: Function `export_csv` is exposed via CLI even though marked internal in comments."*
 3. **Round 3 (Judge Adjudication & Model Synthesis)**:
-   - The Main Agent acts as Chief Judge:
-   - Resolves all objections, drops hallucinated claims, explicitly hedges unconfirmed features, and synthesizes the authoritative **`SemanticModel`**.
+   - The Main Agent arbitrates discrepancies, purges refuted claims, hedges unconfirmed facts, and synthesizes the authoritative **`SemanticModel`**.
