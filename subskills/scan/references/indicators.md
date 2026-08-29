@@ -1,5 +1,10 @@
 # Project Type Detection Indicators
 
+The Python `evidence` command (alias `scan`) returns these indicators as
+facts; the LLM Skill layer is responsible for any narrative interpretation.
+Indicators without matching evidence stay out of the SemanticModel and the
+corresponding Markdown slot renders `UNKNOWN`.
+
 ## Supported Framework Indicators
 
 - **Python CLI**: `pyproject.toml` (`[project.scripts]`), `setup.py`, `setup.cfg`, imports of `typer`, `click`, `argparse`.

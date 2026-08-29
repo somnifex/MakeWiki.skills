@@ -24,8 +24,10 @@ def test_sample_output_stays_user_facing(sample_python_cli_dir: Path, tmp_path: 
 
     assert "## Commands" not in readme
     assert "Documentation Navigation" in readme
+    # Python must never invent usage examples — it emits an UNKNOWN marker instead.
     assert "make test" not in usage
     assert "make lint" not in usage
-    assert "sample-cli greet World" in usage
+    assert "sample-cli greet World" not in usage
+    assert "No repeatable usage patterns" in usage
     assert "pyproject.toml" not in configuration
     assert ".env.example" in configuration

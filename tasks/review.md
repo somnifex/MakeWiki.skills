@@ -2,24 +2,53 @@
 
 ## Overview
 
-Review is Phase 4 of MakeWiki. The **Auditor Subagent** executes an autonomous cognitive audit and in-place self-healing pass, ensuring 100% cross-language parity, code grounding, and natural technical prose.
+Review is Phase 4 of MakeWiki. The **Auditor Subagent** executes an
+autonomous cognitive audit and in-place self-healing pass, ensuring 100%
+cross-language parity, evidence-backed grounding, and natural technical
+prose. The Python toolkit supplies the mechanical half: `verify-docs` runs
+the unified L0–L5 verification, `parity` checks block-ID exact-match across
+languages, and `semantic-review` produces aligned passages for the Auditor.
+
+The Quality Gate aggregates the result into PASS / FAIL and maps to the CI
+exit code (0 / 1). MakeWiki is **evidence-backed**, not "zero-hallucination";
+every status reflects a concrete check, not marketing.
 
 ---
 
 ## 1. Auditor Subagent Responsibilities
 
-1. **Side-by-Side Cross-Language Parity**:
+1. **L3 Behavior Judgment**:
+   - For each documented command, decide whether the described behavior is
+
+     consistent with what the source actually does.
+   - Python supplies evidence; the Auditor renders the L3 verdict.
+2. **L4 Prose Parity Judgment**:
+   - Python enforces exact block-ID parity across languages.
+   - The Auditor judges prose parity from the aligned passages produced by
+
+     `semantic-review`.
+3. **L5 Over-Assertion & Anti-AI-Cliché Audit**:
+   - Flags claims more confident than their evidence warrants.
+   - Enforces `references/anti_ai_cliche.md`: bans binary tropes
+
+     ("不是……而是……"), buzzwords ("收敛", "赋能", "对齐"), trailing colons
+     in headings, and unfounded praise.
+4. **Side-by-Side Cross-Language Audit**:
    - Compares English and Chinese Markdown documents side-by-side.
-   - Verifies that all code blocks, command arguments, and config keys match character-for-character across all languages.
-2. **Codebase Ground-Truth Verification**:
-   - Verifies that every documented CLI command, file path, and env var actually exists in the target repository.
-3. **Anti-AI Cliché & Natural Human Voice Audit**:
-   - Identifies and rewrites formulaic templates ("不是……而是……", "不仅……而且……").
-   - Purges empty corporate buzzwords ("收敛", "赋能", "对齐").
-   - Cleans up trailing colons in headings.
+   - Verifies that all code blocks, command arguments, and config keys
+
+     match character-for-character across all languages.
+5. **Codebase Ground-Truth Verification**:
+   - Verifies that every documented CLI command, file path, and env var
+
+     actually exists in the target repository.
 
 ---
 
 ## 2. In-Place Autonomous Self-Healing
 
-When discrepancies or defects are found, the Auditor Subagent immediately uses `Edit` to correct the Markdown files in-place without pausing to ask the user.
+When discrepancies or defects are found, the Auditor Subagent immediately
+uses `Edit` to correct the Markdown files in-place without pausing to ask
+the user. The Semantic Revision step reruns the affected L-layers until
+the Quality Gate passes (within the configured `revision.max_rounds`
+budget).

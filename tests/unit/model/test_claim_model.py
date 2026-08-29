@@ -210,3 +210,54 @@ def test_verify_claims_against_codebase(tmp_path: Path):
 
     assert verified.get_by_id("PATH_REAL").verification.l1_existence == "passed"
     assert verified.get_by_id("PATH_FAKE").verification.l1_existence == "failed"
+
+
+def test_claim_provenance_default_and_llm():
+    """Python-built claims default to python_fact; from_llm_json marks llm_claim."""
+    from makewiki_skills.model.claim import Claim
+
+    fact = Claim(
+        claim_id="CMD_RUN",
+        claim_type="command",
+        semantic_key="cli.command.run",
+        subject="myapp",
+        predicate="executes",
+        object="myapp run",
+    )
+    assert fact.provenance == "python_fact"
+
+    llm_data = [
+        {
+            "claim_id": "FW_AUTH_FLOW",
+            "claim_type": "workflow",
+            "semantic_key": "workflow.auth",
+            "subject": "myapp",
+            "predicate": "authenticates_users",
+            "object": "auth flow",
+            "payload": {"flow": "login -> token -> refresh"},
+        }
+    ]
+    s = ClaimSet.from_llm_json("myapp", llm_data)
+    assert s.get_by_id("FW_AUTH_FLOW") is not None
+    assert s.get_by_id("FW_AUTH_FLOW").provenance == "llm_claim"
+    assert s.get_by_id("FW_AUTH_FLOW").claim_type == "workflow"
+
+
+def test_verify_claims_no_hardcoded_behavior():
+    """L2/L3 must never be blindly marked passed/not_applicable."""
+    from pathlib import Path
+
+    from makewiki_skills.model.claim import Claim, ClaimSet, verify_claims_against_codebase
+
+    claim = Claim(
+        claim_id="CMD_RUN",
+        claim_type="command",
+        semantic_key="cli.command.run",
+        subject="myapp",
+        predicate="executes",
+        object="myapp run",
+        confidence="high",
+    )
+    verified = verify_claims_against_codebase(ClaimSet(project_name="myapp", claims=[claim]), Path("."))
+    assert verified.get_by_id("CMD_RUN").verification.l2_interface in ("pending", "passed", "failed")
+    assert verified.get_by_id("CMD_RUN").verification.l3_behavior in ("pending", "passed", "failed")

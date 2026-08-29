@@ -168,6 +168,16 @@ class EvidenceCollector:
                 "documentation/**/*.md",
             ]
 
+        # When recursive_docs is False, strip the "**" recursion segments so we
+        # only walk the top-level docs/ directory.
+        if not self._config.scan.recursive_docs:
+            doc_patterns = [
+                pattern.replace("/**/", "/*/")
+                if "/**/" in pattern
+                else pattern
+                for pattern in doc_patterns
+            ]
+
         for pattern in doc_patterns:
             for p in root.glob(pattern):
                 if p.is_file() and p.stat().st_size < self._config.scan.max_file_size_kb * 1024:
@@ -301,14 +311,14 @@ class EvidenceCollector:
         facts: list[EvidenceFact] = []
         files_read: list[str] = []
 
-        # Mode-aware limits
+        # Mode-aware defaults + user override via scan.source_intelligence_max_files.
         mode = self._config.scan.mode
         if mode == "quick":
-            max_files = 10
+            max_files = min(self._config.scan.source_intelligence_max_files, 10)
         elif mode in ["standard", "auto"]:
-            max_files = 50
+            max_files = self._config.scan.source_intelligence_max_files
         else:  # deep
-            max_files = 200
+            max_files = max(self._config.scan.source_intelligence_max_files, 200)
 
         max_depth = self._config.scan.max_depth
 

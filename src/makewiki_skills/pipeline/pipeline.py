@@ -19,21 +19,15 @@ from makewiki_skills.model.claim import (
 )
 from makewiki_skills.model.semantic_model import (
     Command,
-    CommandGroup,
     ConfigItem,
     ConfigSection,
-    FAQItem,
-    InstallationGuide,
     InstallStep,
-    PlatformNote,
+    InstallationGuide,
     Prerequisite,
     ProjectIdentity,
     SemanticModel,
-    TroubleshootingItem,
-    UsageExample,
-    UserTask,
+    SemanticModelProvenance,
 )
-from makewiki_skills.model.task_inference import TaskInferenceEngine
 from makewiki_skills.renderer.output_manager import OutputManager
 from makewiki_skills.renderer.validator import OutputValidator, ValidationReport
 from makewiki_skills.review.cross_language_reviewer import (
@@ -134,47 +128,26 @@ def stage_build_semantic_model(ctx: PipelineContext) -> PipelineContext:
     configuration = _build_configuration(registry)
     commands = _build_commands(registry)
 
-    engine = TaskInferenceEngine()
-    user_tasks = engine.infer(commands, configuration, ctx.detection, registry)
-    usage_examples = _build_usage_examples(commands, user_tasks)
-    platform_notes = _build_platform_notes(commands)
-    faq = _build_faq(installation, configuration, platform_notes)
-    troubleshooting = _build_troubleshooting(installation, platform_notes)
-
-    depth = ctx.config.content_depth
-    is_detailed = _is_detailed_mode(depth.mode, commands, configuration, user_tasks)
-
-    max_faq = depth.max_faq_items if is_detailed else min(depth.max_faq_items, 4)
-    max_examples = depth.max_usage_examples if is_detailed else min(depth.max_usage_examples, 4)
-    max_trouble = (
-        depth.max_troubleshooting_items if is_detailed else min(depth.max_troubleshooting_items, 3)
-    )
-
-    faq = faq[:max_faq]
-    usage_examples = usage_examples[:max_examples]
-    troubleshooting = troubleshooting[:max_trouble]
-
-    command_groups = _build_command_groups(
-        commands,
-        user_tasks,
-        usage_examples,
-        depth.split_usage_threshold,
-        is_detailed,
-        configuration=configuration,
+    # Cognitive content (user_tasks, usage_examples, faq, platform_notes,
+    # troubleshooting, command_groups, env_vars, compatibility_matrix,
+    # health_checks, deployment_notes, log_paths) is LLM-authored. This
+    # deterministic scaffold intentionally leaves those fields empty and marks
+    # them `unknown` rather than inventing semantic conclusions.
+    provenance = SemanticModelProvenance(
+        source="python" if commands or configuration else "unknown",
+        identity="python",
+        installation="python" if installation.evidence or installation.prerequisites else "unknown",
+        configuration="python" if configuration else "unknown",
+        commands="python" if commands else "unknown",
     )
 
     ctx.semantic_model = SemanticModel(
         model_id=uuid.uuid4().hex[:12],
+        provenance=provenance,
         identity=identity,
         installation=installation,
         configuration=configuration,
         commands=commands,
-        user_tasks=user_tasks,
-        usage_examples=usage_examples,
-        faq=faq,
-        platform_notes=platform_notes,
-        troubleshooting=troubleshooting,
-        command_groups=command_groups,
         project_type=ctx.detection.project_type,
         evidence_summary=registry.to_summary(),
     )
@@ -484,39 +457,46 @@ def _build_installation(
     registry: EvidenceRegistry,
     detection: ProjectDetectionResult,
 ) -> InstallationGuide:
+    """Build an installation guide from mechanically-proven install commands.
+
+    Only install commands actually found in the repository's "install/setup"
+    sections are included. When no install command is proven, the guide is
+    empty (UNKNOWN) — Python never injects a guessed default like
+    ``pip install -e .`` or a canned "Clone the repository" step.
+    """
     prereqs = _build_prerequisites(registry, detection)
     install_facts = _commands_from_sections(registry, _INSTALL_SECTION_KEYWORDS)
-    install_commands = [
-        fact.value or ""
-        for fact in install_facts
-        if fact.value and not _is_repo_navigation_command(fact.value)
-    ]
+    install_commands: list[str] = []
+    install_evidence: list[EvidenceLink] = []
+    for fact in install_facts:
+        value = fact.value or ""
+        if value and not _is_repo_navigation_command(value):
+            install_commands.append(value)
+        install_evidence.extend(fact.evidence)
 
-    if not install_commands:
-        default_install = _DEFAULT_INSTALL_COMMANDS.get(detection.project_type)
-        if default_install:
-            install_commands = [default_install]
-
-    steps = [
-        InstallStep(
-            order=1,
-            title="Clone the repository",
-            commands=["git clone <repository-url>", f"cd {detection.project_name}"],
-        )
-    ]
-    if install_commands:
+    # Only build steps from proven commands. No fabricated default, no canned
+    # git-clone preamble.
+    steps = []
+    for order, command in enumerate(
+        dict.fromkeys(install_commands),  # dedupe, preserve order
+        start=1,
+    ):
         steps.append(
             InstallStep(
-                order=2,
-                title=_installation_step_title(install_commands[0]),
-                commands=install_commands[:2],
-                evidence=install_facts[0].evidence if install_facts else [],
+                order=order,
+                title=_installation_step_title(command),
+                commands=[command],
+                evidence=[
+                    link
+                    for fact in install_facts
+                    if (fact.value or "") == command
+                    for link in fact.evidence
+                ],
             )
         )
 
     installation_evidence = [link for prereq in prereqs for link in prereq.evidence]
-    if install_facts:
-        installation_evidence.extend(install_facts[0].evidence)
+    installation_evidence.extend(install_evidence)
 
     return InstallationGuide(
         prerequisites=prereqs,
@@ -530,12 +510,19 @@ def _build_prerequisites(
     registry: EvidenceRegistry,
     detection: ProjectDetectionResult,
 ) -> list[Prerequisite]:
+    """Mechanically-derived prerequisites (runtime + version constraint).
+
+    A prerequisite name/version is only reported when the repository declares
+    it (``requires-python``, ``engines.node``). No runtime is assumed.
+    """
     if detection.project_type in (
         ProjectType.PYTHON_CLI,
         ProjectType.PYTHON_LIBRARY,
         ProjectType.PYTHON_SERVICE,
     ):
         fact = _find_config_fact(registry, "project.requires-python")
+        if fact is None:
+            return []
         return [
             Prerequisite(
                 name="Python",
@@ -550,6 +537,8 @@ def _build_prerequisites(
         ProjectType.NODE_LIBRARY,
     ):
         fact = _find_first_config_fact(registry, ["engines.node", "package.engines.node"])
+        if fact is None:
+            return []
         return [
             Prerequisite(
                 name="Node.js",
@@ -558,12 +547,7 @@ def _build_prerequisites(
             )
         ]
 
-    if detection.project_type == ProjectType.RUST_CLI:
-        return [Prerequisite(name="Rust")]
-
-    if detection.project_type == ProjectType.GO_CLI:
-        return [Prerequisite(name="Go")]
-
+    # Rust / Go runtimes are NOT assumed absent evidence. Return UNKNOWN (empty).
     return []
 
 
@@ -626,330 +610,6 @@ def _build_commands(registry: EvidenceRegistry) -> list[Command]:
         )
 
     return commands
-
-
-def _build_usage_examples(
-    commands: list[Command],
-    user_tasks: list[UserTask],
-) -> list[UsageExample]:
-    used_commands = {command for task in user_tasks for command in task.commands}
-    examples: list[UsageExample] = []
-    seen_commands: set[str] = set()
-
-    for command in commands:
-        if not _is_user_visible_example(command):
-            continue
-        if command.name in seen_commands or command.name in used_commands:
-            continue
-
-        seen_commands.add(command.name)
-        examples.append(
-            UsageExample(
-                title=_usage_example_title(command),
-                description=command.description,
-                commands=[command.name],
-                evidence=command.evidence,
-            )
-        )
-
-    if examples:
-        return examples
-
-    for task in user_tasks[:2]:
-        if not task.commands:
-            continue
-        examples.append(
-            UsageExample(
-                title=task.title,
-                description=task.user_goal,
-                commands=task.commands,
-                evidence=task.evidence,
-            )
-        )
-
-    return examples
-
-
-def _build_faq(
-    installation: InstallationGuide,
-    configuration: list[ConfigSection],
-    platform_notes: list[PlatformNote],
-) -> list[FAQItem]:
-    items: list[FAQItem] = []
-
-    if installation.prerequisites:
-        prereq = installation.prerequisites[0]
-        version = f" {prereq.version_constraint}" if prereq.version_constraint else ""
-        items.append(
-            FAQItem(
-                question=f"Which {prereq.name} version do I need?",
-                answer=f"Project evidence points to {prereq.name}{version}.",
-                evidence=prereq.evidence,
-            )
-        )
-
-    if installation.verify_command:
-        items.append(
-            FAQItem(
-                question="How do I check that the installation worked?",
-                answer=f"Run `{installation.verify_command}`.",
-                evidence=installation.evidence,
-            )
-        )
-
-    if configuration and configuration[0].config_file:
-        section = configuration[0]
-        items.append(
-            FAQItem(
-                question="Where do I change user-facing settings?",
-                answer=(
-                    f"The repository exposes configuration in `{section.config_file}`. "
-                    "Review that file before your first run."
-                ),
-                evidence=section.evidence,
-            )
-        )
-
-    if platform_notes:
-        items.append(
-            FAQItem(
-                question="Are there platform-specific steps?",
-                answer=platform_notes[0].note,
-                evidence=platform_notes[0].evidence,
-            )
-        )
-
-    return items
-
-
-def _build_platform_notes(commands: list[Command]) -> list[PlatformNote]:
-    windows_notes: list[str] = []
-    windows_evidence: list[EvidenceLink] = []
-    make_command = next((cmd for cmd in commands if cmd.name.startswith("make ")), None)
-    if make_command is not None:
-        windows_notes.append(
-            "The repository includes `make` targets. If `make` is unavailable on your system, "
-            "run the underlying project commands directly."
-        )
-        windows_evidence.extend(make_command.evidence)
-
-    unix_shell_command = next(
-        (
-            cmd
-            for cmd in commands
-            if any("rm -rf" in link.raw_text.lower() for link in cmd.evidence)
-        ),
-        None,
-    )
-    if unix_shell_command is not None:
-        windows_notes.append(
-            "Some helper commands use Unix shell syntax such as `rm -rf`. "
-            "Run them in WSL or another Unix-like shell, or replace them with a Windows equivalent."
-        )
-        windows_evidence.extend(unix_shell_command.evidence)
-
-    notes: list[PlatformNote] = []
-    if windows_notes:
-        notes.append(
-            PlatformNote(
-                platform="Windows",
-                note=" ".join(windows_notes),
-                evidence=windows_evidence,
-            )
-        )
-
-    return _dedupe_platform_notes(notes)
-
-
-def _build_troubleshooting(
-    installation: InstallationGuide,
-    platform_notes: list[PlatformNote],
-) -> list[TroubleshootingItem]:
-    items: list[TroubleshootingItem] = []
-    install_command = _first_install_command(installation)
-
-    if install_command and installation.verify_command:
-        executable = installation.verify_command.split()[0]
-        items.append(
-            TroubleshootingItem(
-                symptom=f"`{executable}` is not available after installation",
-                probable_cause=(
-                    "The package may not be installed in the environment you are currently using."
-                ),
-                solution=(
-                    "Run the installation command again in the same environment, "
-                    "then retry the verification command."
-                ),
-                commands=[install_command, installation.verify_command],
-                evidence=installation.evidence,
-            )
-        )
-
-    if any("`make` targets" in note.note for note in platform_notes):
-        evidence = next(
-            (note.evidence for note in platform_notes if "`make` targets" in note.note),
-            [],
-        )
-        items.append(
-            TroubleshootingItem(
-                symptom="`make` is not recognized on your system",
-                probable_cause="The repository exposes helper workflows through `make`.",
-                solution="Install `make`, or run the underlying project commands directly.",
-                evidence=evidence,
-            )
-        )
-
-    if any("Unix shell syntax" in note.note for note in platform_notes):
-        evidence = next(
-            (note.evidence for note in platform_notes if "Unix shell syntax" in note.note),
-            [],
-        )
-        items.append(
-            TroubleshootingItem(
-                symptom="A helper command fails on Windows",
-                probable_cause="The repository includes Unix shell syntax such as `rm -rf`.",
-                solution=(
-                    "Run the command in WSL or another Unix-like shell, "
-                    "or replace it with a Windows equivalent."
-                ),
-                evidence=evidence,
-            )
-        )
-
-    return items
-
-
-def _is_detailed_mode(
-    mode: str,
-    commands: list[Command],
-    configuration: list[ConfigSection],
-    user_tasks: list[UserTask],
-) -> bool:
-    """Decide whether the project needs the detailed layout."""
-    if mode == "detailed":
-        return True
-    if mode == "compact":
-        return False
-    cmd_count = len(commands)
-    cfg_count = sum(len(s.items) for s in configuration)
-    task_count = len(user_tasks)
-    exceeded = sum([cmd_count >= 5, cfg_count >= 10, task_count >= 8])
-    return exceeded >= 2 or (cmd_count + cfg_count + task_count) >= 15
-
-
-def _build_command_groups(
-    commands: list[Command],
-    user_tasks: list[UserTask],
-    usage_examples: list[UsageExample],
-    split_threshold: int,
-    is_detailed: bool,
-    configuration: list[ConfigSection] | None = None,
-) -> list[CommandGroup]:
-    """Split large usage sections into source-based command groups."""
-    if not is_detailed or len(commands) < split_threshold:
-        return []
-
-    by_source: dict[str, list[Command]] = {}
-    ungrouped: list[Command] = []
-
-    for cmd in commands:
-        source = cmd.source_file
-        if source:
-            by_source.setdefault(source, []).append(cmd)
-        else:
-            ungrouped.append(cmd)
-
-    if len(by_source) < 2:
-        return []
-
-    config_by_key: dict[str, ConfigSection] = {}
-    if configuration:
-        for section in configuration:
-            for item in section.items:
-                config_by_key[item.key] = section
-
-    groups: list[CommandGroup] = []
-    task_by_cmd: dict[str, UserTask] = {}
-    for task in user_tasks:
-        for cmd_name in task.commands:
-            task_by_cmd[cmd_name] = task
-
-    example_by_cmd: dict[str, UsageExample] = {}
-    for ex in usage_examples:
-        for cmd_name in ex.commands:
-            example_by_cmd[cmd_name] = ex
-
-    for source_name, cmds in sorted(by_source.items()):
-        display_name = Path(source_name).stem.replace("_", " ").replace("-", " ").title()
-        slug = re.sub(r"[^a-z0-9]+", "-", Path(source_name).stem.lower()).strip("-") or "general"
-        group_tasks = [task_by_cmd[c.name] for c in cmds if c.name in task_by_cmd]
-        group_examples = [example_by_cmd[c.name] for c in cmds if c.name in example_by_cmd]
-
-        group_configs = _collect_group_configs(group_tasks, config_by_key)
-        description = _generate_group_description(group_tasks)
-
-        groups.append(
-            CommandGroup(
-                name=display_name,
-                slug=slug,
-                description=description,
-                commands=cmds,
-                user_tasks=group_tasks,
-                usage_examples=group_examples,
-                config_sections=group_configs,
-                evidence=[link for c in cmds for link in c.evidence],
-            )
-        )
-
-    if ungrouped:
-        group_tasks = [task_by_cmd[c.name] for c in ungrouped if c.name in task_by_cmd]
-        group_examples = [example_by_cmd[c.name] for c in ungrouped if c.name in example_by_cmd]
-        group_configs = _collect_group_configs(group_tasks, config_by_key)
-        description = _generate_group_description(group_tasks)
-        groups.append(
-            CommandGroup(
-                name="General",
-                slug="general",
-                description=description,
-                commands=ungrouped,
-                user_tasks=group_tasks,
-                usage_examples=group_examples,
-                config_sections=group_configs,
-                evidence=[link for c in ungrouped for link in c.evidence],
-            )
-        )
-
-    return groups
-
-
-def _collect_group_configs(
-    group_tasks: list[UserTask],
-    config_by_key: dict[str, ConfigSection],
-) -> list[ConfigSection]:
-    """Collect unique ConfigSections referenced by a group's tasks."""
-    related_keys: set[str] = set()
-    for task in group_tasks:
-        related_keys.update(task.related_config)
-    seen: dict[int, ConfigSection] = {}
-    for key in related_keys:
-        section = config_by_key.get(key)
-        if section is not None and id(section) not in seen:
-            seen[id(section)] = section
-    return list(seen.values())
-
-
-def _generate_group_description(
-    group_tasks: list[UserTask],
-) -> str | None:
-    """Generate a brief description for a command group based on its tasks."""
-    if not group_tasks:
-        return None
-    goals = [t.user_goal for t in group_tasks if t.user_goal]
-    if not goals:
-        return None
-    if len(goals) == 1:
-        return goals[0]
-    return f"{goals[0]} This section also covers: {goals[1]}."
 
 
 def _commands_from_sections(
@@ -1075,54 +735,6 @@ def _verify_command(registry: EvidenceRegistry) -> str | None:
     return None
 
 
-def _is_user_visible_example(command: Command) -> bool:
-    if _section_matches(command.section, _USAGE_SECTION_KEYWORDS):
-        return True
-
-    normalized = command.name.lower()
-    if normalized.startswith(("docker compose", "docker-compose")):
-        return True
-
-    parts = normalized.split()
-    if len(parts) < 2:
-        return False
-    if parts[0] in {"make", "npm", "pip", "pnpm", "python", "pytest", "ruff", "uv", "yarn"}:
-        return False
-    if any(token in normalized for token in (" test", " lint", " clean", " build")):
-        return False
-    return True
-
-
-def _usage_example_title(command: Command) -> str:
-    if re.search(r"(?:^|\s)(?:serve|start|run|dev)(?:\s|$)", command.name.lower()):
-        return "Start the application"
-
-    parts = command.name.split()
-    if len(parts) >= 2 and not parts[1].startswith("-"):
-        return f"Run the `{parts[1]}` command"
-    return "Run the documented command"
-
-
-def _dedupe_platform_notes(notes: list[PlatformNote]) -> list[PlatformNote]:
-    deduped: list[PlatformNote] = []
-    seen: set[tuple[str, str]] = set()
-    for note in notes:
-        key = (note.platform, note.note)
-        if key in seen:
-            continue
-        seen.add(key)
-        deduped.append(note)
-    return deduped
-
-
-def _first_install_command(installation: InstallationGuide) -> str | None:
-    for step in installation.steps:
-        for command in step.commands:
-            if not _is_repo_navigation_command(command):
-                return command
-    return None
-
-
 _INSTALL_SECTION_KEYWORDS = (
     "getting started",
     "install",
@@ -1147,15 +759,4 @@ _MANIFEST_CONFIG_FILES = {
     "pyproject.toml",
     "uv.lock",
     "yarn.lock",
-}
-
-_DEFAULT_INSTALL_COMMANDS: dict[ProjectType, str] = {
-    ProjectType.PYTHON_CLI: "pip install -e .",
-    ProjectType.PYTHON_LIBRARY: "pip install -e .",
-    ProjectType.PYTHON_SERVICE: "pip install -e .",
-    ProjectType.NODE_CLI: "npm install",
-    ProjectType.NODE_REACT: "npm install",
-    ProjectType.NODE_LIBRARY: "npm install",
-    ProjectType.RUST_CLI: "cargo build --release",
-    ProjectType.GO_CLI: "go build .",
 }

@@ -24,8 +24,8 @@ app = typer.Typer(
 console = Console()
 
 
-@app.command()
-def generate(
+@app.command(name="deterministic-generate")
+def deterministic_generate(
     target: Path = typer.Argument(..., help="Target project directory"),
     langs: list[str] = typer.Option(["en", "zh-CN"], "--lang", "-l", help="Languages to generate"),
     config_path: Path | None = typer.Option(
@@ -34,7 +34,14 @@ def generate(
     output: str | None = typer.Option(None, "--output", "-o", help="Output directory name"),
     verbose: bool = typer.Option(False, "--verbose", "-v", help="Verbose output"),
 ) -> None:
-    """Generate multilingual wiki documentation for a project."""
+    """Deterministic scaffold generator — NOT the authoritative /makewiki path.
+
+    This command drives Python's *mechanical* pipeline (extract evidence, build
+    identity/installation/configuration/commands, render Jinja templates). It
+    produces structurally grounded scaffolding but never invents semantic content
+    (FAQ, troubleshooting, usage, workflows). The authoritative, LLM-driven flow is
+    `/makewiki` in the Skill layer.
+    """
     from makewiki_skills.pipeline.pipeline import Pipeline
 
     target = Path(target).resolve()
@@ -100,15 +107,39 @@ def generate(
         console.print(f"  Validation: {ctx.validation_report.summary()}")
 
 
-@app.command()
-def scan(
+@app.command(name="generate")
+def generate_alias(
+    target: Path = typer.Argument(..., help="Target project directory"),
+    langs: list[str] = typer.Option(["en", "zh-CN"], "--lang", "-l", help="Languages to generate"),
+    config_path: Path | None = typer.Option(
+        None, "--config", "-c", help="Path to makewiki.config.yaml"
+    ),
+    output: str | None = typer.Option(None, "--output", "-o", help="Output directory name"),
+    verbose: bool = typer.Option(False, "--verbose", "-v", help="Verbose output"),
+) -> None:
+    """Deprecated alias for `deterministic-generate`.
+
+    Retained for backward compatibility. It runs the same deterministic,
+    non-authoritative scaffold pipeline. Prefer `deterministic-generate`; the
+    authoritative, LLM-driven flow is `/makewiki` in the Skill layer.
+    """
+    deterministic_generate(target, langs, config_path, output, verbose)
+
+
+@app.command(name="evidence")
+def evidence(
     target: Path = typer.Argument(..., help="Target project directory"),
     config_path: Path | None = typer.Option(None, "--config", "-c"),
     output_format: str = typer.Option(
         "human", "--format", "-f", help="Output format: human | json"
     ),
 ) -> None:
-    """Scan a project and print the collected evidence."""
+    """Scan a project and emit the collected evidence facts.
+
+    Emits *facts only* — deterministic extractions (commands, config keys,
+    paths, versions) with their source evidence. Python never interprets what
+    the repository *means*; that is the LLM's job.
+    """
     from makewiki_skills.pipeline.pipeline import Pipeline
 
     target = Path(target).resolve()
@@ -160,6 +191,18 @@ def scan(
     console.print(f"Total facts: {len(ctx.evidence_registry)}")
 
 
+@app.command(name="scan")
+def scan_alias(
+    target: Path = typer.Argument(..., help="Target project directory"),
+    config_path: Path | None = typer.Option(None, "--config", "-c"),
+    output_format: str = typer.Option(
+        "human", "--format", "-f", help="Output format: human | json"
+    ),
+) -> None:
+    """Deprecated alias for `evidence`. Retained for backward compatibility."""
+    evidence(target, config_path, output_format)
+
+
 @app.command()
 def validate(
     wiki_dir: Path = typer.Argument(..., help="Path to makewiki/ output directory"),
@@ -185,8 +228,8 @@ def validate(
         raise typer.Exit(1)
 
 
-@app.command()
-def verify(
+@app.command(name="verify-docs")
+def verify_docs(
     target: Path = typer.Argument(..., help="Target project directory"),
     wiki_dir: Path | None = typer.Option(
         None, "--wiki-dir", "-w", help="Path to makewiki/ output (default: <target>/<output_dir>)"
@@ -197,14 +240,18 @@ def verify(
         "human", "--format", "-f", help="Output format: human | json"
     ),
 ) -> None:
-    """Verify generated docs against the actual project codebase.
+    """Run unified L0-L5 verification plus the Quality Gate on existing docs.
 
-    Checks that file paths, commands, and config keys mentioned in the
-    generated documentation actually exist in the project.
+    Verifies that every claim in the generated documentation is grounded —
+    paths exist (L1), interfaces/probes match (L2), behavior is evidenced
+    (L3), languages agree (L4), and over-assertion is flagged (L5). The Quality
+    Gate aggregates the layers into a PASS/FAIL decision mapped to the CI exit
+    code (0 pass / 1 fail).
     """
     from makewiki_skills.generator.language_generator import GeneratedDocument
     from makewiki_skills.languages.registry import LanguageRegistry
-    from makewiki_skills.verification.codebase_verifier import CodebaseVerifier
+    from makewiki_skills.verification.orchestrator import VerificationOrchestrator
+    from makewiki_skills.verification.quality_gate import evaluate_quality_gate
 
     target = Path(target).resolve()
     cfg = _load_config(config_path, target)
@@ -251,32 +298,346 @@ def verify(
             )
         documents[lang_code] = docs
 
-    verifier = CodebaseVerifier(target)
-    report = verifier.verify(documents)
+    orchestrator = VerificationOrchestrator(target)
+    report = orchestrator.verify_documents(documents, wiki_dir=resolved_wiki_dir)
+    result = evaluate_quality_gate(
+        report, cfg, fail_on_critical=cfg.quality.fail_on_critical
+    )
 
     if output_format == "json":
-        typer.echo(json_lib.dumps(report.model_dump(), indent=2, ensure_ascii=False))
-        return
+        typer.echo(
+            json_lib.dumps(
+                {"report": report.model_dump(), "quality_gate": result.model_dump()},
+                indent=2,
+                ensure_ascii=False,
+            )
+        )
+        raise typer.Exit(result.exit_code)
 
-    console.print("[bold]Codebase Verification[/bold]")
-    console.print(f"  Score: {report.score:.1%} ({report.verified_count}/{report.total_checks})")
-    console.print(f"  Passed: {report.verified_count}  Failed: {report.failed_count}")
+    console.print("[bold]L0-L5 Verification[/bold]")
+    for layer_name in ("L0", "L1", "L2", "L3", "L4", "L5"):
+        layer_report = report.layers.get(layer_name)
+        if layer_report is None:
+            continue
+        state = (
+            "[green]passed[/green]"
+            if layer_report.passed
+            else "[red]failed[/red]"
+        )
+        console.print(
+            f"  {layer_name} ({layer_report.name}): {state} "
+            f"{layer_report.passed_count}/{layer_report.total_checks}"
+        )
 
-    failures = report.failures()
+    console.print(f"[bold]Quality Gate:[/bold] Grounding score {result.grounding_score:.1%}")
+    gate_mark = "[green]PASS[/green]" if result.passed else "[red]FAIL[/red]"
+    console.print(f"  Gate verdict: {gate_mark}")
+    if result.unresolved_critical:
+        console.print(f"  [yellow]Unresolved critical: {result.unresolved_critical}[/yellow]")
+
+    failures = [
+        check
+        for layer_report in report.layers.values()
+        for check in layer_report.failures()
+    ]
     if failures:
         table = Table(title="Failed Checks")
+        table.add_column("Layer")
         table.add_column("Document")
         table.add_column("Type")
         table.add_column("Claim")
         table.add_column("Detail")
         for check in failures:
-            table.add_row(check.document, check.claim_type, check.claim_text[:50], check.detail)
+            table.add_row(
+                check.layer, check.target, check.claim_type, check.claim_text[:50], check.detail
+            )
         console.print(table)
 
-    if report.passed:
-        console.print("[green]All checks passed.[/green]")
-    else:
-        console.print(f"[yellow]{report.failed_count} check(s) failed.[/yellow]")
+    raise typer.Exit(result.exit_code)
+
+
+@app.command(name="verify")
+def verify_alias(
+    target: Path = typer.Argument(..., help="Target project directory"),
+    wiki_dir: Path | None = typer.Option(
+        None, "--wiki-dir", "-w", help="Path to makewiki/ output (default: <target>/<output_dir>)"
+    ),
+    langs: list[str] = typer.Option(["en", "zh-CN"], "--lang", "-l"),
+    config_path: Path | None = typer.Option(None, "--config", "-c"),
+    output_format: str = typer.Option(
+        "human", "--format", "-f", help="Output format: human | json"
+    ),
+) -> None:
+    """Deprecated alias for `verify-docs`.
+
+    Retained for backward compatibility; runs the same unified L0-L5
+    verification and Quality Gate.
+    """
+    verify_docs(target, wiki_dir, langs, config_path, output_format)
+
+
+@app.command(name="verify-claim")
+def verify_claim(
+    claim_file: Path = typer.Argument(..., help="Path to claim JSON (single Claim object or {'claims': [...]})"),
+    target: Path = typer.Option(Path("."), "--target", "-t", help="Project directory to verify claims against"),
+    output_format: str = typer.Option(
+        "human", "--format", "-f", help="Output format: human | json"
+    ),
+    project_name: str | None = typer.Option(None, "--project", "-p", help="Project name (defaults to sibling project_name)"),
+) -> None:
+    """Verify a Claim / ClaimSet JSON against the project filesystem.
+
+    Loads a Claim or ClaimSet document (as produced by the Skill's Claim step
+    or Python's evidence extraction), runs ``verify_claims_against_codebase``
+    on it, and reports each claim's per-layer verification status (L0-L5).
+    This is the mechanical proof half of the Cognitive Authority Boundary:
+    Python proves what it can (L0 syntax, L1 existence) and marks everything
+    else pending for LLM judgment.
+    """
+    from makewiki_skills.model.claim import ClaimSet, verify_claims_against_codebase
+
+    data = json_lib.loads(claim_file.read_text(encoding="utf-8"))
+    project_name_val = project_name
+    if isinstance(data, dict) and project_name_val is None:
+        project_name_val = data.get("project_name")
+    project_name_val = project_name_val or "project"
+
+    claim_set = ClaimSet.from_llm_json(project_name_val, data)
+    target = Path(target).resolve()
+    verified = verify_claims_against_codebase(claim_set, target)
+
+    if output_format == "json":
+        typer.echo(json_lib.dumps(verified.model_dump(), indent=2, ensure_ascii=False))
+        raise typer.Exit(0)
+
+    console.print(f"[bold]Claim Verification[/bold]  project={verified.project_name}")
+    console.print(f"  Claims: {len(verified.claims)}  target: {target}")
+    table = Table(title="Per-claim L-status")
+    table.add_column("Claim ID")
+    table.add_column("Type")
+    table.add_column("L0")
+    table.add_column("L1")
+    table.add_column("L2")
+    table.add_column("L5")
+    for claim in verified.claims:
+        table.add_row(
+            claim.claim_id,
+            claim.claim_type,
+            claim.verification.l0_syntax,
+            claim.verification.l1_existence,
+            claim.verification.l2_interface,
+            claim.verification.l5_epistemic,
+        )
+    console.print(table)
+
+
+@app.command(name="verify-model")
+def verify_model(
+    model_file: Path = typer.Argument(..., help="Path to semantic model JSON"),
+    target: Path = typer.Option(Path("."), "--target", "-t", help="Project directory to cross-check evidence references against"),
+    output_format: str = typer.Option(
+        "human", "--format", "-f", help="Output format: human | json"
+    ),
+) -> None:
+    """Validate a semantic model JSON: schema + evidence-ref existence.
+
+    Loads a SemanticModel document, validates it against the pydantic schema,
+    and mechanically proves that every evidence reference it cites actually
+    exists in the target repository. Any ``evidence.source_path`` that does not
+    resolve on disk is reported as a failure. This is the deterministic check
+    that backs the Skill's semantic model before writers render from it.
+    """
+    from makewiki_skills.model.semantic_model import SemanticModel
+
+    data = json_lib.loads(model_file.read_text(encoding="utf-8"))
+    try:
+        model = SemanticModel.model_validate(data)
+    except Exception as exc:  # pydantic.ValidationError
+        console.print(f"[red]Schema validation failed:[/red] {exc}")
+        raise typer.Exit(1)
+
+    target = Path(target).resolve()
+    missing: list[tuple[str, str]] = []
+    checked = 0
+    seen_refs: set[str] = set()
+
+    def _collect_evidence(node: Any) -> None:
+        nonlocal checked
+        # An object (pydantic model / dict) may itself carry .evidence references.
+        if isinstance(node, dict):
+            src = node.get("source_path")
+            if isinstance(src, str) and src:
+                if src not in seen_refs:
+                    seen_refs.add(src)
+                    checked += 1
+                    norm = src.lstrip("./")
+                    is_real_path = Path(src).is_absolute() or (target / norm).exists()
+                    if not is_real_path:
+                        missing.append((src, ""))
+                return
+            ev = node.get("evidence")
+            if isinstance(ev, list):
+                _collect_evidence(ev)
+            for value in node.values():
+                _collect_evidence(value)
+            return
+        if isinstance(node, list):
+            for item in node:
+                _collect_evidence(item)
+            return
+
+        # A single EvidenceLink object.
+        src = getattr(node, "source_path", None)
+        if isinstance(src, str) and src:
+            if src not in seen_refs:
+                seen_refs.add(src)
+                checked += 1
+                norm = src.lstrip("./")
+                is_real_path = Path(src).is_absolute() or (target / norm).exists()
+                if not is_real_path:
+                    missing.append((src, ""))
+            return
+        if hasattr(node, "evidence"):
+            _collect_evidence(list(getattr(node, "evidence") or []))
+            for field_name in ("prerequisites", "steps", "items", "configuration", "user_tasks", "commands"):
+                child = getattr(node, field_name, None)
+                if child is not None:
+                    _collect_evidence(child)
+
+    _collect_evidence(model.model_dump())
+
+    if output_format == "json":
+        typer.echo(json_lib.dumps({
+            "schema_valid": True,
+            "evidence_references_checked": checked,
+            "evidence_references_missing": [m[0] for m in missing],
+            "verified_at": getattr(model, "created_at", None),
+        }, indent=2, ensure_ascii=False))
+        raise typer.Exit(1 if missing else 0)
+
+    console.print("[bold]Semantic Model Verification[/bold]")
+    console.print(f"  schema: [green]valid[/green]  evidence refs checked: {checked}")
+    if missing:
+        console.print(f"  [red]{len(missing)} evidence reference(s) missing on disk:[/red]")
+        for src, _owner in missing:
+            console.print(f"    - {src}")
+        raise typer.Exit(1)
+    console.print("  [green]All evidence references resolve on disk.[/green]")
+
+
+@app.command(name="parity")
+def parity(
+    target: Path = typer.Argument(..., help="Target project directory (or wiki dir)"),
+    wiki_dir: Path | None = typer.Option(
+        None, "--wiki-dir", "-w", help="Path to makewiki/ output (default: <target>/<output_dir>)"
+    ),
+    langs: list[str] = typer.Option(["en", "zh-CN"], "--lang", "-l"),
+    config_path: Path | None = typer.Option(None, "--config", "-c"),
+    output_format: str = typer.Option(
+        "human", "--format", "-f", help="Output format: human | json"
+    ),
+) -> None:
+    """Compare language versions: exact block-ID parity + aligned passages.
+
+    Runs the L4 cross-language layer to mechanically prove that structural
+    elements (in particular code blocks and their stable block IDs) match across
+    all requested languages, then emits aligned passages per document for the
+    Skill's LLM Auditor to reason over prose parity. Mechanical exactness is
+    Python's proof; semantic prose equality is the LLM's judgment.
+    """
+    from makewiki_skills.languages.registry import LanguageRegistry
+    from makewiki_skills.verification.orchestrator import VerificationOrchestrator
+    from makewiki_skills.generator.language_generator import GeneratedDocument
+
+    target = Path(target).resolve()
+    cfg = _load_config(config_path, target)
+    cfg.languages = langs
+    LanguageRegistry.load_builtins()
+
+    resolved_wiki_dir = Path(wiki_dir).resolve() if wiki_dir else target / cfg.output_dir
+    if not resolved_wiki_dir.is_dir():
+        console.print(f"[red]Error:[/red] Wiki directory not found: {resolved_wiki_dir}")
+        raise typer.Exit(1)
+
+    documents: dict[str, list[GeneratedDocument]] = {}
+    for lang_code in langs:
+        if not LanguageRegistry.has(lang_code):
+            continue
+        profile = LanguageRegistry.get(lang_code)
+        docs: list[GeneratedDocument] = []
+        for md_file in resolved_wiki_dir.rglob("*.md"):
+            if md_file.name == "index.md":
+                continue
+            name = md_file.name
+            if lang_code == cfg.default_language:
+                if any(f".{other}" in name for other in langs if other != lang_code):
+                    continue
+            else:
+                if profile.file_suffix not in name:
+                    continue
+            rel = md_file.relative_to(resolved_wiki_dir)
+            base_name = str(rel).replace("\\", "/")
+            if profile.file_suffix:
+                base_name = base_name.replace(profile.file_suffix, "")
+            content = md_file.read_text(encoding="utf-8", errors="replace")
+            docs.append(
+                GeneratedDocument(
+                    filename=str(rel).replace("\\", "/"),
+                    base_name=base_name,
+                    language_code=lang_code,
+                    content=content,
+                )
+            )
+        documents[lang_code] = docs
+
+    orchestrator = VerificationOrchestrator(target)
+    l4_report = orchestrator.verify_layer("L4", documents, wiki_dir=resolved_wiki_dir)
+
+    # Aligned passages (prose parity input for the LLM Auditor), matched by
+    # H2 position like semantic-review does.
+    pages: dict[str, dict[str, str]] = {}
+    default_lang = langs[0] if langs else "en"
+    for lang_code, doc_list in documents.items():
+        for doc in doc_list:
+            pages.setdefault(doc.base_name, {})[lang_code] = doc.content
+
+    aligned: list[dict[str, Any]] = []
+    for base_name, lang_contents in sorted(pages.items()):
+        if len(lang_contents) < 2:
+            continue
+        ref_lang = next(iter(lang_contents))
+        ref_sections = _split_by_h2(lang_contents[ref_lang])
+        for section_heading in ref_sections:
+            passages: dict[str, str] = {}
+            ref_idx = list(ref_sections.keys()).index(section_heading)
+            for lang_code, content in lang_contents.items():
+                sections = _split_by_h2(content)
+                other_sections = list(sections.values())
+                if ref_idx < len(other_sections):
+                    passages[lang_code] = other_sections[ref_idx][:800]
+                else:
+                    passages[lang_code] = ""
+            if any(p.strip() for p in passages.values()):
+                aligned.append({
+                    "document": base_name,
+                    "reference_heading": section_heading,
+                    "passages": passages,
+                })
+
+    if output_format == "json":
+        typer.echo(json_lib.dumps({
+            "l4": l4_report.model_dump(),
+            "aligned_passages": aligned,
+        }, indent=2, ensure_ascii=False))
+        raise typer.Exit(0 if l4_report.passed else 1)
+
+    console.print("[bold]Language Parity (L4)[/bold]")
+    state = "[green]PASS[/green]" if l4_report.passed else "[red]FAIL[/red]"
+    console.print(f"  L4 (Cross-language): {state}  {l4_report.passed_count}/{l4_report.total_checks}")
+    for check in l4_report.failures():
+        console.print(f"    [red]{check.target}[/red]: {check.detail}")
+    console.print(f"[bold]Aligned passages:[/bold] {len(aligned)} section(s) ready for LLM prose review")
+    raise typer.Exit(0 if l4_report.passed else 1)
 
 
 @app.command()
@@ -386,12 +747,18 @@ def semantic_review(
     wiki_dir: Path = typer.Argument(..., help="Path to makewiki/ output directory"),
     langs: list[str] = typer.Option(["en", "zh-CN"], "--lang", "-l"),
     output_format: str = typer.Option("json", "--format", "-f", help="Output format: json | human"),
+    config_path: Path | None = typer.Option(None, "--config", "-c"),
 ) -> None:
     """Prepare aligned passages for cross-language semantic review."""
     wiki_dir = Path(wiki_dir).resolve()
     if not wiki_dir.is_dir():
         console.print(f"[red]Error:[/red] Directory not found: {wiki_dir}")
         raise typer.Exit(1)
+
+    cfg = _load_config(config_path, wiki_dir)
+    if not cfg.review.enable_semantic_review:
+        console.print("[yellow]semantic-review is disabled (review.enable_semantic_review=false).[/yellow]")
+        raise typer.Exit(0)
 
     from makewiki_skills.languages.registry import LanguageRegistry
 
@@ -421,9 +788,13 @@ def semantic_review(
         pages.setdefault(base, {})[detected_lang] = content
 
     review_pairs: list[dict[str, Any]] = []
+    expected_lang_count = max(len(langs), 1)
+    fully_aligned_pages = 0
     for base_name, lang_contents in sorted(pages.items()):
         if len(lang_contents) < 2:
             continue
+        if len(lang_contents) >= expected_lang_count:
+            fully_aligned_pages += 1
 
         ref_lang = next(iter(lang_contents))
         ref_sections = _split_by_h2(lang_contents[ref_lang])
@@ -450,8 +821,18 @@ def semantic_review(
                     }
                 )
 
+    alignment_ratio = (
+        fully_aligned_pages / len(pages) if pages else 0.0
+    )
+    meets_threshold = alignment_ratio >= cfg.review.min_page_alignment_ratio
+
     if output_format == "json":
-        typer.echo(json_lib.dumps({"review_pairs": review_pairs}, indent=2, ensure_ascii=False))
+        typer.echo(json_lib.dumps({
+            "review_pairs": review_pairs,
+            "alignment_ratio": round(alignment_ratio, 3),
+            "min_page_alignment_ratio": cfg.review.min_page_alignment_ratio,
+            "meets_alignment_threshold": meets_threshold,
+        }, indent=2, ensure_ascii=False))
     else:
         console.print("[bold]Semantic Review Data[/bold]")
         console.print(f"  Documents with multiple languages: {len(pages)}")
@@ -625,12 +1006,12 @@ def rebattle_diff(
 def export(
     wiki_dir: Path = typer.Argument(..., help="Path to makewiki/ directory"),
     format_type: str = typer.Option(
-        "all", "--format", "-f", help="Export format: all | html | pdf | epub"
+        "all", "--format", "-f", help="Export format: all | html | epub"
     ),
     lang: str = typer.Option("en", "--lang", "-l", help="Language code to export"),
     title: str = typer.Option("Project Documentation", "--title", "-t", help="Document title"),
 ) -> None:
-    """Export documentation into single-file printable HTML or EPUB bundles."""
+    """Export documentation into single-file HTML or EPUB bundles."""
     from makewiki_skills.renderer.exporter import DocExporter
 
     wiki_path = Path(wiki_dir).resolve()
@@ -638,10 +1019,14 @@ def export(
         console.print(f"[red]Error:[/red] Not a directory: {wiki_path}")
         raise typer.Exit(1)
 
+    if format_type == "pdf":
+        console.print("[red]Error:[/red] PDF export is not supported. Use --format html|epub|all.")
+        raise typer.Exit(1)
+
     exporter = DocExporter(title=title)
     exported_files: list[Path] = []
 
-    if format_type in ("all", "html", "pdf"):
+    if format_type in ("all", "html"):
         html_file = exporter.export_pdf_ready_html(wiki_path, lang=lang)
         exported_files.append(html_file)
         console.print(f"[green]Compiled PDF-ready HTML:[/green] {html_file}")
@@ -654,8 +1039,8 @@ def export(
     console.print(f"[bold green]Export complete! Total bundles: {len(exported_files)}[/bold green]")
 
 
-@app.command()
-def sync(
+@app.command(name="sync-bundle")
+def sync_bundle(
     wiki_dir: Path = typer.Argument(..., help="Path to makewiki/ directory"),
     target_platform: str = typer.Option(
         "all", "--target", "-t", help="Target platform: all | confluence | notion"
@@ -663,10 +1048,26 @@ def sync(
     lang: str = typer.Option("en", "--lang", "-l", help="Language code to sync"),
     space_key: str = typer.Option("WIKI", "--space-key", help="Confluence space key"),
     parent_id: str = typer.Option("root", "--parent-id", help="Notion parent page ID"),
+    push: bool = typer.Option(
+        False,
+        "--push",
+        help="Reserved future flag: publish bundles to the target platform. Currently rejected.",
+    ),
 ) -> None:
-    """Prepare and build knowledge base sync bundles for Confluence or Notion."""
+    """Prepare knowledge base sync bundles for Confluence or Notion.
+
+    Note: this command only *prepares* the bundles (Confluence Storage XML /
+    Notion Block API payloads) on disk. It does NOT publish or push anything to
+    any external service.
+    """
     from makewiki_skills.sync.confluence import ConfluenceSyncTool
     from makewiki_skills.sync.notion import NotionSyncTool
+
+    if push:
+        console.print(
+            "[red]Error:[/red] --push is not implemented yet. sync-bundle is bundle-prep only."
+        )
+        raise typer.Exit(1)
 
     wiki_path = Path(wiki_dir).resolve()
     if not wiki_path.is_dir():
@@ -683,4 +1084,23 @@ def sync(
         n_bundle = n_tool.build_sync_bundle(wiki_path, parent_page_id=parent_id, lang=lang)
         console.print(f"[green]Generated Notion Block API payload bundle:[/green] {n_bundle}")
 
-    console.print("[bold green]Knowledge base sync preparation complete![/bold green]")
+    console.print("[bold green]Knowledge base sync bundle preparation complete![/bold green]")
+
+
+@app.command(name="sync")
+def sync_alias(
+    wiki_dir: Path = typer.Argument(..., help="Path to makewiki/ directory"),
+    target_platform: str = typer.Option(
+        "all", "--target", "-t", help="Target platform: all | confluence | notion"
+    ),
+    lang: str = typer.Option("en", "--lang", "-l", help="Language code to sync"),
+    space_key: str = typer.Option("WIKI", "--space-key", help="Confluence space key"),
+    parent_id: str = typer.Option("root", "--parent-id", help="Notion parent page ID"),
+    push: bool = typer.Option(
+        False,
+        "--push",
+        help="Reserved future flag: publish bundles to the target platform. Currently rejected.",
+    ),
+) -> None:
+    """Deprecated alias for `sync-bundle`. Retained for backward compatibility."""
+    sync_bundle(wiki_dir, target_platform, lang, space_key, parent_id, push=push)

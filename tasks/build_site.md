@@ -2,7 +2,11 @@
 
 ## Overview
 
-Compilation is Phase 5 of MakeWiki. It compiles Markdown documents into an offline single-file Single Page Application (SPA) HTML website without any external CDNs or server dependencies.
+Compilation is Phase 5 of MakeWiki. It compiles Markdown documents into an
+offline single-file Single Page Application (SPA) HTML website without any
+external CDNs or server dependencies. This step is fully **mechanical** —
+the prose has already been authored by the LLM Language Writers and audited
+through the Quality Gate; the site compiler only packages the result.
 
 ---
 

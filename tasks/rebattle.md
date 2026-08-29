@@ -2,7 +2,18 @@
 
 ## Overview
 
-ReBattle is Phase 2 of MakeWiki. It utilizes **autonomous Subagents with internal self-reflection loops** across 3 distinct perspectives (Red, Blue, Green) to debate, challenge, and converge on facts.
+ReBattle is Phase 2 of MakeWiki. It utilizes **autonomous Subagents with
+internal self-reflection loops** across 3 distinct perspectives (Red, Blue,
+Green) to debate, challenge, and converge on facts. The output of ReBattle
+is a set of `Claim` objects (see `references/claim_schema.md`) with explicit
+`provenance` markers — every claim is either a Python fact (`python_fact`)
+or an LLM-authored assertion (`llm_claim`) so the downstream verification
+layers can grade them appropriately.
+
+The Python toolkit complements this with `rebattle-diff`, a deterministic
+dispute organizer: given two or more ClaimSets (one per debater), it
+produces a structured discrepancy matrix that the Chief Judge reads when
+adjudicating.
 
 ---
 
@@ -35,8 +46,14 @@ rebattle_topology:
 
 ## 2. Mandatory Subagent Self-Reflection Pass
 
-Before issuing any claim or challenge, each Subagent executes an internal self-critique:
-1. **Self-Check Grounding**: Is every claimed command or flag directly backed by a line in source code?
+Before issuing any claim or challenge, each Subagent executes an internal
+self-critique:
+
+1. **Self-Check Grounding**: Is every claimed command or flag directly
+
+   backed by a line in source code? If not, the claim's `provenance` must
+   be `llm_claim` and the claim must carry an `uncertainty` note; never
+   fabricate a value the evidence cannot prove.
 2. **Confidence Grading**:
    - `CONFIRMED_AST`: 100% verified in source argument parser/handler.
    - `DERIVED_CONFIG`: Inferred from `.env.example` or manifest settings.
@@ -54,4 +71,8 @@ Before issuing any claim or challenge, each Subagent executes an internal self-c
    - Agent Green challenges Agent Red: *"Objection: Quickstart tutorial omits mandatory `DB_PORT` environment variable."*
    - Agent Red challenges Agent Blue: *"Clarification: Function `export_csv` is exposed via CLI even though marked internal in comments."*
 3. **Round 3 (Judge Adjudication & Model Synthesis)**:
-   - The Main Agent arbitrates discrepancies, purges refuted claims, hedges unconfirmed facts, and synthesizes the authoritative **`SemanticModel`**.
+   - The Main Agent arbitrates discrepancies, purges refuted claims, hedges unconfirmed facts, and synthesizes the authoritative **`SemanticModel`**. `rebattle-diff` produces the discrepancy matrix used here.
+
+The Judge must not promote an ungrounded `llm_claim` into a `python_fact` —
+it can only keep it as `llm_claim` with explicit hedging or drop it
+entirely.

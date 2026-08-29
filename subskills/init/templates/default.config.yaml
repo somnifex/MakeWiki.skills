@@ -1,34 +1,39 @@
-output_dir: makewiki
-languages:
+output_dir: makewiki              # Python-consumed (pipeline.output_dir)
+languages:                         # Python-consumed (Pipeline.languages)
   - en
   - zh-CN
-default_language: en
-overwrite: true
-delete_stale_files: false
-generate_faq: true
-generate_troubleshooting: true
-strict_grounding: true
-emit_uncertainty_notes: true
+default_language: en               # Python-consumed (Pipeline.default_language)
+overwrite: true                    # Python-consumed (OutputManager.overwrite)
+delete_stale_files: false          # Python-consumed (OutputManager.delete_stale_files)
+generate_faq: true                  # Python-consumed (LanguageGenerator); emits faq.md slot (LLM-populated; UNKNOWN if empty)
+generate_troubleshooting: true      # Python-consumed (LanguageGenerator); emits troubleshooting.md slot (LLM-populated; UNKNOWN if empty)
+strict_grounding: true              # Python-consumed (CodeGroundingVerifier.strict)
+emit_uncertainty_notes: true        # Python-consumed (LanguageGenerator uncertainty notes)
 
+# LLM-consumed: read by the Skill orchestrator / Writers (subagent budget + tier).
 agent:
-  max_subagents: 10
-  rebattle_rounds: 2
-  tier_override: auto         # auto | S | M | L
+  max_subagents: 10                # LLM-consumed
+  rebattle_rounds: 2               # LLM-consumed
+  tier_override: auto              # LLM-consumed
 
+# Python-consumed (build-site / SiteCompiler).
 site:
-  compile: true
-  theme: auto                 # auto | light | dark
-  include_search: true
-  output_subdir: site
+  compile: true                    # Python-consumed
+  theme: auto                      # Python-consumed
+  include_search: true             # Python-consumed
+  output_subdir: site              # Python-consumed
 
+# LLM-consumed: delivery scope sections chosen by the Writers.
 delivery:
-  audience: dual              # dual | end-user | enterprise
-  include_deployment_runbook: true
-  include_compatibility_matrix: true
-  include_health_checks: true
+  audience: dual                   # LLM-consumed
+  include_deployment_runbook: true # LLM-consumed
+  include_compatibility_matrix: true # LLM-consumed
+  include_health_checks: true      # LLM-consumed
 
+# Python-consumed (evidence collector / scanner).
 scan:
-  ignore_dirs:
+  mode: auto                       # Python-consumed
+  ignore_dirs:                     # Python-consumed
     - node_modules
     - dist
     - build
@@ -37,25 +42,68 @@ scan:
     - __pycache__
     - .venv
     - venv
-  max_depth: 6
-  max_file_size_kb: 512
-  enable_source_intelligence: true
+  max_depth: 6                     # Python-consumed
+  max_file_size_kb: 512            # Python-consumed
+  enable_source_intelligence: true # Python-consumed
+  source_intelligence_max_files: 50 # Python-consumed
+  max_external_urls: 3             # LLM-consumed (reserved for LLM-authored fetch steps)
+  recursive_docs: true             # Python-consumed
 
+# Python-consumed (parity / semantic-review prep / code-grounding / codebase checks).
 review:
-  enable_cross_language_review: true
-  enable_code_grounding_verification: true
-  enable_codebase_verification: true
-  enable_semantic_review: true
+  enable_cross_language_review: true        # Python-consumed
+  enable_code_grounding_verification: true  # Python-consumed
+  enable_codebase_verification: true        # Python-consumed
+  enable_semantic_review: true              # Python-consumed
+  min_page_alignment_ratio: 0.9             # Python-consumed
 
+# Python-consumed (revision engine).
+revision:
+  enabled: true                            # Python-consumed
+  max_rounds: 2                            # Python-consumed
+  auto_hedge_ungrounded: true              # Python-consumed
+  auto_harmonize_code_blocks: true         # Python-consumed
+  stop_on_no_progress: true                # Python-consumed
+  min_grounding_score: 1.0                 # Python-consumed
+
+# LLM-consumed: writer depth decisions.
 content_depth:
-  mode: auto                  # auto | compact | detailed
-  max_faq_items: 20
-  max_usage_examples: 8
-  max_troubleshooting_items: 8
-  split_usage_threshold: 6
+  mode: auto                       # LLM-consumed
+  max_faq_items: 20                # LLM-consumed
+  max_usage_examples: 8            # LLM-consumed
+  max_troubleshooting_items: 8     # LLM-consumed
+  split_usage_threshold: 6         # LLM-consumed
 
+# Mixed: forbid_unfounded_praise + banned_descriptors feed the Python validator;
+# the rest is LLM-consumed (writer decisions).
 documentation_policy:
-  audience: end-user
-  structure_strategy: user-journey
-  prefer_task_oriented_sections: true
-  forbid_unfounded_praise: true
+  audience: end-user                              # LLM-consumed
+  structure_strategy: user-journey                # LLM-consumed
+  prefer_task_oriented_sections: true             # LLM-consumed
+  include_architecture_analysis: false            # LLM-consumed
+  include_directory_overview: false               # LLM-consumed
+  include_source_walkthroughs: false              # LLM-consumed
+  forbid_unfounded_praise: true                   # LLM-consumed
+  banned_descriptors:                             # Python-consumed (validator)
+    - powerful
+    - robust
+    - flexible
+    - enterprise-grade
+    - high-performance
+    - elegant
+    - state-of-the-art
+    - cutting-edge
+    - seamless
+    - blazing-fast
+    - world-class
+    - best-in-class
+    - production-ready
+
+# Python-consumed: unified L0-L5 + Quality Gate thresholds.
+quality:
+  fail_on_critical: true                # Python-consumed
+  allow_pending_llm_layers: true        # Python-consumed
+  min_grounding_score: 1.0              # Python-consumed
+
+# LLM-consumed: per-language writer tone overrides.
+language_profiles: {}                   # LLM-consumed

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
@@ -176,7 +176,11 @@ class LogPathEntry(BaseModel):
 
 
 class CommandGroup(BaseModel):
-    """Group related commands and tasks under one usage page."""
+    """Group related commands and tasks under one usage page.
+
+    Command groups are an LLM-authored structural decision (how commands and
+    tasks cluster into coherent workflows). Python never invents them.
+    """
 
     name: str
     slug: str  # used for filename: usage/<slug>.md
@@ -188,11 +192,49 @@ class CommandGroup(BaseModel):
     evidence: list[EvidenceLink] = Field(default_factory=list)
 
 
+class SemanticModelProvenance(BaseModel):
+    """Records which plane populated each part of the SemanticModel.
+
+    ``python`` fields are populated deterministically from extracted evidence.
+    ``llm`` fields are authored by LLM subagents and never invented by Python.
+    ``unknown`` marks a section Python could not prove — Python returns
+    UNKNOWN instead of guessing.
+    """
+
+    source: Literal["llm", "python", "hybrid", "unknown"] = "hybrid"
+    # Per-section provenance for the LLM-authored content fields.
+    identity: Literal["python", "llm", "unknown"] = "unknown"
+    installation: Literal["python", "llm", "unknown"] = "unknown"
+    configuration: Literal["python", "llm", "unknown"] = "unknown"
+    commands: Literal["python", "llm", "unknown"] = "unknown"
+    user_tasks: Literal["llm", "unknown"] = "unknown"
+    usage_examples: Literal["llm", "unknown"] = "unknown"
+    faq: Literal["llm", "unknown"] = "unknown"
+    troubleshooting: Literal["llm", "unknown"] = "unknown"
+    platform_notes: Literal["llm", "unknown"] = "unknown"
+    command_groups: Literal["llm", "unknown"] = "unknown"
+    compatibility_matrix: Literal["llm", "unknown"] = "unknown"
+    health_checks: Literal["llm", "unknown"] = "unknown"
+    deployment_notes: Literal["llm", "unknown"] = "unknown"
+    log_paths: Literal["llm", "unknown"] = "unknown"
+
+
 class SemanticModel(BaseModel):
-    """Structured project model used to render docs."""
+    """Structured project model used to render docs.
+
+    ``identity``/``installation``/``configuration``/``commands`` may be populated
+    deterministically by Python when evidence exists. All *cognitive* fields —
+    ``user_tasks``, ``usage_examples``, ``faq``, ``platform_notes``,
+    ``troubleshooting``, ``command_groups``, ``compatibility_matrix``,
+    ``health_checks``, ``deployment_notes``, ``log_paths``, ``env_vars`` — are
+    LLM-authored input. Python validates their schema, renders them, and
+    verifies them, but never synthesizes their content.
+    """
 
     model_id: str = ""
     created_at: str = Field(default_factory=lambda: datetime.now(UTC).isoformat())
+
+    provenance: SemanticModelProvenance = Field(default_factory=SemanticModelProvenance)
 
     identity: ProjectIdentity = Field(default_factory=ProjectIdentity)
     installation: InstallationGuide = Field(default_factory=InstallationGuide)

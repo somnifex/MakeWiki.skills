@@ -2,7 +2,16 @@
 
 ## Overview
 
-MakeWiki generates sync-ready payload bundles for Atlassian Confluence spaces and Notion workspace databases.
+The sync task prepares **bundle-only** payloads for Atlassian Confluence
+spaces and Notion workspace databases. The authoritative command name is
+`sync-bundle` (the legacy `sync` alias is retained). It writes import-ready
+files to disk and **does not publish**. A future `--push` option is reserved
+for actual API upload; until then, import the prepared bundles through each
+platform's native importer (Confluence "Import from HTML", Notion "Import").
+
+This task is mechanical: it converts the verified Markdown output into the
+target platform's import format. All semantic decisions were already made
+by the LLM Language Writers and audited through the Quality Gate.
 
 ---
 
@@ -20,6 +29,6 @@ MakeWiki generates sync-ready payload bundles for Atlassian Confluence spaces an
 ## 2. Toolkit Sync Command
 
 ```bash
-# Generate sync bundles for both Confluence and Notion
-python scripts/run_toolkit.py sync <output_dir> --target all --lang zh-CN
+# Prepare sync bundles for both Confluence and Notion (no publishing)
+python scripts/run_toolkit.py sync-bundle <output_dir> --target all --lang zh-CN
 ```

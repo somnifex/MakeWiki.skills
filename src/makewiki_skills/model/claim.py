@@ -48,7 +48,7 @@ class Claim(BaseModel):
     """A structured, verifiable proposition about project capabilities."""
 
     claim_id: str
-    claim_type: str  # "command" | "config" | "path" | "version"
+    claim_type: str  # "command" | "config" | "path" | "version" | "behavior" | "workflow" | "ngx"
     semantic_key: str
 
     subject: str
@@ -60,6 +60,10 @@ class Claim(BaseModel):
     confidence: Confidence = "medium"
     verification: VerificationState = Field(default_factory=VerificationState)
     uncertainty: str | None = None
+    # Provenance distinguishes deterministic facts extracted by Python from
+    # semantic claims authored by LLM subagents. Python never invents the
+    # latter; it validates and verifies them.
+    provenance: Literal["python_fact", "llm_claim"] = "python_fact"
 
 
 class ClaimSet(BaseModel):
@@ -73,6 +77,28 @@ class ClaimSet(BaseModel):
 
     def get_by_id(self, claim_id: str) -> Claim | None:
         return next((c for c in self.claims if c.claim_id == claim_id), None)
+
+    @classmethod
+    def from_llm_json(cls, project_name: str, data: list[dict[str, Any]] | dict[str, Any]) -> "ClaimSet":
+        """Build a ClaimSet from LLM-authored claim JSON.
+
+        The Skill layer's Claim step emits semantic claims (workflows, personas,
+        FAQ topics, troubleshooting root causes) as JSON. Python validates their
+        schema and marks ``provenance="llm_claim"`` so downstream verifiers know
+        these require LLM judgment rather than mechanical proof.
+        """
+        raw = data.get("claims", data) if isinstance(data, dict) else data
+        if not isinstance(raw, list):
+            raise ValueError("LLM claim payload must be a list of claim objects (or {'claims': [...]})")
+
+        claims: list[Claim] = []
+        for item in raw:
+            if not isinstance(item, dict):
+                continue
+            claim = Claim.model_validate(item)
+            claim.provenance = "llm_claim"
+            claims.append(claim)
+        return cls(project_name=project_name, claims=claims)
 
 
 def _slugify(text: str) -> str:
@@ -247,11 +273,23 @@ def verify_claims_against_codebase(
         else:
             claim.verification.l1_existence = "passed"
 
-        # L2 Interface check
-        claim.verification.l2_interface = "passed"
+        # L2 Interface check — delegated to the real L2InterfaceVerifier, which
+        # runs in the VerificationOrchestrator. Here we only note that a
+        # mechanical interface proof is possible for evidence-backed facts; it is
+        # never blindly marked "passed".
+        if claim.provenance == "python_fact" and claim.evidence and claim.claim_type in (
+            "command",
+            "config",
+            "path",
+        ):
+            claim.verification.l2_interface = "pending"
+        else:
+            # LLM-authored semantic claims require LLM judgment, not mechanical proof.
+            claim.verification.l2_interface = "pending"
 
-        # L3 Behavior check
-        claim.verification.l3_behavior = "not_applicable"
+        # L3 Behavior check — behavioral proof is LLM-judged (the Skill's Auditor
+        # reasons over evidence). Python never asserts behavior it cannot prove.
+        claim.verification.l3_behavior = "pending"
 
         # L4 Cross-language
         claim.verification.l4_cross_language = "pending"

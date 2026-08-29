@@ -1,7 +1,7 @@
 [project]
 name = "makewiki-skills"
 version = "2.0.0"
-description = "Multi-agent AI skill plugin and toolkit for generating evidence-backed, zero-hallucination multilingual documentation and offline static wikis."
+description = "LLM-first, evidence-backed multi-agent documentation compiler and offline static wiki toolkit for AI coding assistants."
 readme = "README.md"
 license = {text = "MIT"}
 requires-python = ">=3.11"
@@ -46,6 +46,9 @@ dev = [
     "ruff>=0.4",
     "mypy>=1.10",
 ]
+
+[project.scripts]
+makewiki = "makewiki_skills.cli:app"
 
 [project.urls]
 Homepage = "https://github.com/somnifex/MakeWiki.skills"

@@ -1,6 +1,6 @@
 ---
 name: makewiki-scan
-description: "Scan a project and output evidence summary with project sizing, complexity assessment (Tier S/M/L), recommended subagent budget, detected commands, config keys, dependencies, and enterprise delivery brief. Use when: user wants to understand a project before generating docs, or wants to inspect what MakeWiki detects."
+description: "Scan a project and emit the evidence summary: project sizing tier (S/M/L), recommended subagent budget, detected commands, config keys, dependencies, and enterprise delivery brief. Use when: user wants to understand a project before generating docs, or wants to inspect what MakeWiki detects. Output is facts-only — Python never interprets what the repository means."
 version: "2.0.0"
 argument-hint: "[--format json|human]"
 license: MIT
@@ -9,7 +9,10 @@ allowed-tools: Bash(python */scripts/bootstrap_toolkit.py) Bash(python */scripts
 
 # MakeWiki Scan - Project Evidence & Sizing Discovery
 
-Scan the current project, assess complexity (Tier S / M / L), and report structured findings.
+Scan the current project, assess complexity (Tier S / M / L), and report
+structured findings. The Python toolkit returns **facts only**; the LLM
+Skill layer is responsible for any interpretation, narrative, or "what does
+this mean for the user" reasoning.
 
 ## Arguments
 
@@ -23,27 +26,40 @@ Scan the current project, assess complexity (Tier S / M / L), and report structu
 python scripts/bootstrap_toolkit.py
 ```
 
-If the script prints a path, refer to it as `<makewiki_root>` and run the sizing and scan tools:
+If the script prints a path, refer to it as `<makewiki_root>` and run the
+sizing and evidence tools (the toolkit authoritatively renames `scan` to
+`evidence`; `scan` remains as a deprecated alias):
 
 ```bash
 python <makewiki_root>/scripts/run_toolkit.py sizing .
-python <makewiki_root>/scripts/run_toolkit.py scan . --format json
+python <makewiki_root>/scripts/run_toolkit.py evidence . --format json
 ```
 
-### Step 2: Supplement with Multi-Perspective Analysis
+### Step 2: Supplement with LLM Multi-Perspective Analysis
 
-Read manifest files, configs, entrypoints, and deployment configs to capture:
+The Python toolkit delivers deterministic facts (commands, config keys,
+paths, versions, dependencies). The LLM Skill layer reads those facts via
+the `evidence` JSON and adds:
+
 1. **Developer Perspective**: CLI commands, entrypoints, 5-minute quickstart requirements.
 2. **Implementation Perspective**: Functions, AST arguments, unreleased features.
 3. **Deployment & Enterprise Perspective**: Compatibility requirements, environment variables, health check commands, error logs.
 
+Where the LLM cannot ground a claim in evidence, it leaves the field empty
+and the corresponding Markdown slot renders `UNKNOWN` — never invent
+install steps, commands, or env vars that the Python evidence did not
+prove.
+
 ### Step 3: Produce Project Brief
+
+The final project brief is **LLM-authored**, drawing only on facts surfaced
+by `evidence` / `sizing`:
 
 ```yaml
 project_brief:
   name: ""
   version: ""
-  purpose: ""
+  purpose: ""                       # LLM-written, grounded in evidence
   tier: "Tier S | Tier M | Tier L"
   subagent_budget: 4
   target_users: []
@@ -51,17 +67,17 @@ project_brief:
 
 install_and_deploy:
   prerequisites: []
-  commands: []
-  health_check: ""
+  commands: []                      # sourced from evidence; UNKNOWN if absent
+  health_check: ""                  # UNKNOWN unless a Claim proves it
 
-key_workflows:
+key_workflows:                      # LLM-synthesized from evidence
   - title: ""
     user_goal: ""
     commands: []
 
 config_semantics:
   - key: ""
-    effect: ""
+    effect: ""                      # LLM-written description of mechanical key
     source_file: ""
     default_value: ""
 
@@ -73,5 +89,5 @@ common_pitfalls_and_runbook:
 
 uncertainty_flags:
   - claim: ""
-    reason: ""
+    reason: ""                      # every hedging reason the LLM invoked
 ```

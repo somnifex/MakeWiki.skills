@@ -1,177 +1,306 @@
 ---
 name: makewiki
-description: "Generate enterprise-grade multilingual wiki documentation and an offline static website for a software project using autonomous collaborative subagents and ReBattle competitive verification. Use when: user asks to generate wiki, docs, documentation, enterprise delivery manuals, or multilingual docs for a project."
+description: "Generate evidence-backed multilingual wiki documentation and an offline static website for a software project using autonomous collaborative LLM subagents and ReBattle competitive verification. Use when: user asks to generate wiki, docs, documentation, enterprise delivery manuals, or multilingual docs for a project."
 version: "2.0.0"
 argument-hint: "[--lang <code>...] [--output <dir>] [--theme <auto|light|dark>]"
 license: MIT
 allowed-tools: Bash(python */scripts/bootstrap_toolkit.py) Bash(python */scripts/run_toolkit.py *) Read Write Edit Glob Grep WebFetch
 ---
-# MakeWiki v2 - Autonomous Multi-Agent Multilingual Wiki Generator
+# MakeWiki v2 - LLM-First, Evidence-Backed Documentation Compiler
 
-Generate high-quality, zero-hallucination, multilingual wiki documentation and an interactive offline static website with **full autonomy (zero human intervention required)**.
+MakeWiki is an **LLM-first, evidence-backed, multi-agent documentation compiler**.
+The LLM (Skill layer) decides what the repository means; Python (toolkit layer)
+proves what can be mechanically proven. Documentation is evidence-backed with
+layered automated verification (L0 - L5) and a single Quality Gate.
+
+This file binds skill `2.0.0` to toolkit `2.0.0`. The bootstrap script pins
+the matching tag and verifies its SHA256 via `MAKEWIKI_TOOLKIT_VERSION` /
+`MAKEWIKI_TOOLKIT_SHA256`.
 
 ---
 
-## 1. Subagent-First Cognitive Architecture (以 Subagent 为核心的智能协同体系)
+## 1. Two-Plane Architecture (双平面拓扑)
 
-MakeWiki adopts an **Autonomous, Self-Reflecting, Self-Configuring Subagent Architecture**: all deep comprehension, multi-perspective analysis, adversarial debate, documentation writing, and adversarial auditing are performed by **LLM Subagents with internal self-reflection loops**. Python scripts are strictly relegated to **deterministic mechanical plumbing** (such as assembling HTML SPA files or packaging EPUB zip archives).
+MakeWiki runs on **two strict planes** separated by a hard boundary. The
+cognitive plane owns meaning; the mechanical plane owns proof.
 
 ```yaml
-orchestration_topology:
-  orchestrator:
-    role: "Main Agent (Chief Adjudicator & Dispatcher)"
-    capabilities:
-      - Dynamic project sizing & on-demand subagent role synthesis
-      - Elastic subagent budgeting (capped at 10) & task fission
-      - ReBattle adversarial dispute arbitration
-      - Compilation of canonical SemanticModel (source of truth)
+two_plane_topology:
 
-  execution_pipeline:
-    phase_1_recon:
-      subagents:
-        - name: "Scout-Structure"
-          scope: "Scan package manifests, build scripts, CI/CD, and top-level directory layout"
-        - name: "Scout-Surface"
-          scope: "Scan CLI entrypoints, flags, API routes, and .env.example"
-        - dynamic: "On-demand specialized Scouts synthesized for unique tech stacks"
-      output: "Structured evidence facts with source file line citations"
+  cognitive_plane:
+    role: "LLM (Skill + Subagents) decides what the repository means"
+    owns:
+      - Project comprehension and intent
+      - FAQ, troubleshooting, usage examples, workflows, personas
+      - Diátaxis structure and narrative voice
+      - Hedging language and uncertainty expression
+      - Cross-examination (ReBattle) adjudication
+    forbidden_at_runtime:
+      - "Inventing content based on regex heuristics"
+      - "Filling semantic gaps with default prose"
+      - "Trusting Python heuristics over LLM judgment"
 
-    phase_2_rebattle:
-      subagents:
-        - name: "Agent Red (User & DX)"
-          focus: "User onboarding workflows, runnable commands, tutorials, expected output"
-        - name: "Agent Blue (Code AST & Ground-Truth)"
-          focus: "AST functions, exported symbols, flags verification, stub warnings"
-        - name: "Agent Green (Enterprise Ops)"
-          focus: "Runtime compatibility, env vars matrix, error runbooks"
-      interaction: "3-way adversarial cross-examination debate with self-reflection & claim retraction"
-      adjudication: "Main Agent resolves objections into canonical SemanticModel"
+  mechanical_plane:
+    role: "Python toolkit proves what can be mechanically proven"
+    owns:
+      - Sizing and source file census (Tier S / M / L)
+      - Evidence extraction (commands, configs, paths, versions, env vars)
+      - AST / CLI / config / manifest parsing
+      - L0 syntax, L1 existence, L2 interface, L4 exact-block parity
+      - Static site, export, sync-bundle, validate
+      - Quality Gate aggregation and CI exit code
+    forbidden_at_runtime:
+      - "Returning any content the LLM should have produced"
+      - "Guessing when a check is unprovable (returns UNKNOWN instead)"
 
-    phase_3_writers:
-      subagents:
-        - name: "Language Writers (en, zh-CN, ja, etc.)"
-          focus: "Parallel independent native authoring directly from SemanticModel"
-      constraints: "100% code block and config key parity across languages"
-
-    phase_4_review:
-      subagents:
-        - name: "Auditor Subagent"
-          focus: "Cross-language parity audit, grounding check, anti-AI-cliché audit"
-          action: "Autonomous in-place self-healing"
-
-    phase_5_site:
-      mechanism: "Deterministic Python Site Compiler (run_toolkit.py build-site)"
-      output: "Standalone single-file offline HTML SPA wiki"
+  bridge:
+    - Skill calls Python only for mechanical steps
+    - Python returns structured facts, never interpretations
+    - Quality Gate is the only cross-plane decision point
 ```
+
+### Cognitive Authority Boundary
+
+**LLM = final judge of truth. Python = final judge of mechanical proof.**
+
+- Python MUST NOT invent semantic conclusions (FAQ, troubleshooting, usage,
+  workflows, personas, install steps, verify commands). When Python cannot
+  prove something it returns `UNKNOWN` and leaves the slot empty for the LLM
+  to fill via the Skill layer.
+- LLM MUST NOT bypass Python for steps Python can prove mechanically (file
+  existence, CLI flag names, env var keys, code-block parity across languages,
+  schema validity). The LLM reads Python's evidence and trusts it; the LLM
+  only adds semantic interpretation.
+- The Quality Gate is the one place where the two planes meet to produce a
+  single PASS / FAIL decision (CI exit code 0 / 1).
+
+### Mechanical UNKNOWN, Never Guess
+
+When Python cannot mechanically prove a field, the slot is left empty and an
+`UNKNOWN` marker is emitted so the LLM (or a human reviewer) can fill it. The
+default scaffolding never invents install steps, verify commands, or FAQ
+content — that work belongs to the LLM.
 
 ---
 
-## 2. Dynamic Self-Configuration & Subagent Synthesis (动态角色合成与弹性配置)
+## 2. Authoritative Pipeline (LLM-Orchestrated)
 
-Rather than forcing a rigid, static agent roster, the Main Agent **dynamically synthesizes and configures Subagents** based on the target project's tech stack and complexity:
+The `Main Agent` orchestrates the authoritative pipeline. Subagents are LLM
+agents; Python is invoked between phases as mechanical proof tooling.
+
+```yaml
+authoritative_pipeline:
+
+  phase_0_sizing:
+    cognitive: "Main Agent (orchestrator)"
+    mechanical: "python run_toolkit.py sizing <target>  # Tier S / M / L"
+    output: "tier + subagent budget"
+
+  phase_1_scout:
+    cognitive_subagents:
+      - "Scout-Structure: manifests, build scripts, CI, top-level layout"
+      - "Scout-Surface: CLI entrypoints, flags, routes, .env.example"
+      - "Dynamic specialized scouts (FFI, monorepo, plugins, etc.)"
+    mechanical: "python run_toolkit.py evidence <target>  # fact extraction"
+    output: "evidence_bundle.json + LLM-supplemented semantic observations"
+
+  phase_2_rebattle:
+    cognitive_subagents:
+      - "Agent Red (User / DX): onboarding, runnable commands, expected output"
+      - "Agent Blue (Code AST / Truth): argument parsers, defaults, stubs"
+      - "Agent Green (Ops): compatibility, env vars, error runbooks"
+    mechanical: "python run_toolkit.py rebattle-diff <claim-files>  # dispute organizer"
+    interaction: "3-way adversarial cross-examination with self-retraction"
+    output: "adjudicated SemanticModel + LLM-authored ClaimSet"
+
+  phase_3_writers:
+    cognitive_subagents: "Per-language native writers (en, zh-CN, ja, ...)"
+    mechanical: "python run_toolkit.py parity <target> --lang ...  # exact block parity"
+    constraints:
+      - "100% code-block and config-key parity across languages"
+      - "Independent generation from SemanticModel — never machine-translated"
+
+  phase_4_audit_and_revise:
+    cognitive_subagents: "Auditor (LLM) — L3 behavior review, L4 prose parity, L5 over-assertion"
+    mechanical: "python run_toolkit.py verify-docs <target>  # L0-L5 unified run"
+    revision_loop: "Auditor edits Markdown in place until Quality Gate passes"
+
+  phase_5_site:
+    cognitive: "none"
+    mechanical:
+      - "python run_toolkit.py build-site <wiki_dir>"
+      - "python run_toolkit.py export <wiki_dir> --format html|epub|all  # pdf rejected"
+      - "python run_toolkit.py sync-bundle <wiki_dir> --target confluence|notion  # bundle-prep only, no publish"
+```
+
+### Host Capability Fallback
+
+MakeWiki runs on three classes of host. The Main Agent inspects host capability
+before dispatching and adapts the topology without losing the cognitive plane's
+authority.
+
+| Capability                                   | parallel        | sequential       | solo (no subagents) |
+| :---                                         | :---            | :---             | :---                |
+| `supports_subagents`                         | yes             | yes              | no                  |
+| `supports_parallel_subagents`                | yes             | no               | no                  |
+| `max_parallelism`                            | host-reported   | 1                | 1                   |
+| `supports_file_write`                        | yes             | yes              | host-dependent      |
+| `supports_web`                               | yes             | yes              | host-dependent      |
+
+Strategy:
+
+- **parallel**: launch scout and writer subagents concurrently within budget.
+- **sequential** (subagents but no parallelism): Main Agent runs subagents
+  one after another; budget is identical but wall-clock is linear.
+- **solo** (no subagent API at all): the Main Agent assumes each role in
+  sequence — Scout → Red → Blue → Green → Judge → per-language writers → Auditor.
+  No MakeWiki semantics are lost; only wall-clock changes.
+
+The fallback is automatic and documented in the run report. "No subagent API"
+is not "MakeWiki cannot run" — it is "MakeWiki runs sequentially on one agent."
+
+---
+
+## 3. Quality Gate (统一质量门)
+
+The Quality Gate is the **single PASS / FAIL decision** over all verification
+layers. The Skill's audit step consults it before shipping; CI maps the
+verdict to an exit code.
+
+```yaml
+quality_gate:
+  verdict_source: "evaluate_quality_gate(report, cfg)"
+  result_schema: "QualityGateResult"
+  fields:
+    passed: bool
+    syntax_passed: bool               # L0
+    existence_passed: bool            # L1
+    interface_passed: bool            # L2
+    behavior_passed: bool             # L3 (LLM-judged; may be pending)
+    cross_language_passed: bool       # L4 (Python exact + LLM prose)
+    epistemic_passed: bool            # L5 (LLM over-assertion review)
+    grounding_score: float            # 0.0 .. 1.0
+    unresolved_critical: int
+    unresolved_major: int
+    unresolved_minor: int
+    revision_rounds: int
+    details: dict
+  exit_code: "0 if passed, else 1"
+  config:
+    quality.fail_on_critical: true    # bool, default true
+    quality.min_grounding_score: 1.0  # float 0.0..1.0
+    quality.allow_pending_llm_layers: true  # L3 / L4-prose / L5 left pending do not by themselves fail the gate
+```
+
+Layer ownership:
+
+- **L0 / L1 / L2 / L4-exact**: Python (mechanical).
+- **L3 / L4-prose / L5**: LLM-judged. Python provides the evidence list (low-
+  confidence commands, ungrounded claims, paired passages); the Skill's
+  Auditor reasons over it.
+- The Gate surfaces every layer status. `pending` means "evidence available,
+  judgment still owed" — never silently hidden.
+
+---
+
+## 4. Dynamic Self-Configuration & Subagent Synthesis
+
+The Main Agent **dynamically synthesizes subagent roles** within the tier
+budget; the synthesis rule reads `agent.max_subagents` and `agent.tier_override`
+from `makewiki.config.yaml` (LLM-consumed fields).
 
 ```yaml
 dynamic_synthesis_rules:
   monorepo_or_microservices:
     trigger: "Multiple services, workspaces, or sub-packages detected"
-    action: "Spawn dedicated Scout/Writer subagents per major service module (within global budget)"
-
+    action: "Spawn dedicated Scout/Writer subagents per major service module"
   native_or_ffi_bindings:
     trigger: "C/C++, Rust FFI, WebAssembly, or Python C-extensions detected"
-    action: "Synthesize 'Scout-ABI-Bindings' to inspect header files and exported ABI bindings"
-
+    action: "Synthesize Scout-ABI-Bindings to inspect header files and exported ABI"
   plugin_or_sdk_ecosystem:
     trigger: "Extensible plugin architecture or public client SDK detected"
-    action: "Synthesize 'Agent-Ecosystem' focusing on hook registration and SDK interfaces"
+    action: "Synthesize Agent-Ecosystem focusing on hook registration and SDK interfaces"
 
-  elastic_budget_cap:
-    hard_limit: 10
-    policy: "Dynamically allocate agent budget: Tier S (1-2), Tier M (3-5), Tier L (5-10 max)"
+elastic_budget_cap:
+  hard_limit: 10
+  policy: "Tier S (1-2), Tier M (3-5), Tier L (5-10 max)"
 ```
 
 ---
 
-## 3. Subagent Self-Reflection & Self-Critique Loop (子代理自反思四维校验)
+## 5. Mandatory 4-Dimensional Self-Reflection Loop
 
-Every Subagent must execute a mandatory **internal 4-dimensional self-reflection pass** before submitting claims or writing documents:
+Every Subagent runs a mandatory **4-dimensional self-reflection pass** before
+submitting claims or writing documents. The loop is purely cognitive — it is
+not enforced by Python.
 
 ```yaml
 self_reflection_checklist:
   1_grounding_critique:
     question: "Is every command, argument flag, config key, and file path directly cited with actual code lines?"
-    remedy: "Strip or explicitly hedge any speculative assertions as [INFERRED/UNCONFIRMED]."
-
+    remedy: "Strip or explicitly hedge any speculative assertion as INFERRED / UNCONFIRMED."
   2_parity_critique:
     question: "Does my code sample, config snippet, or CLI invocation match 100% with the canonical SemanticModel?"
     remedy: "Synchronize parameter names and command syntax character-for-character."
-
   3_anti_ai_cliche_critique:
-    question: "Did I inadvertently generate binary tropes ('不是……而是……', '不仅……而且……'), empty buzzwords ('收敛', '赋能', '对齐'), or colon-stuffed headings?"
+    question: "Did I generate binary tropes ('不是……而是……', '不仅……而且……'), empty buzzwords ('收敛', '赋能', '对齐'), or colon-stuffed headings?"
     remedy: "Rewrite in direct, natural, active engineer prose."
-
   4_adversarial_defense_critique:
     question: "If an opposing agent challenges this assertion with AST evidence, will this claim withstand inspection?"
-    remedy: "Refine claim confidence: CONFIRMED_AST, DERIVED_CONFIG, or HYPOTHESIS_HEDGED."
+    remedy: "Refine claim confidence: CONFIRMED_AST, DERIVED_CONFIG, HYPOTHESIS_HEDGED."
 ```
 
 ---
 
-## 4. Subagent Dispatch Prompts with Embedded Reflection
-
-When spawning subagents via `invoke_subagent` or delegation, provide each with its task prompt including the self-reflection requirement:
+## 6. Subagent Dispatch Prompts with Embedded Reflection
 
 #### 1. Scout-Structure Prompt
 ```markdown
 You are Scout-Structure for project '{project_name}'.
-Your goal is to autonomously explore and comprehend the repository architecture using Glob, Grep, and Read tools:
 1. Identify all package manifests (pyproject.toml, package.json, go.mod, Cargo.toml, pom.xml).
 2. Inspect build and deployment configurations (Makefile, Dockerfile, docker-compose.yml, CI workflows).
 3. Map top-level directory structure and module boundaries.
-Self-Reflection Step: Verify that all reported file paths actually exist on disk before reporting.
-Output a structured summary with: project_type, dependencies, build commands, and verified file paths with line citations.
+Self-Reflection: Verify that all reported file paths actually exist on disk before reporting.
+Output a structured summary with project_type, dependencies, build commands, and verified file paths with line citations.
 ```
 
 #### 2. Scout-Surface Prompt
 ```markdown
 You are Scout-Surface for project '{project_name}'.
-Your goal is to extract public interfaces and developer surfaces using Glob, Grep, and Read tools:
 1. Scan main CLI entrypoints and extract help texts, flags, and parameter options.
 2. Scan Web/API route definitions and extract HTTP methods and endpoint paths.
 3. Read .env.example, config templates, and existing READMEs for declared configuration keys.
-Self-Reflection Step: Confirm each parameter and route against actual source declarations.
+Self-Reflection: Confirm each parameter and route against actual source declarations.
 Output a verified list of commands, parameters, and environment variables with source file citations.
 ```
 
 #### 3. Agent Red (User & DX Perspective) Prompt
 ```markdown
 You are Agent Red (Developer & User Experience).
-Analyze the project from the perspective of an external developer or end-user:
 1. Formulate the 5-minute quickstart onboarding workflow from git clone to first run.
 2. Extract primary CLI commands, required flags, and expected terminal outputs.
 3. Map common daily usage scenarios.
-Self-Reflection Step: Challenge your own tutorial — did you assume any implicit prerequisites or omit setup steps?
-Label each claim: CONFIRMED_AST, DERIVED_CONFIG, or HYPOTHESIS_HEDGED.
+Self-Reflection: Challenge your own tutorial — did you assume any implicit prerequisites or omit setup steps?
+Label each claim: CONFIRMED_AST, DERIVED_CONFIG, HYPOTHESIS_HEDGED.
 ```
 
 #### 4. Agent Blue (Code AST & Ground-Truth) Prompt
 ```markdown
 You are Agent Blue (Code Implementation & AST Verifier).
-Inspect the source code to verify factual accuracy and challenge ungrounded assertions:
 1. Audit commands and flags proposed by Agent Red against actual argument parsers or route tables in source code.
 2. Check default values, type constraints, and fallback logic directly in the codebase.
 3. Identify unreleased features, stub functions, or deprecated parameters.
-Self-Reflection Step: Ensure every objection you raise is backed by exact file line references.
+Self-Reflection: Ensure every objection you raise is backed by exact file line references.
 Output verified implementation facts and explicit objection challenges against ungrounded user claims.
 ```
 
 #### 5. Agent Green (Enterprise Deployment & Ops) Prompt
 ```markdown
 You are Agent Green (Enterprise Delivery & Operations).
-Analyze the project for deployment and production reliability:
 1. Compatibility matrix: Supported OS, runtime versions, database dependencies.
 2. Configuration matrix: Environment variables, config files, required vs optional settings, default values, production recommendations.
 3. Incident runbook: Error messages found in source code, root causes, log locations, and troubleshooting resolution steps.
-Self-Reflection Step: Check if every error message symptom maps to a verified resolution.
+Self-Reflection: Check if every error message symptom maps to a verified resolution.
 Output deployment runbook facts and operational failure recovery steps.
 ```
 
@@ -182,196 +311,247 @@ Write the complete documentation suite in {language_name} using the unified Sema
 Requirements:
 1. Independent generation: Write native, high-quality technical {language_name} directly from the SemanticModel — NEVER translate from another language output.
 2. Code block parity: All command code blocks, configuration keys, and parameter flags must remain 100% identical across all language versions.
-3. Diátaxis structure: Write README.md, getting-started.md, installation.md, configuration.md, usage/*.md, faq.md, troubleshooting.md, and index.md.
-4. Self-Reflection Step: Run the 4-dimensional self-reflection check:
-   - Check grounding of all commands.
-   - Confirm 100% parity with SemanticModel.
-   - Purge AI clichés: NO "不是……而是……", NO "不仅……而且……", NO "收敛/赋能", NO redundant colons.
+3. Diátaxis structure: README.md, getting-started.md, installation.md, configuration.md, usage/*.md, faq.md, troubleshooting.md, index.md.
+4. Self-Reflection: grounding, parity, anti-cliché, tone — natural engineer prose, no binary tropes, no buzzwords, no trailing colons.
 Save all generated files under '{output_dir}/'.
 ```
 
 #### 7. Reviewer & Quality Auditor Subagent Prompt
 ```markdown
 You are the Quality Auditor and Reviewer for the generated documentation in '{output_dir}/'.
-Perform an autonomous audit and self-healing pass:
 1. Run codebase grounding verification to confirm all mentioned commands, config keys, and file paths exist.
-2. Run cross-language consistency review: ensure every code block and parameter in English matches Chinese and all other languages 1:1.
+2. Run cross-language consistency review: every code block and parameter in English matches every other language 1:1.
 3. Scan for broken Markdown links and AI clichés.
-4. Autonomous Self-Healing: If minor discrepancies, typos, or missing commands are found, edit and correct the Markdown files in-place immediately without asking the user.
+4. Read the Quality Gate result from 'python run_toolkit.py verify-docs {output_dir}' and resolve any failed or pending layers in place.
+5. Autonomous Self-Healing: if discrepancies, typos, or missing commands are found, edit the Markdown files in place immediately.
 ```
 
 ---
 
-## 5. Subagent Budgeting & Sizing Tiers
+## 7. Subagent Budgeting & Sizing Tiers
 
-The Main Agent **automatically assesses project complexity** in Phase 0 without prompting the user:
+The Main Agent automatically assesses project complexity in Phase 0 without
+prompting the user.
 
-| Project Tier | Sizing Criteria | Subagent Budget | ReBattle Protocol | Subagent Allocation |
-| :--- | :--- | :--- | :--- | :--- |
-| **Tier S (Simple)** | Source files < 15, single entrypoint | **1 ~ 2 Subagents** | Prompt-based self-review (0 debate rounds) | Main Agent (Scout + Judge) + 1~2 Parallel Writers |
-| **Tier M (Medium)** | Source files 15~80, 5~15 commands | **3 ~ 5 Subagents** | Red vs Blue (1 debate round) | 1 Scout + 2 ReBattle (Red, Blue) + 2 Writers |
-| **Tier L (Large)** | Source files > 80, Monorepo / Multi-module | **5 ~ 10 Subagents (Hard Cap)** | Red + Blue + Green (2 debate rounds) | 2 Scouts + 3 ReBattle + Parallel Writers + 1 Reviewer |
+| Project Tier | Sizing Criteria                              | Subagent Budget           | ReBattle Protocol                | Subagent Allocation                                  |
+| :---         | :---                                         | :---                      | :---                             | :---                                                 |
+| **Tier S**   | Source files < 15, single entrypoint         | **1 ~ 2 Subagents**       | Prompt-based self-review (0)     | Main Agent (Scout + Judge) + 1~2 Parallel Writers     |
+| **Tier M**   | Source files 15 - 80, 5 - 15 commands        | **3 ~ 5 Subagents**       | Red vs Blue (1 debate round)     | 1 Scout + 2 ReBattle (Red, Blue) + 2 Writers         |
+| **Tier L**   | Source files > 80, Monorepo / Multi-module   | **5 ~ 10 Subagents (Cap)** | Red + Blue + Green (2 rounds)    | 2 Scouts + 3 ReBattle + Parallel Writers + Reviewer  |
+
+The Tier feeds `agent.tier_override` and `agent.max_subagents`. The Main Agent
+honors the user's explicit override; otherwise it falls back to `sizing`.
 
 ---
 
-## 6. Documentation Standards (Enterprise Delivery + Diátaxis)
+## 8. Documentation Standards (Enterprise Delivery + Diátaxis)
 
 Every generated documentation set must fulfill **two core requirements**:
-1. **Developer Rapid Onboarding (Diátaxis Framework)**: Help developers understand the project in 5 minutes and perform daily tasks.
-2. **Enterprise & Commercial Delivery Standard**: Provide rigorous deployment runbooks, compatibility matrices, configuration references, and incident recovery guides.
+
+1. **Developer Rapid Onboarding (Diátaxis Framework)** — Help developers
+   understand the project in 5 minutes and perform daily tasks.
+2. **Enterprise & Commercial Delivery Standard** — Provide rigorous
+   deployment runbooks, compatibility matrices, configuration references, and
+   incident recovery guides.
 
 ### Diátaxis & Enterprise Structure
 
-| Base Page | Diátaxis Quadrant | Enterprise Delivery Equivalent | Core Content |
-| :--- | :--- | :--- | :--- |
-| `README.md` | — | Delivery Overview | One-sentence purpose, key capability highlights, quick navigation |
-| `getting-started.md` | **Tutorial** | — | 5-minute zero-to-hero workflow from clone to first successful run |
-| `installation.md` | Reference | **Deployment Runbook** | Multi-platform setup, compatibility matrix (OS × runtime), verify commands, smoke test |
-| `configuration.md` | **Reference** | **Configuration Matrix** | Every config key & env var: type, default, required, production recommendation |
-| `usage/overview.md` | **Explanation** | Capability Map | Feature modules breakdown, workflow dependencies, architecture surface |
-| `usage/<module>.md` | **How-To** | Operations Manual | Step-by-step business tasks, concrete commands, expected output |
-| `faq.md` | — | Known Limits | Real issues, common pitfalls, boundary constraints |
-| `troubleshooting.md` | — | **Incident Runbook** | Symptom (with real error messages) → Root Cause → Resolution Steps → Log paths |
+See `references/diataxis_matrix.md` for the authoritative page-to-quadrant
+mapping. Summary:
 
-### Anti-AI Cliché & Natural Human Voice Rules (去 AI 腔与自然人声准则)
+| Base Page             | Diátaxis Quadrant | Enterprise Delivery Equivalent | Core Content                                              |
+| :---                  | :---              | :---                           | :---                                                      |
+| `README.md`           | —                 | Delivery Overview              | One-sentence purpose, key capabilities, quick navigation  |
+| `getting-started.md`  | **Tutorial**      | —                              | 5-minute zero-to-hero workflow                            |
+| `installation.md`     | Reference         | **Deployment Runbook**         | Multi-platform setup, compatibility matrix, smoke test    |
+| `configuration.md`    | **Reference**     | **Configuration Matrix**       | Every config key & env var                               |
+| `usage/overview.md`   | **Explanation**   | Capability Map                 | Feature modules, workflow dependencies                    |
+| `usage/<module>.md`   | **How-To**        | Operations Manual              | Step-by-step business tasks                               |
+| `faq.md`              | —                 | Known Limits                   | Real issues, common pitfalls                              |
+| `troubleshooting.md`  | —                 | **Incident Runbook**           | Symptom $\rightarrow$ Root cause $\rightarrow$ Resolution |
+| `index.md`            | —                 | Multilingual Portal            | Language switcher + sitemap                               |
 
-文档是写给**真实人类工程师与用户**阅读的，必须条理清晰、表述自然、切中要害，严禁产生“机器模板腔”：
+### Anti-AI Cliché & Natural Human Voice Rules
 
-1. **严禁二元对比式套话**：
-   - ❌ 绝对禁止使用 `不是……而是……`、`不仅……而且……`、`不仅仅是……更是一个……` 等对仗套话。
-   - ✅ 直接阐述事实（例如写“MakeWiki 基于代码仓库中的配置和脚本生成文档”，不要写“MakeWiki 不是一个简单的翻译工具，而是一个……”）。
-2. **严禁虚浮抽象大词**：
-   - ❌ 禁用 `收敛`、`对齐`、`赋能`、`闭环`、`底层逻辑` 等泛化黑话。
-   - ✅ 使用具体的工程动作：`校验`、`同步`、`生成`、`配置`、`处理`。
-3. **严禁机械死板的开场白与代词堆砌**：
-   - ❌ 禁用 `这是……`、`这是一个……`、`以下是……`、`在本文档中我们将……` 等废话。
-   - ✅ 开门见山，动词先行（例如直接说明“安装依赖”、“运行启动命令”）。
-4. **禁止滥用冒号与过度符号化**：
-   - ❌ 标题和列表项严禁滥用冒号（禁止 `## 步骤 1：安装`、`## 核心特性：多语言`、`**注意：**` 后再加冒号）。
-   - ❌ 禁止无休止的加粗冒号列表堆砌。
-   - ✅ 采用流畅自然的段落说明与标准 Markdown 表格。
-5. **拒绝生硬机翻腔**：
-   - 中文文档遵循地道技术中文习惯，中英文之间保留空格，专有名词保持原有大小写，不生造怪异译词。
+See `references/anti_ai_cliche.md`. Highlights:
+
+1. No binary antitheses (`不是……而是……`, `不仅……而且……`).
+2. No abstract buzzwords (`收敛`, `对齐`, `赋能`, `闭环`, `底层逻辑`).
+3. No formulaic openings (`这是……`, `在本文档中我们将……`).
+4. No trailing colons in headings or list items.
+5. No unfounded praise (`powerful`, `robust`, `blazing-fast`, `seamless`)
+   unless cited from verified benchmark evidence.
 
 ### Non-Negotiable Documentation Rules
 
-1. **Independent generation, NEVER machine-translate**: Write each language version from the unified Semantic Model.
-2. **Code Block Parity**: All command code blocks, configuration keys, and parameters must remain 100% identical across all languages.
-3. **No Unfounded Praise**: Never use `powerful`, `robust`, `blazing-fast`, `enterprise-grade`, `seamless`, `production-ready` unless cited from verified benchmark evidence.
-4. **Observable Behavior Only**: Write what users type and see. Never write internal source directory tours or developer-only architecture essays in user guides.
-5. **Strict Hedging**: When evidence is indirect, explicitly hedge (*"The repository contains X, suggesting Y may be supported"*).
+1. **Independent generation, NEVER machine-translate** — write each language
+   from the unified SemanticModel.
+2. **Code Block Parity** — 100% identical commands, flags, and config keys
+   across all languages.
+3. **Observable Behavior Only** — describe what users type and see; never
+   expose internal source directory tours in user guides.
+4. **Strict Hedging** — when evidence is indirect, explicitly hedge
+   (*"The repository contains X, suggesting Y may be supported"*).
+5. **No Invents-Unknowns** — Python returns `UNKNOWN` for unprovable slots;
+   the LLM fills them or leaves them marked.
 
 ---
 
-## 7. Six-Phase Subagent-Driven Execution Workflow
+## 9. Seven-Phase LLM-Orchestrated Execution Workflow
 
 ### Arguments
 
 Parse `$ARGUMENTS` for:
-- `--lang <code>` (repeatable): Target language codes. Default: `en zh-CN`. Supported: `en`, `zh-CN`, `ja`, `de`, `fr`, etc.
+- `--lang <code>` (repeatable): Target language codes. Default: `en zh-CN`.
 - `--output <dir>`: Output directory name. Default: `makewiki`.
 - `--theme <auto|light|dark>`: Static site theme. Default: `auto`.
 
----
-
-### Step 1: Bootstrap the home-scoped toolkit
-
-Use the bundled bootstrap script. It prepares `<makewiki_root>` at `HOME/.makewiki` on Windows, macOS, and Linux. The launcher at `<makewiki_root>/scripts/run_toolkit.py` then bootstraps `<makewiki_root>/.venv`, preferring `uv` and falling back to `python -m venv`.
-
-Run this bootstrap command:
-
-```bash
-python scripts/bootstrap_toolkit.py
-```
-
----
-
 ### Phase 0: Autonomous Project Sizing & Dynamic Subagent Synthesis
 
-1. The Main Agent counts project source files or runs `python <makewiki_root>/scripts/run_toolkit.py sizing .`.
-2. Assess project complexity (`Tier S`, `Tier M`, or `Tier L`) and dynamically synthesize subagent roles according to project characteristics.
+1. Run `python <makewiki_root>/scripts/run_toolkit.py sizing .` (or honor
+   `agent.tier_override` from `makewiki.config.yaml`).
+2. Assess Tier (S / M / L) and synthesize subagent roles per the project.
 
----
+### Phase 1: Autonomous Codebase Reconnaissance
 
-### Phase 1: Autonomous Codebase Reconnaissance (Scout Subagents)
+Launch Scout Subagents:
+- **Scout-Structure** uses `Glob`, `Grep`, `Read` to inspect package
+  manifests, build scripts, CI workflows, Dockerfiles.
+- **Scout-Surface** uses `Grep`, `Read` to inspect README, CLI entrypoints,
+  help flags, `.env.example`.
 
-Launch **Scout Subagents** directly into the codebase:
-- **`Scout-Structure Subagent`**: Uses `Glob` and `Read` to inspect package manifests (`pyproject.toml`, `package.json`, `go.mod`, `Cargo.toml`), Makefile, CI workflows, Dockerfiles.
-- **`Scout-Surface Subagent`**: Uses `Grep` and `Read` to inspect README, CLI entrypoints, help flags, and `.env.example`.
-
-Both subagents return structured factual evidence with file and line citations after self-critique.
-
----
+After scouts return, run `python <makewiki_root>/scripts/run_toolkit.py evidence .`
+to obtain the deterministic fact bundle. Scouts augment facts with semantic
+observations; Python never invents them.
 
 ### Phase 2: ReBattle Adversarial Cross-Examination & Adjudication
 
-Deploy multi-perspective subagents for adversarial verification:
+#### Blind extraction with self-reflection (Round 1)
+- **Agent Red** extracts runnable CLI commands, onboarding paths, expected
+  outputs.
+- **Agent Blue** inspects source functions, exports, handlers, stub warnings.
+- **Agent Green** extracts compatibility matrices, env vars, health checks,
+  error runbooks.
 
-#### 1. Blind Extraction with Self-Reflection (Round 1)
-- **Agent Red (User & DX)**: Extracts runnable CLI commands, onboarding tutorial paths, and expected outputs.
-- **Agent Blue (Code AST & Ground Truth)**: Inspects source code functions, exports, handlers, and stub/deprecated warnings.
-- **Agent Green (Enterprise Ops)**: Extracts compatibility matrices, environment variables, health checks, and error runbooks.
+#### Cross-examination & debate (Round 2)
+Subagents challenge each other's claims using AST evidence.
 
-#### 2. Cross-Examination & Debate (Round 2)
-The subagents challenge each other's claims:
-- Agent Blue challenges Agent Red: *"Command `--fast` does not exist in cli.py parser; flag is invalid."*
-- Agent Green challenges Agent Red: *"Quickstart tutorial omits mandatory `DB_PORT` environment variable."*
-- Agent Red challenges Agent Blue: *"Function `export_csv` is exposed via CLI even though marked internal."*
+#### Adjudication & unified Semantic Model (Round 3)
+The Main Agent acts as Judge, compiles the authoritative `SemanticModel` and
+the LLM-authored ClaimSet. Optional mechanical helper:
+`python <makewiki_root>/scripts/run_toolkit.py rebattle-diff <claim-files>`
+produces a deterministic dispute matrix.
 
-#### 3. Adjudication & Unified Semantic Model (Round 3)
-The Main Agent acts as **Judge**:
-- Adjudicates disputed claims using codebase facts.
-- Rejects ungrounded claims, hedges uncertain capabilities, and compiles the authoritative **`SemanticModel`** (`semantic_model.json`).
+### Phase 3: Parallel Multilingual Writers
 
----
+For each target language spawn an independent Language Writer Subagent. Each
+writer:
+- receives the same adjudicated SemanticModel and ClaimSet,
+- writes the complete native Markdown set into `<output_dir>/`,
+- runs the 4-dimensional self-reflection loop,
+- honors 100% code-block parity across languages.
 
-### Phase 3: Parallel Multilingual Writers (Subagent Authors)
+After writers return, run `python <makewiki_root>/scripts/run_toolkit.py parity <target> --lang ...`
+to extract exact block parity checks (L4 mechanical half). The Auditor reasons
+over any deltas.
 
-For each target language (`en`, `zh-CN`, `ja`, etc.):
-- Spawn an independent **Language Writer Subagent**.
-- Each Writer receives the **same adjudicated SemanticModel**.
-- Each Writer executes internal self-reflection (grounding, parity, anti-cliché) and writes the complete native Markdown documentation set into `<output_dir>/`:
-  - `README.md` / `README.<lang>.md`
-  - `getting-started.md` / `getting-started.<lang>.md`
-  - `installation.md` / `installation.<lang>.md`
-  - `configuration.md` / `configuration.<lang>.md`
-  - `usage/overview.md`, `usage/<slug>.md`
-  - `faq.md` / `faq.<lang>.md`
-  - `troubleshooting.md` / `troubleshooting.<lang>.md`
-  - `index.md` (root navigation)
+### Phase 4: Adversarial Audit, Quality Gate & Autonomous Self-Healing
 
----
+1. Run `python <makewiki_root>/scripts/run_toolkit.py verify-docs <target>` —
+   this drives the `VerificationOrchestrator` across L0 - L5 and feeds the
+   `QualityGateResult` back to the Skill layer.
+2. The Auditor Subagent reads the Quality Gate output:
+   - Resolves failed mechanical layers (L0 / L1 / L2 / L4-exact) by editing
+     the Markdown in place.
+   - Resolves pending LLM-judged layers (L3 / L4-prose / L5) by reasoning
+     over the evidence list Python provided.
+3. Re-run `verify-docs` until the gate passes (CI exit code 0) or until
+   `revision.max_rounds` is exhausted.
 
-### Phase 4: Adversarial Review & Autonomous Self-Healing (Auditor Subagent)
+### Phase 5: Offline Static Site Compilation (Mechanical)
 
-1. Launch the **Auditor Subagent**:
-   - Compares English and Chinese docs side-by-side to guarantee 100% code block and parameter parity.
-   - Verifies all referenced paths, commands, and keys against the actual codebase.
-   - Scans for broken links and AI clichés ("不是……而是……", "收敛", redundant colons).
-2. **Autonomous Self-Healing**:
-   - The Auditor directly edits and fixes Markdown files in place if discrepancies are detected.
-
----
-
-### Phase 5: Offline Static Site Compilation (Mechanical Tooling)
-
-Compile the Markdown docs into a standalone, zero-dependency, responsive offline website:
 ```bash
 python <makewiki_root>/scripts/run_toolkit.py build-site <output_dir> --theme auto
 ```
-This generates `<output_dir>/site/index.html` with:
-- Multilingual dropdown switcher
-- Light / Dark theme toggle
-- Search bar with instant client-side keyword indexing
-- 1-click code copy buttons
+
+Generates `<output_dir>/site/index.html`: multilingual switcher, light / dark
+toggle, client-side full-text search, 1-click code copy.
+
+### Phase 6: Export & Knowledge-Base Bundle (Mechanical)
+
+```bash
+python <makewiki_root>/scripts/run_toolkit.py export <wiki_dir> --format html|epub|all --lang <code>
+python <makewiki_root>/scripts/run_toolkit.py sync-bundle <wiki_dir> --target confluence|notion --lang <code>
+```
+
+`export` rejects `--format pdf`. `sync-bundle` only **prepares** bundles on
+disk; it does NOT publish.
+
+### Phase 7: Ephemeral Cleanup & Final Report
+
+1. Clean up temporary scratch logs.
+2. Present the completion report including:
+   - Project Tier & subagents deployed (with host-fallback mode)
+   - Generated pages per language
+   - Quality Gate verdict (PASS / FAIL, exit code, grounding score)
+   - L0 - L5 layer breakdown (passed / failed / pending counts)
+   - Unresolved critical / major / minor items
+   - Direct link to `makewiki/site/index.html`
 
 ---
 
-### Phase 6: Ephemeral Cleanup & Final Report
+## 10. Authoritative CLI Surface (Toolkit)
 
-1. Clean up temporary scratch logs or debug artifacts.
-2. Present a concise completion report to the user:
-   - Project Tier & Subagents deployed
-   - Generated pages per language
-   - Verification status
-   - Direct link to `makewiki/site/index.html`
+Python's CLI is **mechanical-only**. Each command either proves something or
+returns `UNKNOWN`. None of them produce narrative content.
+
+| Command                  | Alias        | Role                                                         |
+| :---                     | :---         | :---                                                         |
+| `sizing`                 | —            | Tier (S / M / L) + subagent budget                           |
+| `evidence`               | `scan`       | Emit deterministic evidence facts (JSON / human)             |
+| `verify-claim <json>`    | —            | Verify one or many Claims against the codebase               |
+| `verify-model <json>`    | —            | Schema + evidence-ref validation for a SemanticModel         |
+| `verify-docs <target>`   | `verify`     | Unified L0 - L5 verification + Quality Gate + CI exit code   |
+| `parity <target>`        | `review`     | L4 exact-block parity + aligned passages for LLM prose audit |
+| `semantic-review <dir>`  | —            | Prepare aligned passages for LLM cross-language review       |
+| `validate <wiki_dir>`    | —            | Markdown structure & link validation (L0 helper)             |
+| `build-site <wiki_dir>`  | —            | Compile Markdown into offline SPA HTML site                  |
+| `export <wiki_dir>`      | —            | `--format html|epub|all`; **rejects pdf**                   |
+| `sync-bundle <wiki_dir>` | `sync`       | Prepare Confluence / Notion bundles; **does NOT publish**    |
+| `init-config <target>`   | —            | Generate default `makewiki.config.yaml`                      |
+| `rebattle-diff <files>`  | —            | Deterministic dispute organizer over multiple ClaimSets      |
+| `deterministic-generate` | `generate`   | Mechanical scaffold only — **NOT** the authoritative flow   |
+
+Backward-compat aliases (`scan`, `verify`, `sync`, `generate`) remain so
+existing scripts keep working. The authoritative flow is `/makewiki`.
+
+### Config Consumption Contract
+
+Every field in `makewiki.config.yaml` is either Python-consumed or
+explicitly marked LLM-consumed (read by the Skill orchestrator / writers):
+
+- **LLM-consumed**: `agent.*`, `delivery.*`, `language_profiles.*`,
+  `documentation_policy.*` — read by Skill; verified by contract test that
+  they are NOT consumed by Python.
+- **Python-consumed**: `scan.*`, `review.*`, `revision.*`, `site.*`,
+  `quality.*`, `emit_uncertainty_notes`, `generate_*`, `output_dir`,
+  `languages`, `default_language`.
+- See `tests/contracts/test_config_consumption_contract.py`.
+
+---
+
+## 11. Working Notes
+
+- **Autonomous execution**: Complete all phases end-to-end without pausing
+  for intermediate confirmation.
+- **Subagent budget**: Tier S (1-2), Tier M (3-5), Tier L (5-10 max).
+- **ReBattle cross-examination** before writing; mechanical dispute organizer
+  (`rebattle-diff`) is optional.
+- **Natural human engineer tone**: ban binary tropes, buzzwords, formulaic
+  openings, trailing colons. See `references/anti_ai_cliche.md`.
+- **Independent generation per language** from the SemanticModel; no machine
+  translation.
+- **100% code-block parity** across languages.
+- **Ephemeral execution**: clean up temporary artifacts after each phase.
+- **Version binding**: skill version (`2.0.0`) ↔ toolkit version (`2.0.0`)
+  via the bootstrap script.

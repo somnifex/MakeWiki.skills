@@ -1,14 +1,51 @@
 # Internal Toolkit CLI API Reference
 
-All toolkit commands are dispatched via `python scripts/run_toolkit.py <command>`:
+The toolkit CLI is mechanical only. All comprehension and authoring decisions
+are made by the LLM-driven `/makewiki` Skill layer; this CLI returns `UNKNOWN`
+rather than guessing whenever something cannot be proven from source.
 
-| Command      | Arguments / Flags                             | Description                                         |
-| ------------ | --------------------------------------------- | --------------------------------------------------- |
-| `sizing`     | `<target> [--format json\                     | human]`                                             | Estimate project tier (S/M/L) and subagent budget |
-| `scan`       | `<target> [--format json\                     | human]`                                             | Extract structured evidence facts |
-| `build-site` | `<makewiki_dir> [--theme auto\                | light\                                              | dark]` | Compile Markdown docs into offline SPA HTML site |
-| `export`     | `<makewiki_dir> [--format all\                | html\                                               | epub] [--lang <lang>]` | Export single-file printable HTML and EPUB e-books |
-| `sync`       | `<makewiki_dir> [--target all\                | confluence\                                         | notion] [--lang <lang>]` | Build Atlassian Confluence & Notion import bundles |
-| `verify`     | `<target> [--wiki-dir <dir>] [--format json]` | Mechanical ground-truth validation against codebase |
-| `review`     | `<target> [--lang <lang>...]`                 | Cross-language parity and consistency reviewer      |
-| `validate`   | `<makewiki_dir>`                              | Heading hierarchy, link, and format validator       |
+The first-party console script is `makewiki` (also reachable via
+`python scripts/run_toolkit.py <command>` for pinned-toolkit installs).
+
+## Authoritative command surface
+
+| Command                  | Arguments / Flags                                          | Description                                                                                     |
+| ------------------------ | ---------------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
+| `sizing`                 | `<target> [--format json\                                  | human]`                                                                                         | Estimate project tier (S/M/L) and recommended subagent budget. |
+| `evidence`               | `<target> [--format json\                                  | human]`                                                                                         | Extract structured evidence **facts** (commands, config keys, paths). No interpretation. |
+| `verify-claim`           | `<claim.json> [...]`                                       | Verify one or many Claims against the codebase → per-claim L0–L5 status.                        |
+| `verify-model`           | `<semantic_model.json>`                                    | Validate a SemanticModel against the schema and evidence references.                            |
+| `verify-docs`            | `<target> [--wiki-dir <dir>] [--lang ...] [--format json\  | human]`                                                                                         | Unified L0–L5 verification of an existing wiki directory plus Quality Gate PASS/FAIL. |
+| `parity`                 | `<target> [--lang ...]`                                    | Block-ID exact parity + aligned passages for LLM prose audit.                                   |
+| `semantic-review`        | `<wiki_dir> [--lang ...] [--format json\                   | human]`                                                                                         | Prepare aligned passages for the Auditor subagent (LLM prose audit input). |
+| `validate`               | `<wiki_dir>`                                               | Markdown quality: heading hierarchy, links, empty pages, code-block language ids.               |
+| `build-site`             | `<wiki_dir> [--theme auto\                                 | light\                                                                                          | dark] [--output <dir>] [--title <t>]` | Compile Markdown docs into an offline SPA HTML site. |
+| `export`                 | `<wiki_dir> [--format html\                                | epub\                                                                                           | all] [--lang <code>]` | Export single-file printable HTML and EPUB e-books. **PDF is intentionally not supported.** |
+| `sync-bundle`            | `<wiki_dir> [--target all\                                 | confluence\                                                                                     | notion] [--lang <code>]` | Prepare Confluence Storage XML / Notion Block API bundles on disk. **Does NOT publish.** |
+| `deterministic-generate` | `<target> [--lang ...] [--config <path>] [--output <dir>]` | Non-authoritative deterministic scaffold (mechanical tests only). `/makewiki` is authoritative. |
+| `init-config`            | `[target] [--lang ...]`                                    | Generate a default `makewiki.config.yaml` in the target directory.                              |
+| `rebattle-diff`          | `<claim_set_1.json> <claim_set_2.json> [...]`              | Deterministic dispute organizer: diff two or more ClaimSets into a discrepancy matrix.          |
+
+## Aliases (deprecated, retained for back-compat)
+
+| Alias      | Refers to                | Notes                                                                  |
+| ---------- | ------------------------ | ---------------------------------------------------------------------- |
+| `generate` | `deterministic-generate` | Non-authoritative scaffold path; `/makewiki` remains authoritative.    |
+| `scan`     | `evidence`               | Legacy name; outputs the same facts-only evidence bundle.              |
+| `verify`   | `verify-docs`            | Same unified L0–L5 + Quality Gate run.                                 |
+| `review`   | `parity`                 | Cross-language parity; semantic-review now lives in its own command.   |
+| `sync`     | `sync-bundle`            | Bundle-prep only; the old name implied publishing, which it never did. |
+
+## Notes
+
+- All commands are pure Mechanical Plane: they do not invent semantic
+
+  conclusions. Where the layer is LLM-judged (L3 behavior, L4 prose, L5
+  epistemic), Python emits the evidence and returns `pending` for the Skill
+  layer's Auditor to resolve.
+- `verify-docs` exits 0 on Quality Gate PASS and 1 on FAIL, suitable for CI.
+- `export` rejects `--format pdf` with an explicit error.
+- `sync-bundle` writes prepared bundles under `<wiki_dir>/sync/<platform>/<lang>/`.
+
+  It does not talk to Confluence or Notion APIs; that responsibility belongs
+  to a future publishing step the Skill layer may schedule.

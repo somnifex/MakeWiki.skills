@@ -1,6 +1,6 @@
 ---
 name: makewiki-site
-description: "Compile an existing MakeWiki markdown documentation directory into an offline, zero-dependency, responsive static website with search, theme switching, and multilingual support. Use when: user wants to build or rebuild static HTML wiki pages from generated makewiki markdown docs."
+description: "Compile an existing MakeWiki markdown documentation directory into an offline, zero-dependency, responsive static website with search, theme switching, and multilingual support. Use when: user wants to build or rebuild static HTML wiki pages from generated makewiki markdown docs. Pure mechanical step — does not modify prose."
 version: "2.0.0"
 argument-hint: "[path-to-makewiki-dir] [--theme <auto|light|dark>]"
 license: MIT
@@ -8,7 +8,11 @@ allowed-tools: Bash(python */scripts/bootstrap_toolkit.py) Bash(python */scripts
 ---
 # MakeWiki Site - Offline Static Website Compiler
 
-Compile an existing `makewiki/` directory of Markdown documents into a standalone, zero-dependency, offline-browseable static HTML website.
+Compile an existing `makewiki/` directory of Markdown documents into a
+standalone, zero-dependency, offline-browseable static HTML website. This is
+the final mechanical step in the MakeWiki pipeline: the prose has already
+been authored by the LLM-driven Language Writers and verified through the
+Quality Gate. The site compiler only packages the result.
 
 ## Arguments
 
@@ -23,7 +27,8 @@ Compile an existing `makewiki/` directory of Markdown documents into a standalon
 python scripts/bootstrap_toolkit.py
 ```
 
-If the script prints a path, refer to it as `<makewiki_root>` and run the site compiler:
+If the script prints a path, refer to it as `<makewiki_root>` and run the
+site compiler:
 
 ```bash
 python <makewiki_root>/scripts/run_toolkit.py build-site ./makewiki --theme auto
