@@ -1,0 +1,80 @@
+"""L4 Cross-Language Verifier: Validate 100% code block and claim parity across languages."""
+
+from __future__ import annotations
+
+from makewiki_skills.generator.language_generator import GeneratedDocument
+from makewiki_skills.review.cross_language_reviewer import CrossLanguageReviewer
+from makewiki_skills.verification.report import LayerReport, VerificationCheck
+
+
+class L4CrossLanguageVerifier:
+    """Verify factual parity across all multilingual documentation versions."""
+
+    def __init__(self) -> None:
+        self._reviewer = CrossLanguageReviewer()
+
+    def verify_documents(
+        self,
+        documents: dict[str, list[GeneratedDocument]],
+    ) -> LayerReport:
+        languages = list(documents.keys())
+        if len(languages) < 2:
+            return LayerReport(
+                layer="L4",
+                name="Cross-Language",
+                checks=[
+                    VerificationCheck(
+                        layer="L4",
+                        target="all",
+                        language_code="all",
+                        claim_type="cross_language",
+                        claim_text="Single language generation",
+                        verified=True,
+                        status="passed",
+                        verification_source="cross_language_analyzer",
+                        detail="Single language generated; cross-language parity trivially satisfied",
+                    )
+                ],
+            )
+
+        review = self._reviewer.review(documents)
+        checks: list[VerificationCheck] = []
+
+        # Check critical deltas (commands & config keys)
+        for delta in review.fact_deltas:
+            is_critical = delta.severity == "critical"
+            checks.append(
+                VerificationCheck(
+                    layer="L4",
+                    target=f"{delta.fact_type}:{delta.value}",
+                    language_code=",".join(delta.missing_from),
+                    claim_type="cross_language",
+                    claim_text=f"{delta.fact_type} '{delta.value}' missing from {delta.missing_from}",
+                    verified=not is_critical,
+                    status="failed" if is_critical else "warning",
+                    verification_source="cross_language_analyzer",
+                    detail=f"Present in {delta.present_in} but missing from {delta.missing_from}",
+                    suggested_fix=f"Add missing {delta.fact_type} to {', '.join(delta.missing_from)}",
+                )
+            )
+
+        if not checks:
+            checks.append(
+                VerificationCheck(
+                    layer="L4",
+                    target="all",
+                    language_code="all",
+                    claim_type="cross_language",
+                    claim_text="100% Code Block and Command Parity",
+                    verified=True,
+                    status="passed",
+                    verification_source="cross_language_analyzer",
+                    detail="All commands, config keys, and code blocks match character-for-character across languages",
+                )
+            )
+
+        return LayerReport(
+            layer="L4",
+            name="Cross-Language",
+            checks=checks,
+        )

@@ -29,6 +29,7 @@ class CodebaseCheck(BaseModel):
     claim_type: Literal["path", "command", "config_key"]
     verified: bool
     detail: str
+    verification_source: str = "verified_from_repository"
 
 
 class CodebaseVerificationReport(BaseModel):
@@ -157,19 +158,19 @@ class CodebaseVerifier:
             if not stripped:
                 continue
             if any(stripped.startswith(p) for p in _GENERIC_TOOL_PREFIXES):
-                results.append(self._ok(doc, stripped, "command", "well-known tool"))
+                results.append(self._ok(doc, stripped, "command", "well-known tool", source="generic_shell_semantics"))
                 continue
             if self._command_matches(stripped, project_cmds):
-                results.append(self._ok(doc, stripped, "command", "matches project script"))
+                results.append(self._ok(doc, stripped, "command", "matches project script", source="verified_from_repository"))
                 continue
             if "<" in stripped and ">" in stripped:
-                results.append(self._ok(doc, stripped, "command", "contains placeholder"))
+                results.append(self._ok(doc, stripped, "command", "contains placeholder", source="generic_shell_semantics"))
                 continue
             if self._is_hedged_command(doc.content, stripped):
-                results.append(self._ok(doc, stripped, "command", "hedged with uncertainty note"))
+                results.append(self._ok(doc, stripped, "command", "hedged with uncertainty note", source="hedging_caveat"))
                 continue
             results.append(
-                self._fail(doc, stripped, "command", "not found in project scripts"),
+                self._fail(doc, stripped, "command", "not found in project scripts", source="verified_from_repository"),
             )
         return results
 
@@ -291,6 +292,7 @@ class CodebaseVerifier:
         claim: str,
         claim_type: Literal["path", "command", "config_key"],
         detail: str,
+        source: str = "verified_from_repository",
     ) -> CodebaseCheck:
         return CodebaseCheck(
             document=doc.filename,
@@ -299,6 +301,7 @@ class CodebaseVerifier:
             claim_type=claim_type,
             verified=True,
             detail=detail,
+            verification_source=source,
         )
 
     @staticmethod
@@ -307,6 +310,7 @@ class CodebaseVerifier:
         claim: str,
         claim_type: Literal["path", "command", "config_key"],
         detail: str,
+        source: str = "verified_from_repository",
     ) -> CodebaseCheck:
         return CodebaseCheck(
             document=doc.filename,
@@ -315,4 +319,5 @@ class CodebaseVerifier:
             claim_type=claim_type,
             verified=False,
             detail=detail,
+            verification_source=source,
         )
