@@ -72,18 +72,19 @@ class CodeGroundingVerifier:
         self._strict = strict
 
     def verify(self, documents: dict[str, list[GeneratedDocument]]) -> GroundingReport:
-        all_claims: list[GroundingClaim] = []
+        all_claims: list[tuple[GroundingClaim, str]] = []
         violations: list[GroundingViolation] = []
         warnings: list[GroundingViolation] = []
 
         for lang, docs in documents.items():
             for doc in docs:
                 claims = self._extract_claims(doc)
-                all_claims.extend(claims)
+                for c in claims:
+                    all_claims.append((c, doc.content))
 
         grounded = 0
-        for claim in all_claims:
-            violation = self._verify_claim(claim)
+        for claim, doc_content in all_claims:
+            violation = self._verify_claim(claim, doc_content=doc_content)
             if violation:
                 if self._strict or violation.violation_type == "contradicted":
                     violations.append(violation)
@@ -136,16 +137,45 @@ class CodeGroundingVerifier:
 
         return claims
 
-    def _verify_claim(self, claim: GroundingClaim) -> GroundingViolation | None:
+    def _verify_claim(
+        self, claim: GroundingClaim, doc_content: str | None = None
+    ) -> GroundingViolation | None:
         if claim.claim_type == "command":
-            return self._verify_command(claim)
+            return self._verify_command(claim, doc_content=doc_content)
         if claim.claim_type == "config_key":
             return self._verify_config_key(claim)
         if claim.claim_type == "path":
             return self._verify_path(claim)
         return None
 
-    def _verify_command(self, claim: GroundingClaim) -> GroundingViolation | None:
+    def _is_hedged_command(self, doc_content: str, cmd: str) -> bool:
+        if not doc_content or not cmd:
+            return False
+        pattern = re.compile(
+            rf"```(?:bash|sh|shell|zsh)?\s*\n[^\n]*{re.escape(cmd)}[^\n]*\n```\s*\n>\s*\[!NOTE\]",
+            re.MULTILINE,
+        )
+        if pattern.search(doc_content):
+            return True
+        if "[!NOTE]" in doc_content and (
+            "inferred from configuration" in doc_content
+            or "未找到显式 AST 声明" in doc_content
+            or "experimental" in doc_content
+        ):
+            block_pattern = re.compile(
+                rf"```[^\n]*\n[^\n]*{re.escape(cmd)}[^\n]*\n```",
+                re.MULTILINE,
+            )
+            if block_pattern.search(doc_content):
+                return True
+        return False
+
+    def _verify_command(
+        self, claim: GroundingClaim, doc_content: str | None = None
+    ) -> GroundingViolation | None:
+        if doc_content and self._is_hedged_command(doc_content, claim.claim_text):
+            return None
+
         cmd_facts = self._registry.query(fact_type="command")
         for fact in cmd_facts:
             if fact.value and (fact.value in claim.claim_text or claim.claim_text in fact.value):

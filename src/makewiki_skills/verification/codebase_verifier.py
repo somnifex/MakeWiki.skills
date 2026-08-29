@@ -165,10 +165,36 @@ class CodebaseVerifier:
             if "<" in stripped and ">" in stripped:
                 results.append(self._ok(doc, stripped, "command", "contains placeholder"))
                 continue
+            if self._is_hedged_command(doc.content, stripped):
+                results.append(self._ok(doc, stripped, "command", "hedged with uncertainty note"))
+                continue
             results.append(
                 self._fail(doc, stripped, "command", "not found in project scripts"),
             )
         return results
+
+    @staticmethod
+    def _is_hedged_command(doc_content: str, cmd: str) -> bool:
+        if not doc_content or not cmd:
+            return False
+        pattern = re.compile(
+            rf"```(?:bash|sh|shell|zsh)?\s*\n[^\n]*{re.escape(cmd)}[^\n]*\n```\s*\n>\s*\[!NOTE\]",
+            re.MULTILINE,
+        )
+        if pattern.search(doc_content):
+            return True
+        if "[!NOTE]" in doc_content and (
+            "inferred from configuration" in doc_content
+            or "未找到显式 AST 声明" in doc_content
+            or "experimental" in doc_content
+        ):
+            block_pattern = re.compile(
+                rf"```[^\n]*\n[^\n]*{re.escape(cmd)}[^\n]*\n```",
+                re.MULTILINE,
+            )
+            if block_pattern.search(doc_content):
+                return True
+        return False
 
     @staticmethod
     def _command_matches(claim: str, project_cmds: set[str]) -> bool:

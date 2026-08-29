@@ -21,10 +21,14 @@ class RevisionAction:
 
 @dataclass
 class RevisionReport:
+    round_number: int = 0
+    issues_before: int = 0
+    issues_after: int = 0
     total_actions: int = 0
+    attempted_fixes: int = 0
+    verified_resolutions: int = 0
+    introduced_regressions: int = 0
     actions: list[RevisionAction] = field(default_factory=list)
-    rounds_executed: int = 0
-    resolved_issues_count: int = 0
 
 
 class RevisionEngine:
@@ -42,7 +46,7 @@ class RevisionEngine:
         cross_language_report: CrossLanguageReview | None = None,
     ) -> tuple[dict[str, list[GeneratedDocument]], RevisionReport]:
         """Apply automated revisions to generated documents based on verification findings."""
-        report = RevisionReport(rounds_executed=1)
+        report = RevisionReport()
         revised_docs: dict[str, list[GeneratedDocument]] = {}
 
         # Clone documents
@@ -117,7 +121,7 @@ class RevisionEngine:
                 )
 
         report.total_actions = len(report.actions)
-        report.resolved_issues_count = len(report.actions)
+        report.attempted_fixes = len(report.actions)
         return revised_docs, report
 
     def _sanitize_ai_cliches(self, content: str, lang: str) -> tuple[str, int]:

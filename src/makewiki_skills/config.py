@@ -43,6 +43,27 @@ class ReviewConfig(BaseModel):
     min_page_alignment_ratio: float = 0.9
 
 
+class RevisionConfig(BaseModel):
+    """Controls automatic document revision after verification."""
+
+    enabled: bool = True
+
+    # 最多修几轮，防止死循环
+    max_rounds: int = Field(default=2, ge=0, le=5)
+
+    # 对无法确认的命令是否添加 uncertainty
+    auto_hedge_ungrounded: bool = True
+
+    # 是否自动修复多语言 code block 不一致
+    auto_harmonize_code_blocks: bool = True
+
+    # 一轮 revision 没产生任何修改时停止
+    stop_on_no_progress: bool = True
+
+    # 最低 grounding 分数
+    min_grounding_score: float = Field(default=1.0, ge=0.0, le=1.0)
+
+
 class ContentDepthConfig(BaseModel):
     """Controls how much detail is generated and when pages are split into sub-pages."""
 
@@ -112,15 +133,6 @@ class DeliveryConfig(BaseModel):
     include_deployment_runbook: bool = True
     include_compatibility_matrix: bool = True
     include_health_checks: bool = True
-
-
-class RevisionConfig(BaseModel):
-    """Controls automatic verification-to-revision loop."""
-
-    enabled: bool = True
-    max_rounds: int = 2
-    auto_hedge_ungrounded: bool = True
-    auto_harmonize_code_blocks: bool = True
 
 
 class MakeWikiConfig(BaseModel):

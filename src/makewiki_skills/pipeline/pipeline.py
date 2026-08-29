@@ -70,6 +70,8 @@ class PipelineContext(BaseModel):
     cross_language_review: CrossLanguageReview | None = None
     grounding_report: GroundingReport | None = None
     codebase_verification_report: CodebaseVerificationReport | None = None
+    revision_reports: list[RevisionReport] = Field(default_factory=list)
+    revision_rounds: int = 0
     revision_report: RevisionReport | None = None
     final_documents: dict[str, list[GeneratedDocument]] = Field(default_factory=dict)
     validation_report: ValidationReport | None = None
@@ -209,23 +211,158 @@ def stage_codebase_verification(ctx: PipelineContext) -> PipelineContext:
     return ctx
 
 
-def stage_revision_and_output(ctx: PipelineContext) -> PipelineContext:
-    if ctx.config.revision.enabled:
-        engine = RevisionEngine(
-            auto_hedge=ctx.config.revision.auto_hedge_ungrounded,
-            auto_harmonize=ctx.config.revision.auto_harmonize_code_blocks,
-        )
-        revised_docs, revision_report = engine.revise(
-            ctx.generated_documents,
-            grounding_report=ctx.grounding_report,
-            codebase_report=ctx.codebase_verification_report,
-            cross_language_report=ctx.cross_language_review,
-        )
-        ctx.final_documents = revised_docs
-        ctx.revision_report = revision_report
-    else:
-        ctx.final_documents = dict(ctx.generated_documents)
+def count_issues(
+    cross_report: CrossLanguageReview | None,
+    grounding_report: GroundingReport | None,
+    codebase_report: CodebaseVerificationReport | None,
+) -> int:
+    """Sum actionable verification issues across review reports."""
+    issues = 0
+    if cross_report is not None:
+        issues += len(cross_report.critical_issues)
+    if grounding_report is not None:
+        issues += len(grounding_report.violations)
+    if codebase_report is not None:
+        issues += codebase_report.failed_count
+    return issues
 
+
+def quality_passed(
+    cross_report: CrossLanguageReview | None,
+    grounding_report: GroundingReport | None,
+    codebase_report: CodebaseVerificationReport | None,
+    config: MakeWikiConfig,
+) -> bool:
+    """Check whether documents satisfy all quality and grounding criteria."""
+    if cross_report is not None and not cross_report.passed:
+        return False
+    if grounding_report is not None:
+        if grounding_report.grounding_score < config.revision.min_grounding_score:
+            return False
+        if len(grounding_report.violations) > 0:
+            return False
+    if codebase_report is not None and not codebase_report.passed:
+        return False
+    return True
+
+
+def stage_revision(ctx: PipelineContext) -> PipelineContext:
+    """Iteratively verify and revise documents to resolve grounding and consistency issues."""
+    if not ctx.config.revision.enabled:
+        ctx.final_documents = dict(ctx.generated_documents)
+        return ctx
+
+    current_docs = ctx.generated_documents
+
+    engine = RevisionEngine(
+        auto_hedge=ctx.config.revision.auto_hedge_ungrounded,
+        auto_harmonize=ctx.config.revision.auto_harmonize_code_blocks,
+    )
+
+    for round_no in range(1, ctx.config.revision.max_rounds + 1):
+        # 1. Re-inspect current documents
+        cross_report = None
+        if ctx.config.review.enable_cross_language_review and len(current_docs) >= 2:
+            cross_report = CrossLanguageReviewer().review(current_docs)
+
+        grounding_report = None
+        if ctx.config.review.enable_code_grounding_verification:
+            grounding_report = CodeGroundingVerifier(
+                ctx.evidence_registry,
+                strict=ctx.config.strict_grounding,
+            ).verify(current_docs)
+
+        codebase_report = None
+        if ctx.config.review.enable_codebase_verification:
+            codebase_report = CodebaseVerifier(
+                ctx.config.target_dir
+            ).verify(current_docs)
+
+        # 2. Check if already passed
+        if quality_passed(
+            cross_report,
+            grounding_report,
+            codebase_report,
+            ctx.config,
+        ):
+            break
+
+        issues_before = count_issues(cross_report, grounding_report, codebase_report)
+
+        # 3. Apply revisions
+        revised_docs, revision_report = engine.revise(
+            current_docs,
+            grounding_report=grounding_report,
+            codebase_report=codebase_report,
+            cross_language_report=cross_report,
+        )
+
+        revision_report.round_number = round_no
+        revision_report.issues_before = issues_before
+        revision_report.attempted_fixes = revision_report.total_actions
+
+        # 4. If no actions were performed, stop
+        if revision_report.total_actions == 0:
+            revision_report.issues_after = issues_before
+            revision_report.verified_resolutions = 0
+            ctx.revision_reports.append(revision_report)
+            if ctx.config.revision.stop_on_no_progress:
+                break
+            continue
+
+        # 5. Re-verify to calculate issues_after and verified_resolutions
+        post_cross_report = None
+        if ctx.config.review.enable_cross_language_review and len(revised_docs) >= 2:
+            post_cross_report = CrossLanguageReviewer().review(revised_docs)
+
+        post_grounding_report = None
+        if ctx.config.review.enable_code_grounding_verification:
+            post_grounding_report = CodeGroundingVerifier(
+                ctx.evidence_registry,
+                strict=ctx.config.strict_grounding,
+            ).verify(revised_docs)
+
+        post_codebase_report = None
+        if ctx.config.review.enable_codebase_verification:
+            post_codebase_report = CodebaseVerifier(
+                ctx.config.target_dir
+            ).verify(revised_docs)
+
+        issues_after = count_issues(
+            post_cross_report, post_grounding_report, post_codebase_report
+        )
+        revision_report.issues_after = issues_after
+        revision_report.verified_resolutions = max(issues_before - issues_after, 0)
+        revision_report.introduced_regressions = (
+            issues_after - issues_before if issues_after > issues_before else 0
+        )
+
+        ctx.revision_reports.append(revision_report)
+        current_docs = revised_docs
+
+        if post_cross_report is not None:
+            ctx.cross_language_review = post_cross_report
+        if post_grounding_report is not None:
+            ctx.grounding_report = post_grounding_report
+        if post_codebase_report is not None:
+            ctx.codebase_verification_report = post_codebase_report
+
+        if quality_passed(
+            post_cross_report,
+            post_grounding_report,
+            post_codebase_report,
+            ctx.config,
+        ):
+            break
+
+    ctx.final_documents = current_docs
+    ctx.revision_rounds = len(ctx.revision_reports)
+    ctx.revision_report = ctx.revision_reports[-1] if ctx.revision_reports else None
+    return ctx
+
+
+def stage_write_output(ctx: PipelineContext) -> PipelineContext:
+    """Write revised documents and metadata index to disk."""
     output_dir = ctx.config.target_dir / ctx.config.output_dir
     manager = OutputManager(
         output_dir,
@@ -269,7 +406,8 @@ STAGES = [
     ("cross_language_review", stage_cross_language_review),
     ("grounding_verification", stage_grounding_verification),
     ("codebase_verification", stage_codebase_verification),
-    ("revision_and_output", stage_revision_and_output),
+    ("revision", stage_revision),
+    ("write_output", stage_write_output),
     ("compile_site", stage_compile_site),
 ]
 
