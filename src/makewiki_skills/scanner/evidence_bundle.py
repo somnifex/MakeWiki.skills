@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 from pydantic import BaseModel, Field
 
 from makewiki_skills.scanner.project_detector import ProjectDetectionResult
@@ -34,6 +36,7 @@ class EvidenceBundle(BaseModel):
     detection: EvidenceBundleDetection
     summary: dict[str, int] = Field(default_factory=dict)
     facts_by_type: dict[str, list[EvidenceBundleFact]] = Field(default_factory=dict)
+    claims: list[dict[str, Any]] = Field(default_factory=list)
     total_facts: int = 0
     files_read: list[str] = Field(default_factory=list)
     commands_discovered: list[str] = Field(default_factory=list)
@@ -44,6 +47,7 @@ class EvidenceBundle(BaseModel):
         detection: ProjectDetectionResult,
         facts: list[EvidenceFact],
         files_read: list[str] | None = None,
+        claims: list[dict[str, Any]] | None = None,
     ) -> EvidenceBundle:
         grouped: dict[str, list[EvidenceBundleFact]] = {}
         summary: dict[str, int] = {}
@@ -86,6 +90,7 @@ class EvidenceBundle(BaseModel):
             detection=det,
             summary=summary,
             facts_by_type=grouped,
+            claims=claims or [],
             total_facts=len(facts),
             files_read=files_read or [],
             commands_discovered=commands,

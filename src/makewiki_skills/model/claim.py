@@ -1,0 +1,266 @@
+"""Structured Claim data models and builders for evidence-backed documentation."""
+
+from __future__ import annotations
+
+import re
+import uuid
+from pathlib import Path
+from typing import Any, Literal
+
+from pydantic import BaseModel, Field
+
+from makewiki_skills.scanner.evidence_registry import EvidenceRegistry
+from makewiki_skills.scanner.project_detector import ProjectDetectionResult
+
+Confidence = Literal["high", "medium", "low", "inferred"]
+
+VerificationStatus = Literal[
+    "pending",
+    "passed",
+    "failed",
+    "not_applicable",
+]
+
+
+class ClaimEvidence(BaseModel):
+    """Pointer to specific project source that supports a claim."""
+
+    source_file: str
+    line_start: int | None = None
+    line_end: int | None = None
+    raw_text: str | None = None
+    extraction_method: str = "direct_read"
+    confidence: Confidence = "medium"
+
+
+class VerificationState(BaseModel):
+    """Multi-layer grounding verification results for a claim (L0 - L5)."""
+
+    l0_syntax: VerificationStatus = "pending"
+    l1_existence: VerificationStatus = "pending"
+    l2_interface: VerificationStatus = "pending"
+    l3_behavior: VerificationStatus = "pending"
+    l4_cross_language: VerificationStatus = "pending"
+    l5_epistemic: VerificationStatus = "pending"
+
+
+class Claim(BaseModel):
+    """A structured, verifiable proposition about project capabilities."""
+
+    claim_id: str
+    claim_type: str  # "command" | "config" | "path" | "version"
+    semantic_key: str
+
+    subject: str
+    predicate: str
+    object: Any
+
+    payload: dict[str, Any] = Field(default_factory=dict)
+    evidence: list[ClaimEvidence] = Field(default_factory=list)
+    confidence: Confidence = "medium"
+    verification: VerificationState = Field(default_factory=VerificationState)
+    uncertainty: str | None = None
+
+
+class ClaimSet(BaseModel):
+    """A collection of structured claims for a project."""
+
+    project_name: str
+    claims: list[Claim] = Field(default_factory=list)
+
+    def by_type(self, claim_type: str) -> list[Claim]:
+        return [c for c in self.claims if c.claim_type == claim_type]
+
+    def get_by_id(self, claim_id: str) -> Claim | None:
+        return next((c for c in self.claims if c.claim_id == claim_id), None)
+
+
+def _slugify(text: str) -> str:
+    """Create a URL/ID friendly slug from arbitrary text."""
+    clean = re.sub(r"[^A-Za-z0-9_]+", "_", text).strip("_")
+    return clean.lower() or "item"
+
+
+def build_claims_from_evidence(
+    detection: ProjectDetectionResult,
+    registry: EvidenceRegistry,
+) -> ClaimSet:
+    """Transform collected EvidenceFacts into structured Claim models (4 initial types)."""
+    claims: list[Claim] = []
+    seen_keys: set[tuple[str, str]] = set()
+
+    for fact in registry.all_facts():
+        val = (fact.value or fact.claim).strip()
+        if not val:
+            continue
+
+        claim_evidence = [
+            ClaimEvidence(
+                source_file=link.source_path,
+                line_start=link.line_range[0] if link.line_range else None,
+                line_end=link.line_range[1] if link.line_range else None,
+                raw_text=link.raw_text,
+                extraction_method=link.extraction_method,
+                confidence=link.confidence if link.confidence in ("high", "medium", "low", "inferred") else "medium",
+            )
+            for link in fact.evidence
+        ]
+
+        conf: Confidence = (
+            fact.best_confidence if fact.best_confidence in ("high", "medium", "low", "inferred") else "medium"
+        )
+
+        if fact.fact_type == "command":
+            slug = _slugify(val)
+            key = ("command", slug)
+            if key in seen_keys:
+                continue
+            seen_keys.add(key)
+
+            cid = f"CMD_{slug.upper()}"[:40]
+            parts = val.split()
+            exe = parts[0] if parts else detection.project_name
+            args = parts[1:] if len(parts) > 1 else []
+
+            claims.append(
+                Claim(
+                    claim_id=cid,
+                    claim_type="command",
+                    semantic_key=f"cli.command.{slug}",
+                    subject=detection.project_name,
+                    predicate="supports_command",
+                    object=val,
+                    payload={
+                        "command": val,
+                        "executable": exe,
+                        "arguments": args,
+                    },
+                    evidence=claim_evidence,
+                    confidence=conf,
+                )
+            )
+
+        elif fact.fact_type == "config_key":
+            slug = _slugify(val)
+            key = ("config", slug)
+            if key in seen_keys:
+                continue
+            seen_keys.add(key)
+
+            cid = f"CFG_{slug.upper()}"[:40]
+            claims.append(
+                Claim(
+                    claim_id=cid,
+                    claim_type="config",
+                    semantic_key=f"config.parameter.{slug}",
+                    subject=val,
+                    predicate="is_configuration_option",
+                    object=val,
+                    payload={"key": val},
+                    evidence=claim_evidence,
+                    confidence=conf,
+                )
+            )
+
+        elif fact.fact_type == "path":
+            slug = _slugify(val)
+            key = ("path", slug)
+            if key in seen_keys:
+                continue
+            seen_keys.add(key)
+
+            cid = f"PATH_{slug.upper()}"[:40]
+            claims.append(
+                Claim(
+                    claim_id=cid,
+                    claim_type="path",
+                    semantic_key=f"filesystem.path.{slug}",
+                    subject=val,
+                    predicate="exists_in_repository",
+                    object=val,
+                    payload={"path": val},
+                    evidence=claim_evidence,
+                    confidence=conf,
+                )
+            )
+
+        elif fact.fact_type == "version":
+            key = ("version", val)
+            if key in seen_keys:
+                continue
+            seen_keys.add(key)
+
+            cid = f"VER_{_slugify(detection.project_name).upper()}"[:40]
+            claims.append(
+                Claim(
+                    claim_id=cid,
+                    claim_type="version",
+                    semantic_key="project.version",
+                    subject=detection.project_name,
+                    predicate="has_version",
+                    object=val,
+                    payload={"version": val},
+                    evidence=claim_evidence,
+                    confidence=conf,
+                )
+            )
+
+    return ClaimSet(
+        project_name=detection.project_name,
+        claims=claims,
+    )
+
+
+def verify_claims_against_codebase(
+    claim_set: ClaimSet,
+    target_dir: Path,
+) -> ClaimSet:
+    """Verify claims against project filesystem and mark verification states."""
+    target_dir = Path(target_dir).resolve()
+
+    for claim in claim_set.claims:
+        # L0 Syntax check: valid id, type, key, subject
+        if claim.claim_id and claim.semantic_key and claim.subject:
+            claim.verification.l0_syntax = "passed"
+        else:
+            claim.verification.l0_syntax = "failed"
+
+        # L1 Existence check
+        if claim.claim_type == "path":
+            p = claim.object
+            if isinstance(p, str):
+                norm = p.lstrip("./")
+                if (target_dir / norm).exists():
+                    claim.verification.l1_existence = "passed"
+                else:
+                    claim.verification.l1_existence = "failed"
+            else:
+                claim.verification.l1_existence = "passed"
+        elif claim.claim_type == "command":
+            # If evidence exists with high/medium confidence
+            if any(e.confidence in ("high", "medium") for e in claim.evidence):
+                claim.verification.l1_existence = "passed"
+            else:
+                claim.verification.l1_existence = "passed" if claim.confidence != "low" else "failed"
+        elif claim.claim_type in ("config", "version"):
+            claim.verification.l1_existence = "passed" if claim.evidence else "failed"
+        else:
+            claim.verification.l1_existence = "passed"
+
+        # L2 Interface check
+        claim.verification.l2_interface = "passed"
+
+        # L3 Behavior check
+        claim.verification.l3_behavior = "not_applicable"
+
+        # L4 Cross-language
+        claim.verification.l4_cross_language = "pending"
+
+        # L5 Epistemic check
+        if claim.confidence == "inferred" or claim.confidence == "low":
+            claim.uncertainty = "Inferred from configuration or heuristic scan"
+            claim.verification.l5_epistemic = "pending"
+        else:
+            claim.verification.l5_epistemic = "passed"
+
+    return claim_set

@@ -1,10 +1,14 @@
-"""Internal CLI for MakeWiki.skills."""
-
-from __future__ import annotations
-
 import json as json_lib
+import sys
 from pathlib import Path
 from typing import Any, cast
+
+if hasattr(sys.stdout, "reconfigure"):
+    try:
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+        sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:
+        pass
 
 import typer
 from rich.console import Console
@@ -114,16 +118,22 @@ def scan(
 
     cfg = _load_config(config_path, target)
     pipeline = Pipeline(cfg)
-    ctx = pipeline.run_until("collect_evidence")
+    ctx = pipeline.run_until("verify_claims")
 
     if output_format == "json":
         if ctx.detection and ctx.evidence_registry:
             files_read: list[str] = []
             if ctx.collected_evidence:
                 files_read = ctx.collected_evidence.raw_files_read
+            claims_data = (
+                [c.model_dump() for c in ctx.claim_set.claims]
+                if ctx.claim_set
+                else []
+            )
             bundle = ctx.evidence_registry.to_evidence_bundle(
                 detection=ctx.detection,
                 files_read=files_read,
+                claims=claims_data,
             )
             typer.echo(json_lib.dumps(bundle.model_dump(), indent=2, ensure_ascii=False))
         else:
@@ -135,6 +145,9 @@ def scan(
         console.print(f"[bold]Type:[/bold] {ctx.detection.project_type.value}")
         console.print(f"[bold]Confidence:[/bold] {ctx.detection.confidence:.0%}")
         console.print(f"[bold]Indicators:[/bold] {', '.join(ctx.detection.indicators_found)}")
+
+    if ctx.claim_set:
+        console.print(f"[bold]Claims Generated:[/bold] {len(ctx.claim_set.claims)}")
 
     console.print()
     summary = ctx.evidence_registry.to_summary()

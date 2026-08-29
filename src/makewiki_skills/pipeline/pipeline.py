@@ -12,6 +12,11 @@ from pydantic import BaseModel, ConfigDict, Field
 from makewiki_skills.config import MakeWikiConfig
 from makewiki_skills.generator.language_generator import GeneratedDocument, LanguageGenerator
 from makewiki_skills.languages.registry import LanguageRegistry
+from makewiki_skills.model.claim import (
+    ClaimSet,
+    build_claims_from_evidence,
+    verify_claims_against_codebase,
+)
 from makewiki_skills.model.semantic_model import (
     Command,
     CommandGroup,
@@ -65,6 +70,7 @@ class PipelineContext(BaseModel):
     detection: ProjectDetectionResult | None = None
     collected_evidence: CollectedEvidence | None = None
     evidence_registry: EvidenceRegistry = Field(default_factory=EvidenceRegistry)
+    claim_set: ClaimSet | None = None
     semantic_model: SemanticModel | None = None
     generated_documents: dict[str, list[GeneratedDocument]] = Field(default_factory=dict)
     cross_language_review: CrossLanguageReview | None = None
@@ -96,6 +102,24 @@ def stage_collect_evidence(ctx: PipelineContext) -> PipelineContext:
     collector = EvidenceCollector(ctx.config)
     ctx.collected_evidence = collector.collect(ctx.config.target_dir, ctx.detection)
     ctx.evidence_registry.add_many(ctx.collected_evidence.facts)
+    return ctx
+
+
+def stage_build_claims(ctx: PipelineContext) -> PipelineContext:
+    if ctx.detection is None:
+        ctx.errors.append("Cannot build claims: no detection result")
+        return ctx
+
+    ctx.claim_set = build_claims_from_evidence(ctx.detection, ctx.evidence_registry)
+    return ctx
+
+
+def stage_verify_claims(ctx: PipelineContext) -> PipelineContext:
+    if ctx.claim_set is None:
+        ctx.errors.append("Cannot verify claims: no claim set")
+        return ctx
+
+    ctx.claim_set = verify_claims_against_codebase(ctx.claim_set, ctx.config.target_dir)
     return ctx
 
 
@@ -401,6 +425,8 @@ def stage_compile_site(ctx: PipelineContext) -> PipelineContext:
 STAGES = [
     ("detect_project", stage_detect_project),
     ("collect_evidence", stage_collect_evidence),
+    ("build_claims", stage_build_claims),
+    ("verify_claims", stage_verify_claims),
     ("build_semantic_model", stage_build_semantic_model),
     ("generate_documents", stage_generate_documents),
     ("cross_language_review", stage_cross_language_review),
