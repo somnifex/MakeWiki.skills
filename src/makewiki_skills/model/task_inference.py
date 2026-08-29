@@ -83,8 +83,6 @@ class TaskInferenceEngine:
         detection: ProjectDetectionResult,
         registry: EvidenceRegistry,
     ) -> list[UserTask]:
-        del configuration, registry
-
         tasks: list[UserTask] = []
         seen_titles: set[str] = set()
         executables = self._likely_executables(commands, detection)
@@ -111,6 +109,25 @@ class TaskInferenceEngine:
                     evidence=cmd.evidence,
                 )
             )
+
+        # Infer configuration setup task from configuration sections
+        if configuration and "Configure settings" not in seen_titles:
+            primary_keys = [item.key for sec in configuration for item in sec.items[:3] if item.key]
+            if primary_keys:
+                seen_titles.add("Configure settings")
+                tasks.append(
+                    UserTask(
+                        task_id=uuid.uuid4().hex[:10],
+                        title="Configure settings",
+                        user_goal="Set up the required environment variables and configuration options.",
+                        steps=[
+                            f"Configure `{key}` in your environment or configuration file."
+                            for key in primary_keys[:3]
+                        ],
+                        commands=[],
+                        evidence=[],
+                    )
+                )
 
         return tasks
 

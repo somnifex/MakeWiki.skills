@@ -114,6 +114,15 @@ class DeliveryConfig(BaseModel):
     include_health_checks: bool = True
 
 
+class RevisionConfig(BaseModel):
+    """Controls automatic verification-to-revision loop."""
+
+    enabled: bool = True
+    max_rounds: int = 2
+    auto_hedge_ungrounded: bool = True
+    auto_harmonize_code_blocks: bool = True
+
+
 class MakeWikiConfig(BaseModel):
     """Root configuration for a makewiki run."""
 
@@ -129,6 +138,7 @@ class MakeWikiConfig(BaseModel):
     emit_uncertainty_notes: bool = True
     scan: ScanConfig = Field(default_factory=ScanConfig)
     review: ReviewConfig = Field(default_factory=ReviewConfig)
+    revision: RevisionConfig = Field(default_factory=RevisionConfig)
     content_depth: ContentDepthConfig = Field(default_factory=ContentDepthConfig)
     documentation_policy: DocumentationPolicyConfig = Field(
         default_factory=DocumentationPolicyConfig

@@ -16,9 +16,15 @@ from typing import Any
 class SiteCompiler:
     """Compiles a directory of makewiki Markdown files into a standalone static site."""
 
-    def __init__(self, theme: str = "auto", title: str = "Project Documentation") -> None:
+    def __init__(
+        self,
+        theme: str = "auto",
+        title: str = "Project Documentation",
+        include_search: bool = True,
+    ) -> None:
         self.theme = theme
         self.title = title
+        self.include_search = include_search
 
     def compile(self, makewiki_dir: Path, output_dir: Path | None = None) -> list[str]:
         """Compile Markdown files in makewiki_dir into output_dir/site."""
@@ -111,6 +117,14 @@ class SiteCompiler:
         self, docs_by_lang: dict[str, dict[str, dict[str, Any]]], title: str, theme: str
     ) -> str:
         docs_json = json.dumps(docs_by_lang, ensure_ascii=False)
+        search_box_html = (
+            """<div class="search-box">
+        <span class="search-icon">🔍</span>
+        <input type="text" id="searchInput" class="search-input" placeholder="Search docs..." />
+      </div>"""
+            if self.include_search
+            else ""
+        )
 
         return f"""<!DOCTYPE html>
 <html lang="en" data-theme="{theme}">
@@ -406,10 +420,7 @@ class SiteCompiler:
       <span class="badge">Offline Docs</span>
     </a>
     <div class="nav-actions">
-      <div class="search-box">
-        <span class="search-icon">🔍</span>
-        <input type="text" id="searchInput" class="search-input" placeholder="Search docs..." />
-      </div>
+      {search_box_html}
       <select id="langSelect"></select>
       <button class="theme-btn" id="themeToggle">🌓</button>
     </div>

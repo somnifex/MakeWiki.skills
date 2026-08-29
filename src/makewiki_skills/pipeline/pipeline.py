@@ -35,6 +35,10 @@ from makewiki_skills.review.cross_language_reviewer import (
     CrossLanguageReview,
     CrossLanguageReviewer,
 )
+from makewiki_skills.revision.revision_engine import (
+    RevisionEngine,
+    RevisionReport,
+)
 from makewiki_skills.scanner.evidence_collector import CollectedEvidence, EvidenceCollector
 from makewiki_skills.scanner.evidence_registry import EvidenceRegistry
 from makewiki_skills.scanner.project_detector import (
@@ -66,6 +70,7 @@ class PipelineContext(BaseModel):
     cross_language_review: CrossLanguageReview | None = None
     grounding_report: GroundingReport | None = None
     codebase_verification_report: CodebaseVerificationReport | None = None
+    revision_report: RevisionReport | None = None
     final_documents: dict[str, list[GeneratedDocument]] = Field(default_factory=dict)
     validation_report: ValidationReport | None = None
 
@@ -205,7 +210,21 @@ def stage_codebase_verification(ctx: PipelineContext) -> PipelineContext:
 
 
 def stage_revision_and_output(ctx: PipelineContext) -> PipelineContext:
-    ctx.final_documents = dict(ctx.generated_documents)
+    if ctx.config.revision.enabled:
+        engine = RevisionEngine(
+            auto_hedge=ctx.config.revision.auto_hedge_ungrounded,
+            auto_harmonize=ctx.config.revision.auto_harmonize_code_blocks,
+        )
+        revised_docs, revision_report = engine.revise(
+            ctx.generated_documents,
+            grounding_report=ctx.grounding_report,
+            codebase_report=ctx.codebase_verification_report,
+            cross_language_report=ctx.cross_language_review,
+        )
+        ctx.final_documents = revised_docs
+        ctx.revision_report = revision_report
+    else:
+        ctx.final_documents = dict(ctx.generated_documents)
 
     output_dir = ctx.config.target_dir / ctx.config.output_dir
     manager = OutputManager(
@@ -234,6 +253,7 @@ def stage_compile_site(ctx: PipelineContext) -> PipelineContext:
     compiler = SiteCompiler(
         theme=ctx.config.site.theme,
         title=f"{ctx.config.target_dir.name} Documentation",
+        include_search=ctx.config.site.include_search,
     )
     site_output = output_dir / ctx.config.site.output_subdir
     written = compiler.compile(output_dir, site_output)
