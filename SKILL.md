@@ -12,107 +12,170 @@ Generate high-quality, zero-hallucination, multilingual wiki documentation and a
 
 ---
 
-## 1. Multi-Agent Topology & Subagent Specifications
+## 1. Subagent-First Cognitive Architecture (以 Subagent 为核心的智能协同体系)
 
-MakeWiki orchestrates specialized subagents with **dynamic budgeting** (capped at 10 subagents maximum) and **ReBattle competitive cross-examination** to eliminate single-agent bias and hallucinations.
+MakeWiki adopts an **Autonomous, Self-Reflecting, Self-Configuring Subagent Architecture**: all deep comprehension, multi-perspective analysis, adversarial debate, documentation writing, and adversarial auditing are performed by **LLM Subagents with internal self-reflection loops**. Python scripts are strictly relegated to **deterministic mechanical plumbing** (such as assembling HTML SPA files or packaging EPUB zip archives).
 
-```
-                  ┌──────────────────────────────────────────────┐
-                  │ Main Agent (Orchestrator & Chief Adjudicator)│
-                  │ - Assesses Project Tier (S / M / L)          │
-                  │ - Dispatches Subagents & Manages Budget      │
-                  │ - Arbitrates ReBattle Conflicts              │
-                  │ - Compiles Unified SemanticModel             │
-                  └──────────────────────┬───────────────────────┘
-                                         │
-        ┌────────────────────────────────┼────────────────────────────────┐
-        ▼                                ▼                                ▼
-  [Phase 1: Scout]             [Phase 2: ReBattle]             [Phase 3: Writers]
- ├─ Scout-Structure           ├─ Agent Red (User & Dev)        ├─ English Writer
- └─ Scout-Surface             ├─ Agent Blue (Code & AST)       ├─ Chinese Writer
-                              ├─ Agent Green (Deploy & Ops)    └─ (Other Lang Writers)
-                              └─ [Mechanical Verifier]
-                                         │
-                                         ▼
-                                [Phase 4: Reviewer]
-                              ├─ Code Block Parity Auditor
-                              ├─ Ground-Truth Verifier
-                              └─ Anti-AI-Cliché & Link Auditor
+```yaml
+orchestration_topology:
+  orchestrator:
+    role: "Main Agent (Chief Adjudicator & Dispatcher)"
+    capabilities:
+      - Dynamic project sizing & on-demand subagent role synthesis
+      - Elastic subagent budgeting (capped at 10) & task fission
+      - ReBattle adversarial dispute arbitration
+      - Compilation of canonical SemanticModel (source of truth)
+
+  execution_pipeline:
+    phase_1_recon:
+      subagents:
+        - name: "Scout-Structure"
+          scope: "Scan package manifests, build scripts, CI/CD, and top-level directory layout"
+        - name: "Scout-Surface"
+          scope: "Scan CLI entrypoints, flags, API routes, and .env.example"
+        - dynamic: "On-demand specialized Scouts synthesized for unique tech stacks"
+      output: "Structured evidence facts with source file line citations"
+
+    phase_2_rebattle:
+      subagents:
+        - name: "Agent Red (User & DX)"
+          focus: "User onboarding workflows, runnable commands, tutorials, expected output"
+        - name: "Agent Blue (Code AST & Ground-Truth)"
+          focus: "AST functions, exported symbols, flags verification, stub warnings"
+        - name: "Agent Green (Enterprise Ops)"
+          focus: "Runtime compatibility, env vars matrix, error runbooks"
+      interaction: "3-way adversarial cross-examination debate with self-reflection & claim retraction"
+      adjudication: "Main Agent resolves objections into canonical SemanticModel"
+
+    phase_3_writers:
+      subagents:
+        - name: "Language Writers (en, zh-CN, ja, etc.)"
+          focus: "Parallel independent native authoring directly from SemanticModel"
+      constraints: "100% code block and config key parity across languages"
+
+    phase_4_review:
+      subagents:
+        - name: "Auditor Subagent"
+          focus: "Cross-language parity audit, grounding check, anti-AI-cliché audit"
+          action: "Autonomous in-place self-healing"
+
+    phase_5_site:
+      mechanism: "Deterministic Python Site Compiler (run_toolkit.py build-site)"
+      output: "Standalone single-file offline HTML SPA wiki"
 ```
 
 ---
 
-### Subagent Role Definitions & Responsibility Matrix
+## 2. Dynamic Self-Configuration & Subagent Synthesis (动态角色合成与弹性配置)
 
-| Subagent Role | Primary Focus | Allowed Tools | Input Contract | Output Contract |
-| :--- | :--- | :--- | :--- | :--- |
-| **`Scout-Structure`** | Repository layout, package manifests, build scripts, CI/CD, Dockerfiles | `Glob`, `Read`, `Grep` | Target root path | Project skeleton, dependencies, build targets, directory tree |
-| **`Scout-Surface`** | Entrypoints, CLI flags, REST routes, `.env.example`, existing README | `Glob`, `Read`, `Grep`, CLI help probe | Target root path | CLI arguments, route paths, config keys, existing descriptions |
-| **`Agent Red`** | User & Developer Experience (DX): tutorials, commands, expected outputs | `Read`, `Grep` | Scout facts + target root | `claims_red.json` (User-facing runnable commands & workflows) |
-| **`Agent Blue`** | Code Implementation & AST: exported symbols, defaults, stubs, deprecations | `Read`, `Grep` | Scout facts + source code | `claims_blue.json` (Implementation ground truth & objection claims) |
-| **`Agent Green`** | Deployment, Infrastructure & Ops: OS compatibility, env vars, error runbooks | `Read`, `Grep` | Scout facts + config files | `claims_green.json` (Ops runbook facts & configuration matrix) |
-| **`Main Agent (Judge)`** | Chief Adjudicator & Orchestrator: arbitrates disputes, builds SemanticModel | All tools + Toolkit | Claims from Red, Blue, Green | Adjudicated **`SemanticModel`** (`semantic_model.json`) |
-| **`Language Writer`** | Independent Diátaxis documentation author for a specific target language | `Write`, `Edit`, `Read` | Unified `SemanticModel` + Style Profile | Complete Markdown documentation set under `<output_dir>/` |
-| **`Reviewer / Auditor`** | Cross-language parity, ground-truth verification, anti-AI-cliché audit | `Read`, `Edit`, Toolkit | Generated Markdown docs + Codebase | Verification report + in-place autonomous corrections |
+Rather than forcing a rigid, static agent roster, the Main Agent **dynamically synthesizes and configures Subagents** based on the target project's tech stack and complexity:
+
+```yaml
+dynamic_synthesis_rules:
+  monorepo_or_microservices:
+    trigger: "Multiple services, workspaces, or sub-packages detected"
+    action: "Spawn dedicated Scout/Writer subagents per major service module (within global budget)"
+
+  native_or_ffi_bindings:
+    trigger: "C/C++, Rust FFI, WebAssembly, or Python C-extensions detected"
+    action: "Synthesize 'Scout-ABI-Bindings' to inspect header files and exported ABI bindings"
+
+  plugin_or_sdk_ecosystem:
+    trigger: "Extensible plugin architecture or public client SDK detected"
+    action: "Synthesize 'Agent-Ecosystem' focusing on hook registration and SDK interfaces"
+
+  elastic_budget_cap:
+    hard_limit: 10
+    policy: "Dynamically allocate agent budget: Tier S (1-2), Tier M (3-5), Tier L (5-10 max)"
+```
 
 ---
 
-### Subagent Prompt Templates (Dispatch Prompts)
+## 3. Subagent Self-Reflection & Self-Critique Loop (子代理自反思四维校验)
 
-When spawning subagents via `invoke_subagent` or delegation, use the following standardized prompt templates:
+Every Subagent must execute a mandatory **internal 4-dimensional self-reflection pass** before submitting claims or writing documents:
 
-#### 1. Scout-Structure Prompt Template
+```yaml
+self_reflection_checklist:
+  1_grounding_critique:
+    question: "Is every command, argument flag, config key, and file path directly cited with actual code lines?"
+    remedy: "Strip or explicitly hedge any speculative assertions as [INFERRED/UNCONFIRMED]."
+
+  2_parity_critique:
+    question: "Does my code sample, config snippet, or CLI invocation match 100% with the canonical SemanticModel?"
+    remedy: "Synchronize parameter names and command syntax character-for-character."
+
+  3_anti_ai_cliche_critique:
+    question: "Did I inadvertently generate binary tropes ('不是……而是……', '不仅……而且……'), empty buzzwords ('收敛', '赋能', '对齐'), or colon-stuffed headings?"
+    remedy: "Rewrite in direct, natural, active engineer prose."
+
+  4_adversarial_defense_critique:
+    question: "If an opposing agent challenges this assertion with AST evidence, will this claim withstand inspection?"
+    remedy: "Refine claim confidence: CONFIRMED_AST, DERIVED_CONFIG, or HYPOTHESIS_HEDGED."
+```
+
+---
+
+## 4. Subagent Dispatch Prompts with Embedded Reflection
+
+When spawning subagents via `invoke_subagent` or delegation, provide each with its task prompt including the self-reflection requirement:
+
+#### 1. Scout-Structure Prompt
 ```markdown
 You are Scout-Structure for project '{project_name}'.
-Your task is to scan the project repository and establish structural evidence:
+Your goal is to autonomously explore and comprehend the repository architecture using Glob, Grep, and Read tools:
 1. Identify all package manifests (pyproject.toml, package.json, go.mod, Cargo.toml, pom.xml).
-2. Scan build configurations (Makefile, CMakeLists.txt, Taskfile, Dockerfile, docker-compose.yml, CI workflows).
-3. Map the top-level directory structure and module boundaries.
-Output a structured summary of: project_type, dependencies, build commands, and verified file paths with line citations.
-Do not guess or hallucinate any unobserved files.
+2. Inspect build and deployment configurations (Makefile, Dockerfile, docker-compose.yml, CI workflows).
+3. Map top-level directory structure and module boundaries.
+Self-Reflection Step: Verify that all reported file paths actually exist on disk before reporting.
+Output a structured summary with: project_type, dependencies, build commands, and verified file paths with line citations.
 ```
 
-#### 2. Scout-Surface Prompt Template
+#### 2. Scout-Surface Prompt
 ```markdown
 You are Scout-Surface for project '{project_name}'.
-Your task is to extract public interface evidence:
+Your goal is to extract public interfaces and developer surfaces using Glob, Grep, and Read tools:
 1. Scan main CLI entrypoints and extract help texts, flags, and parameter options.
 2. Scan Web/API route definitions and extract HTTP methods and endpoint paths.
 3. Read .env.example, config templates, and existing READMEs for declared configuration keys.
-Output a list of verified commands, parameters, and environment variables with their source file and line numbers.
+Self-Reflection Step: Confirm each parameter and route against actual source declarations.
+Output a verified list of commands, parameters, and environment variables with source file citations.
 ```
 
-#### 3. Agent Red (User & DX Perspective) Prompt Template
+#### 3. Agent Red (User & DX Perspective) Prompt
 ```markdown
 You are Agent Red (Developer & User Experience).
 Analyze the project from the perspective of an external developer or end-user:
-1. What is the 5-minute quickstart onboarding workflow from git clone to first run?
-2. What are the primary CLI commands, required flags, and expected terminal outputs?
-3. What are the common daily usage scenarios?
-Extract factual claims strictly grounded in repository evidence. Label each claim with confidence: high, medium, or inferred.
+1. Formulate the 5-minute quickstart onboarding workflow from git clone to first run.
+2. Extract primary CLI commands, required flags, and expected terminal outputs.
+3. Map common daily usage scenarios.
+Self-Reflection Step: Challenge your own tutorial — did you assume any implicit prerequisites or omit setup steps?
+Label each claim: CONFIRMED_AST, DERIVED_CONFIG, or HYPOTHESIS_HEDGED.
 ```
 
-#### 4. Agent Blue (Code AST & Ground-Truth) Prompt Template
+#### 4. Agent Blue (Code AST & Ground-Truth) Prompt
 ```markdown
 You are Agent Blue (Code Implementation & AST Verifier).
-Analyze the source code to verify factual accuracy and catch non-existent features:
-1. Verify whether commands and flags proposed by Agent Red actually exist in argument parsers or route tables.
-2. Check default values, type constraints, and fallback logic directly in source code.
+Inspect the source code to verify factual accuracy and challenge ungrounded assertions:
+1. Audit commands and flags proposed by Agent Red against actual argument parsers or route tables in source code.
+2. Check default values, type constraints, and fallback logic directly in the codebase.
 3. Identify unreleased features, stub functions, or deprecated parameters.
-Output verified implementation facts and explicit objection challenges against any ungrounded user-facing claims.
+Self-Reflection Step: Ensure every objection you raise is backed by exact file line references.
+Output verified implementation facts and explicit objection challenges against ungrounded user claims.
 ```
 
-#### 5. Agent Green (Enterprise Deployment & Ops) Prompt Template
+#### 5. Agent Green (Enterprise Deployment & Ops) Prompt
 ```markdown
 You are Agent Green (Enterprise Delivery & Operations).
 Analyze the project for deployment and production reliability:
-1. Compatibility matrix: Supported OS, runtime versions (e.g. Node 18+, Python 3.11+, Go 1.22+), database dependencies.
+1. Compatibility matrix: Supported OS, runtime versions, database dependencies.
 2. Configuration matrix: Environment variables, config files, required vs optional settings, default values, production recommendations.
 3. Incident runbook: Error messages found in source code, root causes, log locations, and troubleshooting resolution steps.
+Self-Reflection Step: Check if every error message symptom maps to a verified resolution.
 Output deployment runbook facts and operational failure recovery steps.
 ```
 
-#### 6. Language Writer Subagent Prompt Template
+#### 6. Language Writer Subagent Prompt
 ```markdown
 You are the {language_name} Documentation Writer for project '{project_name}'.
 Write the complete documentation suite in {language_name} using the unified SemanticModel provided.
@@ -120,15 +183,14 @@ Requirements:
 1. Independent generation: Write native, high-quality technical {language_name} directly from the SemanticModel — NEVER translate from another language output.
 2. Code block parity: All command code blocks, configuration keys, and parameter flags must remain 100% identical across all language versions.
 3. Diátaxis structure: Write README.md, getting-started.md, installation.md, configuration.md, usage/*.md, faq.md, troubleshooting.md, and index.md.
-4. Strict Anti-AI-Cliché rules:
-   - BAN binary antitheses ("不是……而是……", "不仅……而且……").
-   - BAN buzzwords ("收敛", "赋能", "对齐").
-   - BAN redundant colons in headings and list items.
-   - Write clear, concise, engineer-to-engineer prose.
+4. Self-Reflection Step: Run the 4-dimensional self-reflection check:
+   - Check grounding of all commands.
+   - Confirm 100% parity with SemanticModel.
+   - Purge AI clichés: NO "不是……而是……", NO "不仅……而且……", NO "收敛/赋能", NO redundant colons.
 Save all generated files under '{output_dir}/'.
 ```
 
-#### 7. Reviewer & Quality Auditor Subagent Prompt Template
+#### 7. Reviewer & Quality Auditor Subagent Prompt
 ```markdown
 You are the Quality Auditor and Reviewer for the generated documentation in '{output_dir}/'.
 Perform an autonomous audit and self-healing pass:
@@ -140,24 +202,7 @@ Perform an autonomous audit and self-healing pass:
 
 ---
 
-### Autonomous Zero-Intervention Principle (全自主无人值守原则)
-
-This skill is designed for **end-to-end autonomous execution without interrupting the user**:
-1. **No Intermediate Blocking Prompts**:
-   - Do **NOT** ask the user intermediate questions (e.g. do NOT ask *"Which scan mode do you want?"*, *"Do you approve this outline?"*, *"Should I continue?"*).
-   - Automatically determine project sizing (Tier S/M/L), scan depth, and documentation layout from codebase evidence.
-2. **Deterministic Auto-Defaults**:
-   - If languages are not specified, default to `en` and `zh-CN` (or read from `makewiki.config.yaml`).
-   - If output directory is not specified, default to `makewiki`.
-   - If theme is not specified, default to `auto`.
-3. **Autonomous Self-Healing & In-Place Correction**:
-   - If a command/path verification fails $\rightarrow$ automatically correct or remove it in-place without human intervention.
-   - If a toolkit command fails $\rightarrow$ automatically fallback to agent tools (`Glob`, `Read`, `Grep`) and proceed smoothly.
-   - If cross-language drift is detected $\rightarrow$ automatically synchronize code blocks and facts across all versions.
-
----
-
-### Subagent Budgeting & Sizing Tiers
+## 5. Subagent Budgeting & Sizing Tiers
 
 The Main Agent **automatically assesses project complexity** in Phase 0 without prompting the user:
 
@@ -169,7 +214,7 @@ The Main Agent **automatically assesses project complexity** in Phase 0 without 
 
 ---
 
-## 2. Documentation Standards (Enterprise Delivery + Diátaxis)
+## 6. Documentation Standards (Enterprise Delivery + Diátaxis)
 
 Every generated documentation set must fulfill **two core requirements**:
 1. **Developer Rapid Onboarding (Diátaxis Framework)**: Help developers understand the project in 5 minutes and perform daily tasks.
@@ -218,7 +263,7 @@ Every generated documentation set must fulfill **two core requirements**:
 
 ---
 
-## 3. Six-Phase Multi-Agent Execution Workflow
+## 7. Six-Phase Subagent-Driven Execution Workflow
 
 ### Arguments
 
@@ -239,58 +284,53 @@ Run this bootstrap command:
 python scripts/bootstrap_toolkit.py
 ```
 
-If the script prints a path, refer to it as `<makewiki_root>`. If any launcher command fails later, continue in manual agent mode.
+---
+
+### Phase 0: Autonomous Project Sizing & Dynamic Subagent Synthesis
+
+1. The Main Agent counts project source files or runs `python <makewiki_root>/scripts/run_toolkit.py sizing .`.
+2. Assess project complexity (`Tier S`, `Tier M`, or `Tier L`) and dynamically synthesize subagent roles according to project characteristics.
 
 ---
 
-### Phase 0: Project Sizing & Subagent Budgeting (Autonomous)
+### Phase 1: Autonomous Codebase Reconnaissance (Scout Subagents)
 
-1. Run the sizing probe automatically:
-   ```bash
-   python <makewiki_root>/scripts/run_toolkit.py sizing .
-   ```
-2. Automatically select project tier (`Tier S`, `Tier M`, or `Tier L`) and allocate subagents according to the sizing table.
+Launch **Scout Subagents** directly into the codebase:
+- **`Scout-Structure Subagent`**: Uses `Glob` and `Read` to inspect package manifests (`pyproject.toml`, `package.json`, `go.mod`, `Cargo.toml`), Makefile, CI workflows, Dockerfiles.
+- **`Scout-Surface Subagent`**: Uses `Grep` and `Read` to inspect README, CLI entrypoints, help flags, and `.env.example`.
 
----
-
-### Phase 1: Recon & Evidence Gathering (Scout Subagents)
-
-For Tier M / L, launch **Scout Subagents** with their prompt templates:
-- **`Scout-Structure`**: Scans package manifests (`pyproject.toml`, `package.json`, `Cargo.toml`, `go.mod`), Makefile, CI/CD workflows, Dockerfiles.
-- **`Scout-Surface`**: Scans README, entrypoints, CLI help flags, REST route decorators, and `.env.example`.
-
-*Fallback / Tier S*: Run static scan via toolkit `python <makewiki_root>/scripts/run_toolkit.py scan . --format json` or direct `Glob`/`Read`.
+Both subagents return structured factual evidence with file and line citations after self-critique.
 
 ---
 
-### Phase 2: ReBattle Competitive Analysis & Adjudication
+### Phase 2: ReBattle Adversarial Cross-Examination & Adjudication
 
-To eliminate hallucinations and single-agent omissions, deploy multi-perspective analysis:
+Deploy multi-perspective subagents for adversarial verification:
 
-#### 1. Independent Blind Extraction (Round 1)
-- **Agent Red (User & DX)**: Extracts CLI commands, interactive workflows, quickstart tutorial paths, and expected outputs.
-- **Agent Blue (Code AST & Ground Truth)**: Extracts actual AST functions, exports, handler signatures, default fallback values, and unreleased/stub code warnings.
-- **Agent Green (Enterprise Ops)**: Extracts OS/runtime compatibility, configuration matrix, environment variables, health checks, and error logs.
+#### 1. Blind Extraction with Self-Reflection (Round 1)
+- **Agent Red (User & DX)**: Extracts runnable CLI commands, onboarding tutorial paths, and expected outputs.
+- **Agent Blue (Code AST & Ground Truth)**: Inspects source code functions, exports, handlers, and stub/deprecated warnings.
+- **Agent Green (Enterprise Ops)**: Extracts compatibility matrices, environment variables, health checks, and error runbooks.
 
-#### 2. Cross-Examination & Challenge (Round 2)
-The Main Agent exchanges Claims among the agents:
+#### 2. Cross-Examination & Debate (Round 2)
+The subagents challenge each other's claims:
 - Agent Blue challenges Agent Red: *"Command `--fast` does not exist in cli.py parser; flag is invalid."*
 - Agent Green challenges Agent Red: *"Quickstart tutorial omits mandatory `DB_PORT` environment variable."*
 - Agent Red challenges Agent Blue: *"Function `export_csv` is exposed via CLI even though marked internal."*
 
 #### 3. Adjudication & Unified Semantic Model (Round 3)
 The Main Agent acts as **Judge**:
-- Runs `python <makewiki_root>/scripts/run_toolkit.py verify . --format json` to mechanically verify disputed paths, commands, and keys.
-- Resolves conflicts, rejects ungrounded claims, hedges uncertain capabilities, and compiles the authoritative **`SemanticModel`**.
+- Adjudicates disputed claims using codebase facts.
+- Rejects ungrounded claims, hedges uncertain capabilities, and compiles the authoritative **`SemanticModel`** (`semantic_model.json`).
 
 ---
 
-### Phase 3: Parallel Multilingual Writers
+### Phase 3: Parallel Multilingual Writers (Subagent Authors)
 
-For each requested language (`en`, `zh-CN`, `ja`, etc.):
-- Spawn an independent **Language Writer Subagent** (or sequential in Tier S).
-- Feed the Writer the **same adjudicated SemanticModel** and language prompt template.
-- Each Writer writes the full Markdown document set into `<output_dir>/`:
+For each target language (`en`, `zh-CN`, `ja`, etc.):
+- Spawn an independent **Language Writer Subagent**.
+- Each Writer receives the **same adjudicated SemanticModel**.
+- Each Writer executes internal self-reflection (grounding, parity, anti-cliché) and writes the complete native Markdown documentation set into `<output_dir>/`:
   - `README.md` / `README.<lang>.md`
   - `getting-started.md` / `getting-started.<lang>.md`
   - `installation.md` / `installation.<lang>.md`
@@ -302,42 +342,36 @@ For each requested language (`en`, `zh-CN`, `ja`, etc.):
 
 ---
 
-### Phase 4: Adversarial Review & Codebase Verification (Auto-Correction)
+### Phase 4: Adversarial Review & Autonomous Self-Healing (Auditor Subagent)
 
-1. **Mechanical Ground-Truth Check**:
-   ```bash
-   python <makewiki_root>/scripts/run_toolkit.py verify . --format json
-   ```
-2. **Cross-Language Consistency Check**:
-   ```bash
-   python <makewiki_root>/scripts/run_toolkit.py review . --lang en --lang zh-CN
-   ```
-3. **Review Subagent Pass**:
-   - Verify code blocks and command syntax match 100% across all languages.
-   - Automatically correct or remove any invalid keys, commands, or paths in-place.
-   - Ensure text is strictly free of AI clichés ("不是而是", "这是", "收敛", redundant colons).
+1. Launch the **Auditor Subagent**:
+   - Compares English and Chinese docs side-by-side to guarantee 100% code block and parameter parity.
+   - Verifies all referenced paths, commands, and keys against the actual codebase.
+   - Scans for broken links and AI clichés ("不是……而是……", "收敛", redundant colons).
+2. **Autonomous Self-Healing**:
+   - The Auditor directly edits and fixes Markdown files in place if discrepancies are detected.
 
 ---
 
-### Phase 5: Offline Static Site Compilation
+### Phase 5: Offline Static Site Compilation (Mechanical Tooling)
 
 Compile the Markdown docs into a standalone, zero-dependency, responsive offline website:
 ```bash
 python <makewiki_root>/scripts/run_toolkit.py build-site <output_dir> --theme auto
 ```
-This generates `<output_dir>/site/index.html`, which users can directly double-click to open in any web browser with:
+This generates `<output_dir>/site/index.html` with:
 - Multilingual dropdown switcher
 - Light / Dark theme toggle
 - Search bar with instant client-side keyword indexing
-- Code syntax display with 1-click copy button
+- 1-click code copy buttons
 
 ---
 
 ### Phase 6: Ephemeral Cleanup & Final Report
 
-1. Automatically clean up any temporary debug logs, AST caches, or scratch files.
-2. Present a single concise completion report to the user:
-   - Project Tier & Subagent count utilized
-   - Total documents generated per language
+1. Clean up temporary scratch logs or debug artifacts.
+2. Present a concise completion report to the user:
+   - Project Tier & Subagents deployed
+   - Generated pages per language
    - Verification status
-   - Direct link to the compiled static site (`makewiki/site/index.html`)
+   - Direct link to `makewiki/site/index.html`
