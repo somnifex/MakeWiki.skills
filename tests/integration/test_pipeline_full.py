@@ -10,6 +10,7 @@ def test_full_pipeline_python_cli(minimal_python_cli_dir: Path, tmp_path: Path):
     """Run the full 7-stage pipeline on a minimal Python CLI project."""
     # Copy fixture to tmp_path so we don't pollute the repo
     import shutil
+
     project_dir = tmp_path / "project"
     shutil.copytree(minimal_python_cli_dir, project_dir)
 

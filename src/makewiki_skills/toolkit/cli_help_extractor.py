@@ -74,9 +74,7 @@ class CLIHelpExtractor:
 
         return results
 
-    def _extract_typer(
-        self, content: str, lines: list[str], rel_path: str
-    ) -> list[CLIHelpFact]:
+    def _extract_typer(self, content: str, lines: list[str], rel_path: str) -> list[CLIHelpFact]:
         results: list[CLIHelpFact] = []
 
         for match in self._TYPER_PATTERNS[0].finditer(content):
@@ -105,9 +103,7 @@ class CLIHelpExtractor:
 
         return results
 
-    def _extract_click(
-        self, content: str, lines: list[str], rel_path: str
-    ) -> list[CLIHelpFact]:
+    def _extract_click(self, content: str, lines: list[str], rel_path: str) -> list[CLIHelpFact]:
         results: list[CLIHelpFact] = []
         for pattern in self._CLICK_PATTERNS:
             for match in pattern.finditer(content):
@@ -123,9 +119,7 @@ class CLIHelpExtractor:
                 )
         return results
 
-    def _extract_argparse(
-        self, content: str, lines: list[str], rel_path: str
-    ) -> list[CLIHelpFact]:
+    def _extract_argparse(self, content: str, lines: list[str], rel_path: str) -> list[CLIHelpFact]:
         results: list[CLIHelpFact] = []
         for pattern in self._ARGPARSE_PATTERNS:
             for match in pattern.finditer(content):

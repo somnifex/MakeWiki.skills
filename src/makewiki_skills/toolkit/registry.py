@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from makewiki_skills.toolkit.base import BaseTool
 
+
 class ToolRegistry:
     """Singleton registry that holds references to tool instances."""
 

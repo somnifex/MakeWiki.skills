@@ -7,7 +7,6 @@ import click
 @click.version_option("1.2.0")
 def main():
     """sample-cli - a demo command-line tool."""
-    pass
 
 
 @main.command()

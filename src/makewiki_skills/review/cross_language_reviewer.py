@@ -3,12 +3,13 @@
 from __future__ import annotations
 
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from pydantic import BaseModel, Field, computed_field
 
 from makewiki_skills.generator.language_generator import GeneratedDocument
 from makewiki_skills.toolkit.markdown_tools import FactSet, MarkdownTool
+
 
 class FactDelta(BaseModel):
     """An inconsistency found between language versions."""
@@ -19,11 +20,12 @@ class FactDelta(BaseModel):
     missing_from: list[str] = Field(default_factory=list)
     severity: str = "minor"  # "critical" | "major" | "minor"
 
+
 class CrossLanguageReview(BaseModel):
     """Result of a cross-language consistency review."""
 
     review_id: str = Field(default_factory=lambda: uuid.uuid4().hex[:12])
-    reviewed_at: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
+    reviewed_at: str = Field(default_factory=lambda: datetime.now(UTC).isoformat())
     languages_reviewed: list[str] = Field(default_factory=list)
     fact_deltas: list[FactDelta] = Field(default_factory=list)
     page_coverage: dict[str, list[str]] = Field(default_factory=dict)
@@ -39,6 +41,7 @@ class CrossLanguageReview(BaseModel):
     def passed(self) -> bool:
         return len(self.critical_issues) == 0
 
+
 class RevisionInstruction(BaseModel):
     """An instruction for revising a document based on review findings."""
 
@@ -47,6 +50,7 @@ class RevisionInstruction(BaseModel):
     issue_type: str  # "missing_fact" | "extra_fact" | "missing_page"
     description: str
     severity: str = "minor"
+
 
 class CrossLanguageReviewer:
     """Compare documents across languages for factual consistency.
@@ -58,9 +62,7 @@ class CrossLanguageReviewer:
     def __init__(self) -> None:
         self._md = MarkdownTool()
 
-    def review(
-        self, documents: dict[str, list[GeneratedDocument]]
-    ) -> CrossLanguageReview:
+    def review(self, documents: dict[str, list[GeneratedDocument]]) -> CrossLanguageReview:
         """Run a full cross-language review.
 
         Args:
@@ -114,8 +116,7 @@ class CrossLanguageReviewer:
 
         total_checks = max(len(deltas) + 10, 1)  # avoid division by zero
         penalty = sum(
-            3 if d.severity == "critical" else 2 if d.severity == "major" else 1
-            for d in deltas
+            3 if d.severity == "critical" else 2 if d.severity == "major" else 1 for d in deltas
         )
         score = max(0.0, 1.0 - penalty / total_checks)
 
@@ -149,9 +150,7 @@ class CrossLanguageReviewer:
                     )
         return instructions
 
-    def _compare_fact_sets(
-        self, sets: list[tuple[str, FactSet]]
-    ) -> list[FactDelta]:
+    def _compare_fact_sets(self, sets: list[tuple[str, FactSet]]) -> list[FactDelta]:
         deltas: list[FactDelta] = []
 
         deltas.extend(

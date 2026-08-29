@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 from pydantic import BaseModel, Field
@@ -135,6 +135,46 @@ class TroubleshootingItem(BaseModel):
     evidence: list[EvidenceLink] = Field(default_factory=list)
 
 
+class CompatibilityEntry(BaseModel):
+    """OS and runtime compatibility entry."""
+
+    os_name: str
+    runtime_version: str
+    status: str = "supported"  # "supported" | "compatible" | "unsupported" | "untested"
+    notes: str | None = None
+    evidence: list[EvidenceLink] = Field(default_factory=list)
+
+
+class HealthCheck(BaseModel):
+    """Post-deployment health check or smoke test command."""
+
+    name: str
+    command: str
+    expected_output: str | None = None
+    description: str | None = None
+    evidence: list[EvidenceLink] = Field(default_factory=list)
+
+
+class DeploymentNote(BaseModel):
+    """Enterprise deployment or runbook procedure."""
+
+    title: str
+    target_env: str = "production"
+    description: str
+    steps: list[str] = Field(default_factory=list)
+    evidence: list[EvidenceLink] = Field(default_factory=list)
+
+
+class LogPathEntry(BaseModel):
+    """Log and diagnostic file path information."""
+
+    name: str
+    default_path: str
+    description: str | None = None
+    rotation_policy: str | None = None
+    evidence: list[EvidenceLink] = Field(default_factory=list)
+
+
 class CommandGroup(BaseModel):
     """Group related commands and tasks under one usage page."""
 
@@ -152,7 +192,7 @@ class SemanticModel(BaseModel):
     """Structured project model used to render docs."""
 
     model_id: str = ""
-    created_at: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
+    created_at: str = Field(default_factory=lambda: datetime.now(UTC).isoformat())
 
     identity: ProjectIdentity = Field(default_factory=ProjectIdentity)
     installation: InstallationGuide = Field(default_factory=InstallationGuide)
@@ -165,6 +205,10 @@ class SemanticModel(BaseModel):
     platform_notes: list[PlatformNote] = Field(default_factory=list)
     troubleshooting: list[TroubleshootingItem] = Field(default_factory=list)
     command_groups: list[CommandGroup] = Field(default_factory=list)
+    compatibility_matrix: list[CompatibilityEntry] = Field(default_factory=list)
+    health_checks: list[HealthCheck] = Field(default_factory=list)
+    deployment_notes: list[DeploymentNote] = Field(default_factory=list)
+    log_paths: list[LogPathEntry] = Field(default_factory=list)
 
     project_type: ProjectType = ProjectType.GENERIC
     evidence_summary: dict[str, int] = Field(default_factory=dict)

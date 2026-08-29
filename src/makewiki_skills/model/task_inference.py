@@ -9,9 +9,12 @@ from makewiki_skills.model.semantic_model import Command, ConfigSection, UserTas
 from makewiki_skills.scanner.evidence_registry import EvidenceRegistry
 from makewiki_skills.scanner.project_detector import ProjectDetectionResult
 
-
 _USER_TASK_PATTERNS: list[tuple[str, str, str]] = [
-    (r"(?:^|\s)(?:serve|start|run|dev)(?:\s|$)", "Start the application", "Run the project locally."),
+    (
+        r"(?:^|\s)(?:serve|start|run|dev)(?:\s|$)",
+        "Start the application",
+        "Run the project locally.",
+    ),
     (
         r"(?:docker compose|docker-compose)",
         "Start the application with Docker",
@@ -113,7 +116,9 @@ class TaskInferenceEngine:
 
     def _priority(self, command: Command, executables: set[str]) -> int:
         section = (command.section or "").lower()
-        if any(keyword in section for keyword in ("usage", "example", "quick start", "getting started")):
+        if any(
+            keyword in section for keyword in ("usage", "example", "quick start", "getting started")
+        ):
             return 0
         if self._is_user_cli_command(command.name, executables):
             return 1
@@ -139,7 +144,9 @@ class TaskInferenceEngine:
             return True
         if len(normalized.split()) == 1 and normalized not in {"docker compose", "docker-compose"}:
             return True
-        return any(re.search(pattern, normalized, re.IGNORECASE) for pattern in _DEVELOPER_COMMAND_PATTERNS)
+        return any(
+            re.search(pattern, normalized, re.IGNORECASE) for pattern in _DEVELOPER_COMMAND_PATTERNS
+        )
 
     @staticmethod
     def _likely_executables(

@@ -10,21 +10,25 @@ from pydantic import BaseModel, Field
 
 from makewiki_skills.toolkit.base import ToolResult
 
+
 class Heading(BaseModel):
     level: int
     text: str
     line: int
+
 
 class CodeBlock(BaseModel):
     language: str | None = None
     content: str
     start_line: int
 
+
 class MarkdownIssue(BaseModel):
     line: int
     issue_type: str  # "heading_skip" | "broken_link" | "missing_h1" | "empty_page"
     message: str
     severity: str = "warning"  # "error" | "warning"
+
 
 class FactSet(BaseModel):
     """Structured facts extracted from a rendered Markdown document."""
@@ -38,6 +42,7 @@ class FactSet(BaseModel):
     urls: list[str] = Field(default_factory=list)
     section_names: list[str] = Field(default_factory=list)
 
+
 class MarkdownTool:
     """Validate and extract structured data from Markdown content."""
 
@@ -48,7 +53,9 @@ class MarkdownTool:
         for i, line in enumerate(content.splitlines(), 1):
             match = re.match(r"^(#{1,6})\s+(.+)$", line)
             if match:
-                headings.append(Heading(level=len(match.group(1)), text=match.group(2).strip(), line=i))
+                headings.append(
+                    Heading(level=len(match.group(1)), text=match.group(2).strip(), line=i)
+                )
         return headings
 
     def validate_headings(self, content: str) -> ToolResult:
@@ -56,13 +63,31 @@ class MarkdownTool:
         issues: list[MarkdownIssue] = []
 
         if not headings:
-            issues.append(MarkdownIssue(line=1, issue_type="missing_h1", message="No headings found", severity="error"))
+            issues.append(
+                MarkdownIssue(
+                    line=1, issue_type="missing_h1", message="No headings found", severity="error"
+                )
+            )
         elif headings[0].level != 1:
-            issues.append(MarkdownIssue(line=headings[0].line, issue_type="missing_h1", message="First heading should be H1", severity="error"))
+            issues.append(
+                MarkdownIssue(
+                    line=headings[0].line,
+                    issue_type="missing_h1",
+                    message="First heading should be H1",
+                    severity="error",
+                )
+            )
 
         h1_count = sum(1 for h in headings if h.level == 1)
         if h1_count > 1:
-            issues.append(MarkdownIssue(line=1, issue_type="heading_skip", message=f"Multiple H1 headings found ({h1_count})", severity="warning"))
+            issues.append(
+                MarkdownIssue(
+                    line=1,
+                    issue_type="heading_skip",
+                    message=f"Multiple H1 headings found ({h1_count})",
+                    severity="warning",
+                )
+            )
 
         for i in range(1, len(headings)):
             if headings[i].level > headings[i - 1].level + 1:
@@ -114,7 +139,9 @@ class MarkdownTool:
             blocks.append(CodeBlock(language=lang, content=match.group(2), start_line=start_line))
         return blocks
 
-    def extract_facts(self, content: str, language_code: str = "", document_name: str = "") -> FactSet:
+    def extract_facts(
+        self, content: str, language_code: str = "", document_name: str = ""
+    ) -> FactSet:
         facts = FactSet(language_code=language_code, document_name=document_name)
 
         headings = self.extract_headings(content)

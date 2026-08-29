@@ -12,6 +12,7 @@ from pydantic import BaseModel, Field
 
 from makewiki_skills.toolkit.base import ToolResult
 
+
 class MakeTarget(BaseModel):
     """A target parsed from a Makefile."""
 
@@ -20,6 +21,7 @@ class MakeTarget(BaseModel):
     description: str | None = None
     body: str = ""
 
+
 class ScriptEntry(BaseModel):
     """A script entry from package.json / pyproject.toml."""
 
@@ -27,6 +29,7 @@ class ScriptEntry(BaseModel):
     command: str
     source: str  # "package_json" | "pyproject_scripts" | "makefile"
     description: str | None = None
+
 
 class CommandProbeTool:
     """Parse build metadata to discover commands without executing them."""

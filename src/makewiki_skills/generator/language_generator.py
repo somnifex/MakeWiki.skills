@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -22,9 +22,7 @@ class GeneratedDocument(BaseModel):
     language_code: str
     content: str
     word_count: int = 0
-    generation_timestamp: str = Field(
-        default_factory=lambda: datetime.now(timezone.utc).isoformat()
-    )
+    generation_timestamp: str = Field(default_factory=lambda: datetime.now(UTC).isoformat())
 
 
 DOCUMENT_TEMPLATES: list[tuple[str, str]] = [

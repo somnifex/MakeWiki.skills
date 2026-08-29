@@ -105,7 +105,9 @@ def test_placeholder_command_passes(tmp_path: Path):
 
 def test_config_key_found_in_yaml(tmp_path: Path):
     """Config keys that exist in project YAML should be verified."""
-    (tmp_path / "config.yaml").write_text("server:\n  port: 8080\n  host: localhost\n", encoding="utf-8")
+    (tmp_path / "config.yaml").write_text(
+        "server:\n  port: 8080\n  host: localhost\n", encoding="utf-8"
+    )
 
     doc = _doc("config.md", "# Config\n\nSet `server.port` to change the port.\n")
     verifier = CodebaseVerifier(tmp_path)

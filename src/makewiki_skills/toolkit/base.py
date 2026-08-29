@@ -19,7 +19,6 @@ class ToolResult(BaseModel):
 
 @runtime_checkable
 class BaseTool(Protocol):
-
     name: str
 
     def execute(self, **kwargs: Any) -> ToolResult: ...

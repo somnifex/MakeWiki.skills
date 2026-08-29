@@ -8,6 +8,7 @@ from typing import Any, cast
 import yaml  # type: ignore[import-untyped]
 from pydantic import BaseModel, Field
 
+
 class ScanConfig(BaseModel):
     """Controls which files and directories are scanned."""
 
@@ -31,6 +32,7 @@ class ScanConfig(BaseModel):
     max_external_urls: int = 3
     recursive_docs: bool = True
 
+
 class ReviewConfig(BaseModel):
     """Controls cross-language and grounding review behaviour."""
 
@@ -39,6 +41,7 @@ class ReviewConfig(BaseModel):
     enable_codebase_verification: bool = True
     enable_semantic_review: bool = True
     min_page_alignment_ratio: float = 0.9
+
 
 class ContentDepthConfig(BaseModel):
     """Controls how much detail is generated and when pages are split into sub-pages."""
@@ -78,10 +81,38 @@ class DocumentationPolicyConfig(BaseModel):
         ]
     )
 
+
 class LanguageProfileConfig(BaseModel):
     """Per-language overrides in the config file."""
 
     tone: str = "concise-user-facing"
+
+
+class AgentConfig(BaseModel):
+    """Controls multi-agent execution and subagent budget."""
+
+    max_subagents: int = 10
+    rebattle_rounds: int = 2
+    tier_override: str = "auto"  # "auto" | "S" | "M" | "L"
+
+
+class SiteConfig(BaseModel):
+    """Controls static HTML website compilation."""
+
+    compile: bool = True
+    theme: str = "auto"  # "auto" | "light" | "dark"
+    include_search: bool = True
+    output_subdir: str = "site"
+
+
+class DeliveryConfig(BaseModel):
+    """Controls enterprise and commercial delivery documentation structure."""
+
+    audience: str = "dual"  # "dual" | "end-user" | "enterprise"
+    include_deployment_runbook: bool = True
+    include_compatibility_matrix: bool = True
+    include_health_checks: bool = True
+
 
 class MakeWikiConfig(BaseModel):
     """Root configuration for a makewiki run."""
@@ -99,7 +130,12 @@ class MakeWikiConfig(BaseModel):
     scan: ScanConfig = Field(default_factory=ScanConfig)
     review: ReviewConfig = Field(default_factory=ReviewConfig)
     content_depth: ContentDepthConfig = Field(default_factory=ContentDepthConfig)
-    documentation_policy: DocumentationPolicyConfig = Field(default_factory=DocumentationPolicyConfig)
+    documentation_policy: DocumentationPolicyConfig = Field(
+        default_factory=DocumentationPolicyConfig
+    )
+    agent: AgentConfig = Field(default_factory=AgentConfig)
+    site: SiteConfig = Field(default_factory=SiteConfig)
+    delivery: DeliveryConfig = Field(default_factory=DeliveryConfig)
     language_profiles: dict[str, LanguageProfileConfig] = Field(default_factory=dict)
 
     target_dir: Path = Field(default=Path("."))

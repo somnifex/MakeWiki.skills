@@ -16,13 +16,15 @@ def extractor() -> CommentExtractor:
 class TestEnvComments:
     def test_preceding_comment(self, extractor: CommentExtractor, tmp_path: Path) -> None:
         env_file = tmp_path / ".env.example"
-        env_file.write_text(dedent("""\
+        env_file.write_text(
+            dedent("""\
             # Database connection string
             DATABASE_URL=postgres://localhost:5432/mydb
 
             # Secret key for session signing
             SECRET_KEY=change-me-in-production
-        """))
+        """)
+        )
         comments = extractor.extract_env_comments(env_file)
         assert len(comments) == 2
         assert comments[0].key == "DATABASE_URL"
@@ -31,11 +33,13 @@ class TestEnvComments:
 
     def test_multiline_preceding_comment(self, extractor: CommentExtractor, tmp_path: Path) -> None:
         env_file = tmp_path / ".env"
-        env_file.write_text(dedent("""\
+        env_file.write_text(
+            dedent("""\
             # Redis host
             # Used for caching and session storage
             REDIS_URL=redis://localhost:6379
-        """))
+        """)
+        )
         comments = extractor.extract_env_comments(env_file)
         assert len(comments) == 1
         assert "Redis host" in comments[0].comment_text
@@ -45,7 +49,9 @@ class TestEnvComments:
         env_file = tmp_path / ".env.example"
         env_file.write_text("PORT=8080  # HTTP listen port\n")
         comments = extractor.extract_env_comments(env_file)
-        assert any(c.comment_type == "inline" and "HTTP listen port" in c.comment_text for c in comments)
+        assert any(
+            c.comment_type == "inline" and "HTTP listen port" in c.comment_text for c in comments
+        )
 
     def test_no_comments(self, extractor: CommentExtractor, tmp_path: Path) -> None:
         env_file = tmp_path / ".env"
@@ -53,13 +59,17 @@ class TestEnvComments:
         comments = extractor.extract_env_comments(env_file)
         assert len(comments) == 0
 
-    def test_blank_line_breaks_association(self, extractor: CommentExtractor, tmp_path: Path) -> None:
+    def test_blank_line_breaks_association(
+        self, extractor: CommentExtractor, tmp_path: Path
+    ) -> None:
         env_file = tmp_path / ".env"
-        env_file.write_text(dedent("""\
+        env_file.write_text(
+            dedent("""\
             # This comment is orphaned
 
             DB_HOST=localhost
-        """))
+        """)
+        )
         comments = extractor.extract_env_comments(env_file)
         assert len(comments) == 0
 
@@ -67,12 +77,14 @@ class TestEnvComments:
 class TestYamlComments:
     def test_preceding_yaml_comment(self, extractor: CommentExtractor, tmp_path: Path) -> None:
         yaml_file = tmp_path / "config.yaml"
-        yaml_file.write_text(dedent("""\
+        yaml_file.write_text(
+            dedent("""\
             # Server listen port
             port: 8080
             # Database host address
             host: localhost
-        """))
+        """)
+        )
         comments = extractor.extract_yaml_comments(yaml_file)
         assert len(comments) == 2
         assert comments[0].key == "port"
@@ -88,10 +100,12 @@ class TestYamlComments:
 class TestTomlComments:
     def test_preceding_toml_comment(self, extractor: CommentExtractor, tmp_path: Path) -> None:
         toml_file = tmp_path / "config.toml"
-        toml_file.write_text(dedent("""\
+        toml_file.write_text(
+            dedent("""\
             # Maximum retry attempts
             max_retries = 3
-        """))
+        """)
+        )
         comments = extractor.extract_toml_comments(toml_file)
         assert len(comments) == 1
         assert comments[0].key == "max_retries"
@@ -101,11 +115,13 @@ class TestTomlComments:
 class TestIniComments:
     def test_preceding_ini_comment(self, extractor: CommentExtractor, tmp_path: Path) -> None:
         ini_file = tmp_path / "app.ini"
-        ini_file.write_text(dedent("""\
+        ini_file.write_text(
+            dedent("""\
             [server]
             ; Bind address for the HTTP server
             host = 0.0.0.0
-        """))
+        """)
+        )
         comments = extractor.extract_ini_comments(ini_file)
         assert len(comments) == 1
         assert comments[0].key == "host"

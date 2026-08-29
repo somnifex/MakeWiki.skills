@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+import re
+from datetime import UTC, datetime
 from pathlib import Path
+
 from pydantic import BaseModel, Field
 
 from makewiki_skills.config import MakeWikiConfig
@@ -15,6 +17,8 @@ from makewiki_skills.toolkit.config_reader import ConfigReaderTool
 from makewiki_skills.toolkit.error_extractor import ErrorStringExtractor
 from makewiki_skills.toolkit.evidence import EvidenceFact, EvidenceLink, EvidenceTool
 from makewiki_skills.toolkit.filesystem import FilesystemTool
+from makewiki_skills.toolkit.source_extractor import MultiLanguageSourceExtractor
+
 
 class CollectedEvidence(BaseModel):
     """Aggregate result of a full evidence collection run."""
@@ -24,7 +28,8 @@ class CollectedEvidence(BaseModel):
     facts: list[EvidenceFact] = Field(default_factory=list)
     raw_files_read: list[str] = Field(default_factory=list)
     commands_discovered: list[str] = Field(default_factory=list)
-    collection_timestamp: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
+    collection_timestamp: str = Field(default_factory=lambda: datetime.now(UTC).isoformat())
+
 
 class EvidenceCollector:
     """Orchestrates evidence gathering across all toolkit tools."""
@@ -38,6 +43,7 @@ class EvidenceCollector:
         self._comment_extractor = CommentExtractor()
         self._cli_help_extractor = CLIHelpExtractor()
         self._error_extractor = ErrorStringExtractor()
+        self._source_extractor = MultiLanguageSourceExtractor()
 
     def collect(
         self,
@@ -123,9 +129,7 @@ class EvidenceCollector:
                     rel = str(p.relative_to(root)).replace("\\", "/")
                     result = self._cfg_reader.read_any(p)
                     if result.success and isinstance(result.data, dict):
-                        facts.extend(
-                            self._evidence.extract_config_keys(result.data, rel)
-                        )
+                        facts.extend(self._evidence.extract_config_keys(result.data, rel))
                         files_read.append(rel)
         return facts, files_read
 
@@ -139,16 +143,29 @@ class EvidenceCollector:
             doc_patterns = ["README.md", "README.rst", "README.txt", "docs/*.md"]
         elif mode in ["standard", "auto"]:
             doc_patterns = [
-                "README.md", "README.rst", "README.txt",
-                "CHANGELOG.md", "CHANGELOG", "CHANGELOG.rst", "HISTORY.md",
-                "docs/**/*.md", "doc/**/*.md",
+                "README.md",
+                "README.rst",
+                "README.txt",
+                "CHANGELOG.md",
+                "CHANGELOG",
+                "CHANGELOG.rst",
+                "HISTORY.md",
+                "docs/**/*.md",
+                "doc/**/*.md",
             ]
         else:  # deep mode
             doc_patterns = [
-                "README.md", "README.rst", "README.txt",
-                "CHANGELOG.md", "CHANGELOG", "CHANGELOG.rst", "HISTORY.md",
+                "README.md",
+                "README.rst",
+                "README.txt",
+                "CHANGELOG.md",
+                "CHANGELOG",
+                "CHANGELOG.rst",
+                "HISTORY.md",
                 "CONTRIBUTING.md",
-                "docs/**/*.md", "doc/**/*.md", "documentation/**/*.md",
+                "docs/**/*.md",
+                "doc/**/*.md",
+                "documentation/**/*.md",
             ]
 
         for pattern in doc_patterns:
@@ -160,6 +177,8 @@ class EvidenceCollector:
                         content = result.data["content"]
                         cmd_facts = self._evidence.extract_commands(content, rel)
                         facts.extend(cmd_facts)
+                        table_facts = self._evidence.extract_markdown_tables(content, rel)
+                        facts.extend(table_facts)
                         ver = self._evidence.extract_version(content, rel)
                         if ver:
                             facts.append(ver)
@@ -220,23 +239,42 @@ class EvidenceCollector:
         return facts, commands
 
     def _extract_description(self, content: str, source_path: str) -> list[EvidenceFact]:
+        # Remove HTML comments
+        content = re.sub(r"<!--.*?-->", "", content, flags=re.DOTALL)
         lines = content.split("\n")
         paragraph_lines: list[str] = []
         in_paragraph = False
         for line in lines:
             stripped = line.strip()
-            if not stripped:
+            # Remove HTML tags like <div>, <p>, <a>, <img>, <details>, etc.
+            clean_line = re.sub(r"<[^>]+>", "", stripped).strip()
+            if not clean_line:
                 if in_paragraph:
                     break
                 continue
-            if stripped.startswith("#"):
+            if clean_line.startswith("#"):
                 if in_paragraph:
                     break
                 continue
-            if stripped.startswith("![") or stripped.startswith("[!["):
+            if (
+                clean_line.startswith("![")
+                or clean_line.startswith("[![")
+                or clean_line.startswith("[")
+            ):
                 continue
+            if clean_line.startswith(">"):
+                clean_line = (
+                    clean_line.lstrip("> [!IMPORTANT]")
+                    .lstrip("> [!WARNING]")
+                    .lstrip("> [!TIP]")
+                    .lstrip("> ")
+                    .strip()
+                )
+                if not clean_line:
+                    continue
+
             in_paragraph = True
-            paragraph_lines.append(stripped)
+            paragraph_lines.append(clean_line)
 
         if paragraph_lines:
             desc = " ".join(paragraph_lines)[:500]
@@ -285,7 +323,7 @@ class EvidenceCollector:
                             c.source_path = rel
                         facts.extend(self._comment_extractor.to_evidence_facts(comments))
 
-
+        # 1. Python source intelligence
         is_python = detection.project_type in (
             ProjectType.PYTHON_CLI,
             ProjectType.PYTHON_LIBRARY,
@@ -321,5 +359,57 @@ class EvidenceCollector:
                         files_read.append(rel)
 
                 py_files_scanned += 1
+
+        # 2. Go source intelligence
+        is_go = (
+            detection.project_type == ProjectType.GO_CLI
+            or list(root.glob("*.go"))
+            or list(root.glob("go.mod"))
+        )
+        if is_go:
+            go_files_scanned = 0
+            for go_file in sorted(root.rglob("*.go")):
+                rel_path = go_file.relative_to(root)
+                if len(rel_path.parts) > max_depth:
+                    continue
+                rel = str(rel_path).replace("\\", "/")
+                if any(part in self._config.scan.ignore_dirs for part in rel_path.parts):
+                    continue
+                if go_file.stat().st_size > self._config.scan.max_file_size_kb * 1024:
+                    continue
+                if go_files_scanned >= max_files:
+                    break
+
+                go_facts = self._source_extractor.extract_from_file(go_file)
+                if go_facts:
+                    facts.extend(self._source_extractor.to_evidence_facts(go_facts))
+                    if rel not in files_read:
+                        files_read.append(rel)
+
+                go_files_scanned += 1
+
+        # 3. Rust source intelligence
+        is_rust = detection.project_type == ProjectType.RUST_CLI or list(root.glob("Cargo.toml"))
+        if is_rust:
+            rs_files_scanned = 0
+            for rs_file in sorted(root.rglob("*.rs")):
+                rel_path = rs_file.relative_to(root)
+                if len(rel_path.parts) > max_depth:
+                    continue
+                rel = str(rel_path).replace("\\", "/")
+                if any(part in self._config.scan.ignore_dirs for part in rel_path.parts):
+                    continue
+                if rs_file.stat().st_size > self._config.scan.max_file_size_kb * 1024:
+                    continue
+                if rs_files_scanned >= max_files:
+                    break
+
+                rs_facts = self._source_extractor.extract_from_file(rs_file)
+                if rs_facts:
+                    facts.extend(self._source_extractor.to_evidence_facts(rs_facts))
+                    if rel not in files_read:
+                        files_read.append(rel)
+
+                rs_files_scanned += 1
 
         return facts, files_read

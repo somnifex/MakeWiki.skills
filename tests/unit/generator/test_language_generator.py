@@ -5,8 +5,8 @@ from makewiki_skills.generator.language_generator import LanguageGenerator
 from makewiki_skills.languages.registry import LanguageRegistry
 from makewiki_skills.model.semantic_model import (
     Command,
-    InstallStep,
     InstallationGuide,
+    InstallStep,
     Prerequisite,
     ProjectIdentity,
     SemanticModel,

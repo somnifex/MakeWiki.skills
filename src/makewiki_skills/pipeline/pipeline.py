@@ -25,8 +25,8 @@ from makewiki_skills.model.semantic_model import (
     ProjectIdentity,
     SemanticModel,
     TroubleshootingItem,
-    UserTask,
     UsageExample,
+    UserTask,
 )
 from makewiki_skills.model.task_inference import TaskInferenceEngine
 from makewiki_skills.renderer.output_manager import OutputManager
@@ -222,6 +222,25 @@ def stage_revision_and_output(ctx: PipelineContext) -> PipelineContext:
     return ctx
 
 
+def stage_compile_site(ctx: PipelineContext) -> PipelineContext:
+    if not ctx.config.site.compile:
+        return ctx
+    output_dir = ctx.config.target_dir / ctx.config.output_dir
+    if not output_dir.is_dir():
+        return ctx
+
+    from makewiki_skills.renderer.site_compiler import SiteCompiler
+
+    compiler = SiteCompiler(
+        theme=ctx.config.site.theme,
+        title=f"{ctx.config.target_dir.name} Documentation",
+    )
+    site_output = output_dir / ctx.config.site.output_subdir
+    written = compiler.compile(output_dir, site_output)
+    ctx.written_files.extend(written)
+    return ctx
+
+
 STAGES = [
     ("detect_project", stage_detect_project),
     ("collect_evidence", stage_collect_evidence),
@@ -231,6 +250,7 @@ STAGES = [
     ("grounding_verification", stage_grounding_verification),
     ("codebase_verification", stage_codebase_verification),
     ("revision_and_output", stage_revision_and_output),
+    ("compile_site", stage_compile_site),
 ]
 
 
@@ -833,17 +853,16 @@ def _is_user_facing_config(source: str) -> bool:
     name = Path(source).name.lower()
     if name in _MANIFEST_CONFIG_FILES:
         return False
-    if name.startswith(".env"):
+    if name.startswith(".env") or name.endswith(".env") or name.endswith(".md") or "doc" in name:
         return True
     return any(token in name for token in ("config", "settings", "appsettings"))
 
 
 def _configuration_section_name(source: str) -> str:
-    return (
-        "Environment variables"
-        if Path(source).name.lower().startswith(".env")
-        else "Configuration file"
-    )
+    name = Path(source).name.lower()
+    if name.startswith(".env") or name.endswith(".env") or name.endswith(".md") or "doc" in name:
+        return "Environment variables"
+    return "Configuration file"
 
 
 def _is_repo_navigation_command(command: str) -> bool:

@@ -1,7 +1,7 @@
 ---
 name: makewiki-init
-description: "Generate a default makewiki.config.yaml configuration file in the current project. Use when: user wants to customize MakeWiki behavior before generating docs."
-version: "0.7.5"
+description: "Generate a default makewiki.config.yaml configuration file in the current project with multi-agent budget, static site, and enterprise delivery options. Use when: user wants to customize MakeWiki behavior before generating docs."
+version: "2.0.0"
 argument-hint: "[--lang <code>...]"
 license: MIT
 allowed-tools: Bash(python */scripts/bootstrap_toolkit.py) Bash(python */scripts/run_toolkit.py *) Write
@@ -12,6 +12,8 @@ Create a default `makewiki.config.yaml` in the current project root.
 
 ## Execution
 
+### Step 1: Bootstrap the home-scoped toolkit
+
 Use the bundled bootstrap script. It prepares `<makewiki_root>` at `HOME/.makewiki` on Windows, macOS, and Linux. The launcher at `<makewiki_root>/scripts/run_toolkit.py` then bootstraps `<makewiki_root>/.venv`, preferring `uv` and falling back to `python -m venv`.
 
 Run this bootstrap command:
@@ -20,18 +22,9 @@ Run this bootstrap command:
 python scripts/bootstrap_toolkit.py
 ```
 
-If the script prints a path, refer to it as `<makewiki_root>` and try the toolkit first:
+### Step 2: Create Configuration File
 
-Build the command explicitly from the parsed arguments:
-
-- If no `--lang` flags were provided, run `python <makewiki_root>/scripts/run_toolkit.py init-config .`
-- If languages were provided, append them directly, for example `python <makewiki_root>/scripts/run_toolkit.py init-config . --lang en --lang zh-CN`
-
-```bash
-python <makewiki_root>/scripts/run_toolkit.py init-config . --lang en --lang zh-CN
-```
-
-If the script prints `NOT_FOUND`, or if the launcher command fails, create the file manually with this content:
+Create `makewiki.config.yaml` with the following configuration:
 
 ```yaml
 output_dir: makewiki
@@ -45,6 +38,24 @@ generate_faq: true
 generate_troubleshooting: true
 strict_grounding: true
 emit_uncertainty_notes: true
+
+agent:
+  max_subagents: 10
+  rebattle_rounds: 2
+  tier_override: auto         # auto | S | M | L
+
+site:
+  compile: true
+  theme: auto                 # auto | light | dark
+  include_search: true
+  output_subdir: site
+
+delivery:
+  audience: dual              # dual | end-user | enterprise
+  include_deployment_runbook: true
+  include_compatibility_matrix: true
+  include_health_checks: true
+
 scan:
   ignore_dirs:
     - node_modules
@@ -58,40 +69,23 @@ scan:
   max_depth: 6
   max_file_size_kb: 512
   enable_source_intelligence: true
-  source_intelligence_max_files: 50
+
 review:
   enable_cross_language_review: true
   enable_code_grounding_verification: true
+  enable_codebase_verification: true
   enable_semantic_review: true
-  min_page_alignment_ratio: 0.9
+
 content_depth:
-  mode: auto                      # auto | detailed | compact
-  max_faq_items: 20               # max FAQ entries (detailed mode)
-  max_usage_examples: 8           # max usage examples (detailed mode)
-  max_troubleshooting_items: 8    # max troubleshooting entries (detailed mode)
-  split_usage_threshold: 6        # split usage into sub-pages when commands exceed this
+  mode: auto                  # auto | compact | detailed
+  max_faq_items: 20
+  max_usage_examples: 8
+  max_troubleshooting_items: 8
+  split_usage_threshold: 6
+
 documentation_policy:
   audience: end-user
   structure_strategy: user-journey
   prefer_task_oriented_sections: true
-  include_architecture_analysis: false
-  include_directory_overview: false
-  include_source_walkthroughs: false
   forbid_unfounded_praise: true
-  banned_descriptors:
-    - powerful
-    - robust
-    - flexible
-    - enterprise-grade
-    - high-performance
-    - elegant
-    - state-of-the-art
-    - cutting-edge
-    - seamless
-    - blazing-fast
-    - world-class
-    - best-in-class
-    - production-ready
 ```
-
-Report the created file path and explain the key configuration options.

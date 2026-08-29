@@ -7,9 +7,10 @@ import os
 import shutil
 import subprocess
 import sys
+from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Sequence
+from typing import Any
 
 MIN_PYTHON = (3, 11)
 STATE_FILENAME = ".makewiki-toolkit-state.json"

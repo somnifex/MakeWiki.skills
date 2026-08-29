@@ -22,9 +22,7 @@ class OutputManager:
         self._delete_stale = delete_stale_files
         self._fs = FilesystemTool()
 
-    def write_documents(
-        self, documents: dict[str, list[GeneratedDocument]]
-    ) -> list[Path]:
+    def write_documents(self, documents: dict[str, list[GeneratedDocument]]) -> list[Path]:
         written: list[Path] = []
         for _lang, docs in documents.items():
             for doc in docs:

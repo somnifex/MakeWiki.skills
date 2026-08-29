@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import re
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Literal
 
@@ -36,7 +36,7 @@ class CodebaseVerificationReport(BaseModel):
 
     report_id: str = Field(default_factory=lambda: uuid.uuid4().hex[:12])
     verified_at: str = Field(
-        default_factory=lambda: datetime.now(timezone.utc).isoformat(),
+        default_factory=lambda: datetime.now(UTC).isoformat(),
     )
     checks: list[CodebaseCheck] = Field(default_factory=list)
 

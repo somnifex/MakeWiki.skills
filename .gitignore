@@ -38,5 +38,17 @@ Thumbs.db
 
 # other
 .history
+.pytest_temp/
 uv.lock
 .claude/
+.claude-plugin/
+
+# MakeWiki test targets (cloned repos for testing)
+_test_targets/
+
+# Generated documentation output directories
+makewiki/
+*/makewiki/
+*/makewiki/site/
+*/makewiki/export/
+*/makewiki/sync/

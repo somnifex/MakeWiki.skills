@@ -1,20 +1,19 @@
 ---
 name: makewiki-scan
-description: "Scan a project and output evidence summary with LLM analysis: detected project type, available commands, config keys, dependencies, file structure, and a structured project brief. Use when: user wants to understand a project before generating docs, or wants to see what MakeWiki would detect."
-version: "0.7.5"
+description: "Scan a project and output evidence summary with project sizing, complexity assessment (Tier S/M/L), recommended subagent budget, detected commands, config keys, dependencies, and enterprise delivery brief. Use when: user wants to understand a project before generating docs, or wants to inspect what MakeWiki detects."
+version: "2.0.0"
 argument-hint: "[--format json|human]"
 license: MIT
 allowed-tools: Bash(python */scripts/bootstrap_toolkit.py) Bash(python */scripts/run_toolkit.py *) Read Glob Grep
 ---
 
-# MakeWiki Scan - Project Evidence Discovery
+# MakeWiki Scan - Project Evidence & Sizing Discovery
 
-Scan the current project and report what MakeWiki can detect, supplemented with your own analysis.
+Scan the current project, assess complexity (Tier S / M / L), and report structured findings.
 
 ## Arguments
 
-Parse `$ARGUMENTS` for:
-- `--format json|human`: Output format. Default: try json, fall back to human.
+- `--format json|human`: Output format. Default: human.
 
 ## Execution
 
@@ -28,46 +27,36 @@ Run this bootstrap command:
 python scripts/bootstrap_toolkit.py
 ```
 
-If the script prints a path, refer to it as `<makewiki_root>` and run the toolkit scanner with structured output:
+If the script prints a path, refer to it as `<makewiki_root>` and run the sizing and scan tools:
 
 ```bash
+python <makewiki_root>/scripts/run_toolkit.py sizing .
 python <makewiki_root>/scripts/run_toolkit.py scan . --format json
 ```
 
-If `--format json` is not available, fall back to:
+### Step 2: Supplement with Multi-Perspective Analysis
 
-```bash
-python <makewiki_root>/scripts/run_toolkit.py scan .
-```
+Read manifest files, configs, entrypoints, and deployment configs to capture:
+1. **Developer Perspective**: CLI commands, entrypoints, 5-minute quickstart requirements.
+2. **Implementation Perspective**: Functions, AST arguments, unreleased features.
+3. **Deployment & Enterprise Perspective**: Compatibility requirements, environment variables, health check commands, error logs.
 
-If the script prints `NOT_FOUND`, or if the launcher command fails, skip the launcher and perform the scan manually from project files.
-
-### Step 2: Supplement with your own analysis
-
-Read the project yourself to fill evidence gaps:
-
-1. Read manifest files (`pyproject.toml`, `package.json`, `Cargo.toml`, `go.mod`)
-2. Read build files (`Makefile`, scripts)
-3. Read existing docs (`README.md`, `docs/`)
-4. Read example configs (`.env.example`, `config.example.yaml`)
-5. Read entry points — what does running the program actually do?
-
-### Step 3: Build project brief
-
-Produce a structured project brief as a YAML code block:
+### Step 3: Produce Project Brief
 
 ```yaml
 project_brief:
   name: ""
   version: ""
-  purpose: ""            # ONE sentence
+  purpose: ""
+  tier: "Tier S | Tier M | Tier L"
+  subagent_budget: 4
   target_users: []
   project_type: ""
 
-install_path:
+install_and_deploy:
   prerequisites: []
   commands: []
-  verify: ""
+  health_check: ""
 
 key_workflows:
   - title: ""
@@ -78,31 +67,15 @@ config_semantics:
   - key: ""
     effect: ""
     source_file: ""
+    default_value: ""
 
-common_pitfalls:
+common_pitfalls_and_runbook:
   - symptom: ""
     cause: ""
     fix: ""
+    log_path: ""
 
 uncertainty_flags:
   - claim: ""
     reason: ""
 ```
-
-### Step 4: Report findings
-
-Report a structured summary covering:
-
-- **Project type** (Python CLI, Node React, Rust, Go, etc.)
-- **Project name and version**
-- **Detected commands** (from Makefile, package.json scripts, pyproject scripts, source analysis)
-- **Configuration files** found and their key paths with descriptions
-- **Environment variables** from .env.example files
-- **Existing documentation** assets
-- **Suggested languages** based on existing docs
-- **Key workflows** identified (what users actually do with this tool)
-- **Common pitfalls** (error patterns found in source code)
-- **Evidence confidence** for key claims
-- **Uncertainty flags** — what you could not determine
-
-Flag anything uncertain with explicit hedging.

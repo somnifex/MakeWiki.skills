@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json as json_lib
 from pathlib import Path
-from typing import Any, Optional, cast
+from typing import Any, cast
 
 import typer
 from rich.console import Console
@@ -24,10 +24,10 @@ console = Console()
 def generate(
     target: Path = typer.Argument(..., help="Target project directory"),
     langs: list[str] = typer.Option(["en", "zh-CN"], "--lang", "-l", help="Languages to generate"),
-    config_path: Optional[Path] = typer.Option(
+    config_path: Path | None = typer.Option(
         None, "--config", "-c", help="Path to makewiki.config.yaml"
     ),
-    output: Optional[str] = typer.Option(None, "--output", "-o", help="Output directory name"),
+    output: str | None = typer.Option(None, "--output", "-o", help="Output directory name"),
     verbose: bool = typer.Option(False, "--verbose", "-v", help="Verbose output"),
 ) -> None:
     """Generate multilingual wiki documentation for a project."""
@@ -99,7 +99,7 @@ def generate(
 @app.command()
 def scan(
     target: Path = typer.Argument(..., help="Target project directory"),
-    config_path: Optional[Path] = typer.Option(None, "--config", "-c"),
+    config_path: Path | None = typer.Option(None, "--config", "-c"),
     output_format: str = typer.Option(
         "human", "--format", "-f", help="Output format: human | json"
     ),
@@ -175,11 +175,11 @@ def validate(
 @app.command()
 def verify(
     target: Path = typer.Argument(..., help="Target project directory"),
-    wiki_dir: Optional[Path] = typer.Option(
+    wiki_dir: Path | None = typer.Option(
         None, "--wiki-dir", "-w", help="Path to makewiki/ output (default: <target>/<output_dir>)"
     ),
     langs: list[str] = typer.Option(["en", "zh-CN"], "--lang", "-l"),
-    config_path: Optional[Path] = typer.Option(None, "--config", "-c"),
+    config_path: Path | None = typer.Option(None, "--config", "-c"),
     output_format: str = typer.Option(
         "human", "--format", "-f", help="Output format: human | json"
     ),
@@ -270,7 +270,7 @@ def verify(
 def review(
     target: Path = typer.Argument(..., help="Target project directory"),
     langs: list[str] = typer.Option(["en", "zh-CN"], "--lang", "-l"),
-    config_path: Optional[Path] = typer.Option(None, "--config", "-c"),
+    config_path: Path | None = typer.Option(None, "--config", "-c"),
 ) -> None:
     """Run cross-language review on existing makewiki output."""
     from makewiki_skills.generator.language_generator import GeneratedDocument
@@ -482,3 +482,192 @@ def _load_config(config_path: Path | None, target: Path) -> MakeWikiConfig:
     if default_path.is_file():
         return MakeWikiConfig.load(default_path, target)
     return MakeWikiConfig.default(target)
+
+
+@app.command(name="build-site")
+def build_site(
+    makewiki_dir: Path = typer.Argument(..., help="Path to makewiki documentation directory"),
+    output: Path | None = typer.Option(
+        None,
+        "--output",
+        "-o",
+        help="Output directory for static site (defaults to <makewiki_dir>/site)",
+    ),
+    theme: str = typer.Option("auto", "--theme", help="Theme mode: auto, light, dark"),
+    title: str = typer.Option("Project Documentation", "--title", help="Site title"),
+) -> None:
+    """Compile generated Markdown documentation into an offline static website."""
+    from makewiki_skills.renderer.site_compiler import SiteCompiler
+
+    makewiki_dir = Path(makewiki_dir).resolve()
+    if not makewiki_dir.is_dir():
+        console.print(f"[red]Error:[/red] Documentation directory does not exist: {makewiki_dir}")
+        raise typer.Exit(1)
+
+    compiler = SiteCompiler(theme=theme, title=title)
+    written = compiler.compile(makewiki_dir, output)
+    console.print("[green]Static site compiled successfully![/green]")
+    for path in written:
+        console.print(f"  - {path}")
+
+
+@app.command(name="sizing")
+def sizing(
+    target: Path = typer.Argument(..., help="Target project directory"),
+    format_type: str = typer.Option("human", "--format", "-f", help="Output format: human, json"),
+) -> None:
+    """Assess project complexity and recommend subagent budget (Tier S / M / L)."""
+    target = Path(target).resolve()
+    if not target.is_dir():
+        console.print(f"[red]Error:[/red] Target directory does not exist: {target}")
+        raise typer.Exit(1)
+
+    source_exts = {".py", ".js", ".ts", ".jsx", ".tsx", ".rs", ".go", ".java", ".c", ".cpp"}
+    source_files = [
+        p
+        for p in target.rglob("*")
+        if p.is_file()
+        and p.suffix in source_exts
+        and not any(part in p.parts for part in ["node_modules", ".git", ".venv", "dist", "build"])
+    ]
+    doc_files = [
+        p
+        for p in target.rglob("*.md")
+        if p.is_file()
+        and not any(part in p.parts for part in ["node_modules", ".git", ".venv", "makewiki"])
+    ]
+
+    source_count = len(source_files)
+    doc_count = len(doc_files)
+
+    if source_count < 15:
+        tier = "Tier S"
+        recommended_subagents = 2
+        strategy = "Lightweight / Single-pass with prompt-based multi-perspective check"
+        rebattle_rounds = 0
+    elif source_count <= 80:
+        tier = "Tier M"
+        recommended_subagents = 4
+        strategy = "Standard Multi-Agent (Scout + Red vs Blue ReBattle + Parallel Writers)"
+        rebattle_rounds = 1
+    else:
+        tier = "Tier L"
+        recommended_subagents = 8
+        strategy = (
+            "Deep Multi-Agent (Scout + Red/Blue/Green 3-Way ReBattle + Parallel Writers + Reviewer)"
+        )
+        rebattle_rounds = 2
+
+    data = {
+        "project": target.name,
+        "source_files": source_count,
+        "doc_files": doc_count,
+        "tier": tier,
+        "recommended_subagents": recommended_subagents,
+        "rebattle_rounds": rebattle_rounds,
+        "strategy": strategy,
+    }
+
+    if format_type == "json":
+        typer.echo(json_lib.dumps(data, indent=2, ensure_ascii=False))
+    else:
+        console.print(f"[bold]Project Sizing & Subagent Budget: [cyan]{target.name}[/cyan][/bold]")
+        console.print(f"  Source files: {source_count}")
+        console.print(f"  Doc files:    {doc_count}")
+        console.print(f"  Assessment:   [bold green]{tier}[/bold green]")
+        console.print(f"  Subagents:    [yellow]{recommended_subagents} subagents max[/yellow]")
+        console.print(f"  ReBattle:     {rebattle_rounds} round(s)")
+        console.print(f"  Strategy:     {strategy}")
+
+
+@app.command(name="rebattle-diff")
+def rebattle_diff(
+    claims_files: list[Path] = typer.Argument(
+        ..., help="Two or more JSON files containing ClaimSet data"
+    ),
+) -> None:
+    """Compare Claims from multiple agents and output dispute/discrepancy matrix."""
+    from makewiki_skills.model.rebattle import ClaimSet, ReBattleArena
+
+    claim_sets: list[ClaimSet] = []
+    for cf in claims_files:
+        p = Path(cf).resolve()
+        if not p.is_file():
+            console.print(f"[red]Error:[/red] File does not exist: {p}")
+            raise typer.Exit(1)
+        data = json_lib.loads(p.read_text(encoding="utf-8"))
+        claim_sets.append(ClaimSet.model_validate(data))
+
+    discrepancies = ReBattleArena.detect_discrepancies(claim_sets)
+    typer.echo(
+        json_lib.dumps(
+            {"discrepancies": [d.model_dump() for d in discrepancies]},
+            indent=2,
+            ensure_ascii=False,
+        )
+    )
+
+
+@app.command()
+def export(
+    wiki_dir: Path = typer.Argument(..., help="Path to makewiki/ directory"),
+    format_type: str = typer.Option(
+        "all", "--format", "-f", help="Export format: all | html | pdf | epub"
+    ),
+    lang: str = typer.Option("en", "--lang", "-l", help="Language code to export"),
+    title: str = typer.Option("Project Documentation", "--title", "-t", help="Document title"),
+) -> None:
+    """Export documentation into single-file printable HTML or EPUB bundles."""
+    from makewiki_skills.renderer.exporter import DocExporter
+
+    wiki_path = Path(wiki_dir).resolve()
+    if not wiki_path.is_dir():
+        console.print(f"[red]Error:[/red] Not a directory: {wiki_path}")
+        raise typer.Exit(1)
+
+    exporter = DocExporter(title=title)
+    exported_files: list[Path] = []
+
+    if format_type in ("all", "html", "pdf"):
+        html_file = exporter.export_pdf_ready_html(wiki_path, lang=lang)
+        exported_files.append(html_file)
+        console.print(f"[green]Compiled PDF-ready HTML:[/green] {html_file}")
+
+    if format_type in ("all", "epub"):
+        epub_file = exporter.export_epub(wiki_path, lang=lang)
+        exported_files.append(epub_file)
+        console.print(f"[green]Compiled EPUB e-book:[/green] {epub_file}")
+
+    console.print(f"[bold green]Export complete! Total bundles: {len(exported_files)}[/bold green]")
+
+
+@app.command()
+def sync(
+    wiki_dir: Path = typer.Argument(..., help="Path to makewiki/ directory"),
+    target_platform: str = typer.Option(
+        "all", "--target", "-t", help="Target platform: all | confluence | notion"
+    ),
+    lang: str = typer.Option("en", "--lang", "-l", help="Language code to sync"),
+    space_key: str = typer.Option("WIKI", "--space-key", help="Confluence space key"),
+    parent_id: str = typer.Option("root", "--parent-id", help="Notion parent page ID"),
+) -> None:
+    """Prepare and build knowledge base sync bundles for Confluence or Notion."""
+    from makewiki_skills.sync.confluence import ConfluenceSyncTool
+    from makewiki_skills.sync.notion import NotionSyncTool
+
+    wiki_path = Path(wiki_dir).resolve()
+    if not wiki_path.is_dir():
+        console.print(f"[red]Error:[/red] Not a directory: {wiki_path}")
+        raise typer.Exit(1)
+
+    if target_platform in ("all", "confluence"):
+        c_tool = ConfluenceSyncTool()
+        c_bundle = c_tool.build_sync_bundle(wiki_path, space_key=space_key, lang=lang)
+        console.print(f"[green]Generated Confluence Storage XML bundle:[/green] {c_bundle}")
+
+    if target_platform in ("all", "notion"):
+        n_tool = NotionSyncTool()
+        n_bundle = n_tool.build_sync_bundle(wiki_path, parent_page_id=parent_id, lang=lang)
+        console.print(f"[green]Generated Notion Block API payload bundle:[/green] {n_bundle}")
+
+    console.print("[bold green]Knowledge base sync preparation complete![/bold green]")

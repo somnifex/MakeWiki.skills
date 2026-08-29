@@ -15,7 +15,9 @@ def test_infer_only_user_facing_tasks():
         Command(name="make lint", description="Lint"),
         Command(name="sample-cli greet World", section="Usage"),
     ]
-    detection = ProjectDetectionResult(project_type=ProjectType.PYTHON_CLI, project_name="sample-cli")
+    detection = ProjectDetectionResult(
+        project_type=ProjectType.PYTHON_CLI, project_name="sample-cli"
+    )
 
     tasks = engine.infer(commands, [], detection, EvidenceRegistry())
 
@@ -53,7 +55,9 @@ def test_no_duplicate_tasks():
         Command(name="sample-cli serve --port 8080", section="Usage"),
         Command(name="make serve", description="Start server"),
     ]
-    detection = ProjectDetectionResult(project_type=ProjectType.PYTHON_CLI, project_name="sample-cli")
+    detection = ProjectDetectionResult(
+        project_type=ProjectType.PYTHON_CLI, project_name="sample-cli"
+    )
 
     tasks = engine.infer(commands, [], detection, EvidenceRegistry())
     start_tasks = [task for task in tasks if task.title == "Start the application"]

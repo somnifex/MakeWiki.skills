@@ -4,7 +4,11 @@ from pathlib import Path
 
 from makewiki_skills.config import MakeWikiConfig
 from makewiki_skills.scanner.evidence_collector import EvidenceCollector
-from makewiki_skills.scanner.project_detector import ProjectDetector, ProjectDetectionResult, ProjectType
+from makewiki_skills.scanner.project_detector import (
+    ProjectDetectionResult,
+    ProjectDetector,
+    ProjectType,
+)
 
 
 def test_collect_python_cli(minimal_python_cli_dir: Path):

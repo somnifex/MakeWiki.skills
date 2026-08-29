@@ -1,25 +1,37 @@
 [project]
 name = "makewiki-skills"
-version = "0.1.0"
-description = "Skills for Claude Code / Codex that generate evidence-backed multilingual user documentation with cross-language review."
+version = "2.0.0"
+description = "Multi-agent AI skill plugin and toolkit for generating evidence-backed, zero-hallucination multilingual documentation and offline static wikis."
 readme = "README.md"
 license = {text = "MIT"}
 requires-python = ">=3.11"
 authors = [
     {name = "somnifex"},
 ]
-keywords = ["wiki", "documentation", "multilingual", "i18n", "markdown"]
+keywords = [
+    "wiki",
+    "documentation",
+    "multilingual",
+    "i18n",
+    "markdown",
+    "ai",
+    "claude",
+    "codex",
+    "multi-agent",
+    "static-site",
+]
 classifiers = [
-    "Development Status :: 3 - Alpha",
+    "Development Status :: 4 - Beta",
     "Intended Audience :: Developers",
     "License :: OSI Approved :: MIT License",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
     "Topic :: Documentation",
     "Topic :: Software Development :: Documentation",
+    "Topic :: Text Processing :: Markup :: Markdown",
 ]
-
 dependencies = [
     "typer>=0.12",
     "pydantic>=2.7",
@@ -35,6 +47,11 @@ dev = [
     "mypy>=1.10",
 ]
 
+[project.urls]
+Homepage = "https://github.com/somnifex/MakeWiki.skills"
+Repository = "https://github.com/somnifex/MakeWiki.skills"
+Issues = "https://github.com/somnifex/MakeWiki.skills/issues"
+
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
@@ -45,10 +62,15 @@ packages = ["src/makewiki_skills"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["src"]
+tmp_path_retention_policy = "none"
 
 [tool.ruff]
 target-version = "py311"
 line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP"]
+ignore = ["E501"]
 
 [tool.mypy]
 python_version = "3.11"

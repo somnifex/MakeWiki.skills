@@ -13,7 +13,9 @@ def build_test_context(
     tmp_path: Path,
     toolkit_root: Path | None = None,
 ) -> toolkit_launcher.LaunchContext:
-    (tmp_path / "pyproject.toml").write_text("[project]\nname = 'demo'\nversion = '0.1.0'\n", encoding="utf-8")
+    (tmp_path / "pyproject.toml").write_text(
+        "[project]\nname = 'demo'\nversion = '0.1.0'\n", encoding="utf-8"
+    )
     (tmp_path / "uv.lock").write_text("version = 1\n", encoding="utf-8")
     kwargs: dict[str, Path] = {}
     if toolkit_root is not None:
@@ -37,7 +39,9 @@ def test_toolkit_is_ready_requires_matching_state_and_import_probe(
     context = build_test_context(tmp_path, toolkit_root=tmp_path / "toolkit-home")
     context.python_path.parent.mkdir(parents=True, exist_ok=True)
     context.python_path.write_text("", encoding="utf-8")
-    toolkit_launcher._write_state(context.state_file, toolkit_launcher.project_state(context.project_root))
+    toolkit_launcher._write_state(
+        context.state_file, toolkit_launcher.project_state(context.project_root)
+    )
     monkeypatch.setattr(toolkit_launcher, "_probe_toolkit_import", lambda _context: True)
 
     assert toolkit_launcher.toolkit_is_ready(context) is True
@@ -124,4 +128,6 @@ def test_main_dispatches_to_repo_local_python(tmp_path: Path, monkeypatch) -> No
     )
 
     assert exit_code == 7
-    assert captured == [[str(fake_python), "-m", "makewiki_skills", "scan", ".", "--format", "json"]]
+    assert captured == [
+        [str(fake_python), "-m", "makewiki_skills", "scan", ".", "--format", "json"]
+    ]

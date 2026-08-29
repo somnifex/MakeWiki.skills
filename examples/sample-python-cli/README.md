@@ -1,5 +1,6 @@
 # sample-cli
 
+
 A sample Python CLI tool for testing MakeWiki documentation generation.
 
 ## Installation

@@ -2,12 +2,12 @@
 
 from __future__ import annotations
 
-from enum import Enum
+from enum import StrEnum
 
 from pydantic import BaseModel, Field
 
 
-class FormalityLevel(str, Enum):
+class FormalityLevel(StrEnum):
     FORMAL = "formal"
     NEUTRAL = "neutral"
     CASUAL = "casual"

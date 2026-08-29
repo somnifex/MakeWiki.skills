@@ -3,13 +3,14 @@
 from __future__ import annotations
 
 import fnmatch
+from collections.abc import Callable
 from pathlib import Path
-from typing import Any, Callable, cast
+from typing import Any, cast
 
 from makewiki_skills.toolkit.base import ToolResult
 
-class FilesystemTool:
 
+class FilesystemTool:
     name = "filesystem"
 
     def read_file(self, path: Path, max_bytes: int = 512_000) -> ToolResult:
@@ -116,7 +117,7 @@ class FilesystemTool:
     def is_dir(self, path: Path) -> bool:
         return Path(path).resolve().is_dir()
 
-    def execute(self, **kwargs: Any) -> ToolResult:  # noqa: D401
+    def execute(self, **kwargs: Any) -> ToolResult:
         """Dispatch to a named action; prefer the typed methods above."""
         action_value = kwargs.pop("action", "read_file")
         action = action_value if isinstance(action_value, str) else "read_file"

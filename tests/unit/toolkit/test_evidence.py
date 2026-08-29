@@ -23,7 +23,7 @@ def test_evidence_fact_no_evidence():
 
 def test_extract_commands():
     tool = EvidenceTool()
-    content = '## Usage\n\n```bash\npip install foo\nfoo serve --port 8080\n```\n'
+    content = "## Usage\n\n```bash\npip install foo\nfoo serve --port 8080\n```\n"
     facts = tool.extract_commands(content, "README.md")
     assert len(facts) == 2
     assert facts[0].value == "pip install foo"
@@ -32,7 +32,7 @@ def test_extract_commands():
 
 def test_extract_commands_with_dollar_prefix():
     tool = EvidenceTool()
-    content = '```bash\n$ npm install\n$ npm start\n```\n'
+    content = "```bash\n$ npm install\n$ npm start\n```\n"
     facts = tool.extract_commands(content, "README.md")
     assert len(facts) == 2
     assert facts[0].value == "npm install"

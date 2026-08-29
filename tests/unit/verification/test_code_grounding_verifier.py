@@ -8,30 +8,42 @@ from makewiki_skills.verification.code_grounding_verifier import CodeGroundingVe
 
 def _registry_with_facts() -> EvidenceRegistry:
     reg = EvidenceRegistry()
-    reg.add(EvidenceFact(
-        claim="Command: make test",
-        fact_type="command",
-        value="make test",
-        evidence=[EvidenceLink(source_path="Makefile", raw_text="test:", confidence="high")],
-    ))
-    reg.add(EvidenceFact(
-        claim="Command: make serve",
-        fact_type="command",
-        value="make serve",
-        evidence=[EvidenceLink(source_path="Makefile", raw_text="serve:", confidence="high")],
-    ))
-    reg.add(EvidenceFact(
-        claim="Config: server.port",
-        fact_type="config_key",
-        value="server.port",
-        evidence=[EvidenceLink(source_path="config.yaml", raw_text="port: 8080", confidence="high")],
-    ))
-    reg.add(EvidenceFact(
-        claim="Path: src/main.py",
-        fact_type="path",
-        value="src/main.py",
-        evidence=[EvidenceLink(source_path="src/main.py", raw_text="src/main.py", confidence="high")],
-    ))
+    reg.add(
+        EvidenceFact(
+            claim="Command: make test",
+            fact_type="command",
+            value="make test",
+            evidence=[EvidenceLink(source_path="Makefile", raw_text="test:", confidence="high")],
+        )
+    )
+    reg.add(
+        EvidenceFact(
+            claim="Command: make serve",
+            fact_type="command",
+            value="make serve",
+            evidence=[EvidenceLink(source_path="Makefile", raw_text="serve:", confidence="high")],
+        )
+    )
+    reg.add(
+        EvidenceFact(
+            claim="Config: server.port",
+            fact_type="config_key",
+            value="server.port",
+            evidence=[
+                EvidenceLink(source_path="config.yaml", raw_text="port: 8080", confidence="high")
+            ],
+        )
+    )
+    reg.add(
+        EvidenceFact(
+            claim="Path: src/main.py",
+            fact_type="path",
+            value="src/main.py",
+            evidence=[
+                EvidenceLink(source_path="src/main.py", raw_text="src/main.py", confidence="high")
+            ],
+        )
+    )
     return reg
 
 
@@ -104,12 +116,14 @@ def test_config_key_grounded():
 def test_low_confidence_warning():
     """Command with low-confidence evidence -> low_confidence violation."""
     registry = EvidenceRegistry()
-    registry.add(EvidenceFact(
-        claim="Command: make deploy",
-        fact_type="command",
-        value="make deploy",
-        evidence=[EvidenceLink(source_path="README.md", raw_text="deploy", confidence="low")],
-    ))
+    registry.add(
+        EvidenceFact(
+            claim="Command: make deploy",
+            fact_type="command",
+            value="make deploy",
+            evidence=[EvidenceLink(source_path="README.md", raw_text="deploy", confidence="low")],
+        )
+    )
     doc = GeneratedDocument(
         filename="README.md",
         base_name="README.md",

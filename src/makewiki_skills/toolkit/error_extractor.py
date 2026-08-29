@@ -36,7 +36,9 @@ class ErrorStringExtractor:
             "exit_message",
         ),
         (
-            re.compile(r"(?:typer|click)\.(?:BadParameter|UsageError|Abort)\s*\(\s*(?:f?)[\"']([^\"']{5,})[\"']"),
+            re.compile(
+                r"(?:typer|click)\.(?:BadParameter|UsageError|Abort)\s*\(\s*(?:f?)[\"']([^\"']{5,})[\"']"
+            ),
             "usage_error",
         ),
         (
@@ -44,7 +46,9 @@ class ErrorStringExtractor:
             "log_error",
         ),
         (
-            re.compile(r"(?:logger|logging)\.(?:error|critical|warning)\s*\(\s*(?:f?)[\"']([^\"']{10,})[\"']"),
+            re.compile(
+                r"(?:logger|logging)\.(?:error|critical|warning)\s*\(\s*(?:f?)[\"']([^\"']{10,})[\"']"
+            ),
             "log_error",
         ),
         (

@@ -5,12 +5,14 @@ from __future__ import annotations
 import json
 import re
 import tomllib
+from collections.abc import Callable
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any
 
 import yaml  # type: ignore[import-untyped]
 
 from makewiki_skills.toolkit.base import ToolResult
+
 
 class ConfigReaderTool:
     """Read and normalize project configuration files."""

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import re
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from pydantic import BaseModel, Field, computed_field
 
@@ -36,7 +36,7 @@ class GroundingReport(BaseModel):
     """Result of code-grounding verification across all documents."""
 
     report_id: str = Field(default_factory=lambda: uuid.uuid4().hex[:12])
-    verified_at: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
+    verified_at: str = Field(default_factory=lambda: datetime.now(UTC).isoformat())
     total_claims: int = 0
     grounded_claims: int = 0
     violations: list[GroundingViolation] = Field(default_factory=list)

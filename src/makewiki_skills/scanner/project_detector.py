@@ -4,13 +4,13 @@ from __future__ import annotations
 
 import json
 import tomllib
-from enum import Enum
+from enum import StrEnum
 from pathlib import Path
 
 from pydantic import BaseModel, Field
 
 
-class ProjectType(str, Enum):
+class ProjectType(StrEnum):
     PYTHON_CLI = "python-cli"
     PYTHON_LIBRARY = "python-library"
     PYTHON_SERVICE = "python-service"
@@ -54,16 +54,34 @@ DEFAULT_RULES: list[DetectionRule] = [
     DetectionRule(project_type=ProjectType.PYTHON_CLI, indicators=["pyproject.toml"], weight=8),
     DetectionRule(project_type=ProjectType.PYTHON_CLI, indicators=["setup.py"], weight=6),
     DetectionRule(project_type=ProjectType.PYTHON_CLI, indicators=["setup.cfg"], weight=5),
-    DetectionRule(project_type=ProjectType.PYTHON_LIBRARY, indicators=["pyproject.toml", "src/"], weight=7),
-    DetectionRule(project_type=ProjectType.PYTHON_SERVICE, indicators=["Dockerfile", "requirements.txt"], weight=8),
+    DetectionRule(
+        project_type=ProjectType.PYTHON_LIBRARY, indicators=["pyproject.toml", "src/"], weight=7
+    ),
+    DetectionRule(
+        project_type=ProjectType.PYTHON_SERVICE,
+        indicators=["Dockerfile", "requirements.txt"],
+        weight=8,
+    ),
     DetectionRule(project_type=ProjectType.PYTHON_SERVICE, indicators=["manage.py"], weight=12),
-    DetectionRule(project_type=ProjectType.NODE_REACT, indicators=["package.json", "src/App.tsx"], weight=15),
-    DetectionRule(project_type=ProjectType.NODE_REACT, indicators=["package.json", "src/App.jsx"], weight=15),
-    DetectionRule(project_type=ProjectType.NODE_REACT, indicators=["package.json", "src/App.js"], weight=12),
-    DetectionRule(project_type=ProjectType.NODE_CLI, indicators=["package.json", "bin/"], weight=10),
-    DetectionRule(project_type=ProjectType.NODE_LIBRARY, indicators=["package.json", "index.js"], weight=6),
+    DetectionRule(
+        project_type=ProjectType.NODE_REACT, indicators=["package.json", "src/App.tsx"], weight=15
+    ),
+    DetectionRule(
+        project_type=ProjectType.NODE_REACT, indicators=["package.json", "src/App.jsx"], weight=15
+    ),
+    DetectionRule(
+        project_type=ProjectType.NODE_REACT, indicators=["package.json", "src/App.js"], weight=12
+    ),
+    DetectionRule(
+        project_type=ProjectType.NODE_CLI, indicators=["package.json", "bin/"], weight=10
+    ),
+    DetectionRule(
+        project_type=ProjectType.NODE_LIBRARY, indicators=["package.json", "index.js"], weight=6
+    ),
     DetectionRule(project_type=ProjectType.NODE_LIBRARY, indicators=["package.json"], weight=4),
-    DetectionRule(project_type=ProjectType.RUST_CLI, indicators=["Cargo.toml", "src/main.rs"], weight=15),
+    DetectionRule(
+        project_type=ProjectType.RUST_CLI, indicators=["Cargo.toml", "src/main.rs"], weight=15
+    ),
     DetectionRule(project_type=ProjectType.GO_CLI, indicators=["go.mod", "main.go"], weight=15),
 ]
 

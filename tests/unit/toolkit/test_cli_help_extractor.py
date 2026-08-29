@@ -16,7 +16,8 @@ def extractor() -> CLIHelpExtractor:
 class TestTyperExtraction:
     def test_typer_option_help(self, extractor: CLIHelpExtractor, tmp_path: Path) -> None:
         src = tmp_path / "cli.py"
-        src.write_text(dedent("""\
+        src.write_text(
+            dedent("""\
             import typer
 
             app = typer.Typer()
@@ -27,7 +28,8 @@ class TestTyperExtraction:
                 verbose: bool = typer.Option(False, "--verbose", "-v", help="Enable verbose output"),
             ):
                 pass
-        """))
+        """)
+        )
         facts = extractor.extract_from_file(src)
         assert len(facts) >= 2
         help_texts = [f.help_text for f in facts]
@@ -37,7 +39,8 @@ class TestTyperExtraction:
 
     def test_typer_argument_help(self, extractor: CLIHelpExtractor, tmp_path: Path) -> None:
         src = tmp_path / "main.py"
-        src.write_text(dedent("""\
+        src.write_text(
+            dedent("""\
             import typer
             app = typer.Typer()
 
@@ -46,7 +49,8 @@ class TestTyperExtraction:
                 input_file: str = typer.Argument(..., help="Path to input file"),
             ):
                 pass
-        """))
+        """)
+        )
         facts = extractor.extract_from_file(src)
         assert any("Path to input file" in f.help_text for f in facts)
 
@@ -54,14 +58,16 @@ class TestTyperExtraction:
 class TestClickExtraction:
     def test_click_option_help(self, extractor: CLIHelpExtractor, tmp_path: Path) -> None:
         src = tmp_path / "app.py"
-        src.write_text(dedent("""\
+        src.write_text(
+            dedent("""\
             import click
 
             @click.command()
             @click.option("--output", "-o", help="Output directory path")
             def main(output):
                 pass
-        """))
+        """)
+        )
         facts = extractor.extract_from_file(src)
         assert len(facts) >= 1
         assert facts[0].help_text == "Output directory path"
@@ -72,12 +78,14 @@ class TestClickExtraction:
 class TestArgparseExtraction:
     def test_argparse_help(self, extractor: CLIHelpExtractor, tmp_path: Path) -> None:
         src = tmp_path / "tool.py"
-        src.write_text(dedent("""\
+        src.write_text(
+            dedent("""\
             import argparse
             parser = argparse.ArgumentParser()
             parser.add_argument("--config", help="Path to config file")
             parser.add_argument("--dry-run", help="Show what would be done without making changes")
-        """))
+        """)
+        )
         facts = extractor.extract_from_file(src)
         assert len(facts) == 2
         assert facts[0].param_name == "--config"

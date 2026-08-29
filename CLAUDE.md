@@ -1,40 +1,37 @@
-# MakeWiki.skills
+# MakeWiki.skills v2
 
-
-
-This repository contains the skills and Python toolkit behind `/makewiki`.
+This repository contains the multi-agent skills and Python toolkit behind `/makewiki`.
 
 ## What is in the repo
 
-- `skills/`: skill definitions and bootstrap helpers
-- `src/makewiki_skills/`: scanning, modeling, generation, review, and validation code
-- `tests/`: automated test coverage
+- `skills/`: skill definitions (`makewiki`, `makewiki-site`, `makewiki-scan`, `makewiki-review`, `makewiki-validate`, `makewiki-init`)
+- `src/makewiki_skills/`: scanning, ReBattle modeling, site compilation, generation, review, and verification
+- `tests/`: automated unit and integration tests
 
 ## Available skills
 
-- `/makewiki` - full documentation flow (`scan -> generate -> review -> validate`)
-- `/makewiki-scan` - inspect project evidence
-- `/makewiki-review` - compare language versions
-- `/makewiki-validate` - validate generated output
-- `/makewiki-init` - create a default config file
+- `/makewiki` - full autonomous multi-agent flow (`sizing -> scout -> rebattle -> parallel writers -> review -> site compile`)
+- `/makewiki-site` - build offline static website from generated markdown
+- `export` - compile markdown into printable PDF-ready HTML & EPUB e-books
+- `sync` - generate Confluence Storage XML and Notion Block API sync payloads
+- `/makewiki-scan` - inspect project evidence and assess sizing tier
+- `/makewiki-review` - compare language versions and verify codebase truth
+- `/makewiki-validate` - validate markdown structure and links
+- `/makewiki-init` - generate default `makewiki.config.yaml`
 
 ## Working notes
 
-- Generate each language independently. Do not translate from another generated page.
-- Keep the workflow in the main conversation when working inside this repo. Do not use subagents or parallel-agent flows for the MakeWiki skill itself.
-- Treat `scripts/run_toolkit.py` and `python -m makewiki_skills <command>` as internal plumbing, not end-user commands.
+- Autonomous execution: Complete all phases end-to-end without pausing to ask intermediate questions.
+- Subagent budget: Tier S (1-2 agents), Tier M (3-5 agents), Tier L (5-10 agents max).
+- ReBattle cross-examination for fact validation before writing.
+- Natural human engineer tone: Strictly avoid AI clichés ("不是而是", "收敛", "这是", trailing colons).
+- Generate each language independently from the semantic model. Do not machine-translate.
+- Code blocks must match 100% across all languages.
+- Ephemeral execution: Keep environments clean and remove temporary artifacts.
 
 ## Build & Test
 
 ```bash
-uv sync
-uv run pytest
+uv sync --all-extras
+uv run pytest --basetemp=.pytest_temp
 ```
-
-## Code conventions
-
-- Python 3.11+ with type annotations
-- Pydantic models for structured data
-- All I/O goes through `src/makewiki_skills/toolkit/`
-- Jinja2 templates live in `src/makewiki_skills/templates/`
-- Tests use pytest

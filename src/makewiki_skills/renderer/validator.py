@@ -127,7 +127,9 @@ class OutputValidator:
             all_bases.update(pages)
 
         for base in sorted(all_bases):
-            present = [lang for lang in expected_languages if base in pages_by_lang.get(lang, set())]
+            present = [
+                lang for lang in expected_languages if base in pages_by_lang.get(lang, set())
+            ]
             missing = [lang for lang in expected_languages if lang not in present]
             if missing:
                 issues.append(f"Page '{base}' missing for languages: {missing}")
@@ -138,6 +140,48 @@ class OutputValidator:
         issues: list[MarkdownIssue] = []
         issues.extend(self._check_banned_descriptors(content))
         issues.extend(self._check_forbidden_headings(content))
+        issues.extend(self._check_ai_cliches(content))
+        return issues
+
+    def _check_ai_cliches(self, content: str) -> list[MarkdownIssue]:
+        stripped = self._strip_code(content)
+        issues: list[MarkdownIssue] = []
+
+        # 1. Check for "不是...而是..."
+        match_bushi = re.search(r"不是[^\n，。！？]+而是", stripped)
+        if match_bushi:
+            issues.append(
+                MarkdownIssue(
+                    line=self._line_number(stripped, match_bushi.start()),
+                    issue_type="ai_cliche",
+                    message=f"Avoid binary AI trope '不是...而是...', state facts directly: '{match_bushi.group()}'",
+                    severity="warning",
+                )
+            )
+
+        # 2. Check for "收敛"
+        for m in re.finditer(r"收敛", stripped):
+            issues.append(
+                MarkdownIssue(
+                    line=self._line_number(stripped, m.start()),
+                    issue_type="ai_cliche",
+                    message="Avoid abstract AI buzzword '收敛', use concrete technical verbs.",
+                    severity="warning",
+                )
+            )
+
+        # 3. Check for headings ending with redundant colons
+        for heading in self._md.extract_headings(content):
+            if re.search(r"[:：]\s*$", heading.text):
+                issues.append(
+                    MarkdownIssue(
+                        line=heading.line,
+                        issue_type="heading_colon",
+                        message=f"Heading ends with redundant colon: '{heading.text}'",
+                        severity="warning",
+                    )
+                )
+
         return issues
 
     def _check_banned_descriptors(self, content: str) -> list[MarkdownIssue]:
@@ -165,7 +209,9 @@ class OutputValidator:
         issues: list[MarkdownIssue] = []
         for heading in self._md.extract_headings(content):
             text = heading.text.lower()
-            if any(re.search(pattern, text, re.IGNORECASE) for pattern in _FORBIDDEN_HEADING_PATTERNS):
+            if any(
+                re.search(pattern, text, re.IGNORECASE) for pattern in _FORBIDDEN_HEADING_PATTERNS
+            ):
                 issues.append(
                     MarkdownIssue(
                         line=heading.line,

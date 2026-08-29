@@ -7,10 +7,8 @@ from makewiki_skills.model.semantic_model import (
     ConfigItem,
     ConfigSection,
     UserTask,
-    UsageExample,
 )
 from makewiki_skills.pipeline.pipeline import _build_command_groups, _is_detailed_mode
-
 
 # --- _is_detailed_mode tests ---
 

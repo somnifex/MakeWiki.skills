@@ -56,7 +56,11 @@ def populate_from_archive(target: Path) -> None:
         with zipfile.ZipFile(archive_path) as archive:
             archive.extractall(tmp_dir)
         extracted_root = next(
-            (path for path in Path(tmp_dir).iterdir() if path.is_dir() and looks_like_toolkit_root(path)),
+            (
+                path
+                for path in Path(tmp_dir).iterdir()
+                if path.is_dir() and looks_like_toolkit_root(path)
+            ),
             None,
         )
         if extracted_root is None:

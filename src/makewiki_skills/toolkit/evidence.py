@@ -8,6 +8,7 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, Field, computed_field
 
+
 class EvidenceLink(BaseModel):
     """A pointer to a specific location in the project that supports a fact."""
 
@@ -17,6 +18,7 @@ class EvidenceLink(BaseModel):
     raw_text: str
     confidence: Literal["high", "medium", "low", "inferred"] = "medium"
     extraction_method: str = "direct_read"
+
 
 class EvidenceFact(BaseModel):
     """A single verifiable fact about the project, backed by evidence."""
@@ -35,6 +37,7 @@ class EvidenceFact(BaseModel):
             return "inferred"
         return min(self.evidence, key=lambda e: order.get(e.confidence, 99)).confidence
 
+
 class EvidenceTool:
     """Extract structured facts from text and config data."""
 
@@ -52,11 +55,30 @@ class EvidenceTool:
         def flush_block() -> None:
             if not capture_commands:
                 return
+            combined_lines: list[str] = []
+            curr_cmd = ""
             for raw_line in block_lines:
                 line = raw_line.strip()
+                if not line or line.startswith("#"):
+                    if curr_cmd:
+                        combined_lines.append(curr_cmd.strip())
+                        curr_cmd = ""
+                    continue
                 if line.startswith("$"):
                     line = line[1:].strip()
-                if line and not line.startswith("#"):
+                if line.endswith("\\"):
+                    curr_cmd += line[:-1].rstrip() + " "
+                else:
+                    if curr_cmd:
+                        combined_lines.append((curr_cmd + line).strip())
+                        curr_cmd = ""
+                    else:
+                        combined_lines.append(line)
+            if curr_cmd:
+                combined_lines.append(curr_cmd.strip())
+
+            for line in combined_lines:
+                if line:
                     claim = (
                         f"Command from {block_section}: {line}"
                         if block_section
@@ -107,10 +129,199 @@ class EvidenceTool:
 
         return facts
 
+    def extract_markdown_tables(self, content: str, source_path: str) -> list[EvidenceFact]:
+        """Extract configuration and environment variable facts from markdown tables."""
+        facts: list[EvidenceFact] = []
+        table_rows = re.findall(r"^\|(.+)\|$", content, re.MULTILINE)
+        if not table_rows:
+            return facts
+
+        in_config_table = False
+        var_col_idx = -1
+        desc_col_idx = -1
+
+        for row in table_rows:
+            cols = [c.strip() for c in row.split("|")]
+            lower_cols = [c.lower() for c in cols]
+            if any(
+                k in " ".join(lower_cols)
+                for k in ["variable", "config", "env", "key", "parameter", "变量"]
+            ):
+                in_config_table = True
+                var_col_idx = next(
+                    (
+                        i
+                        for i, c in enumerate(lower_cols)
+                        if any(
+                            k in c
+                            for k in [
+                                "variable",
+                                "config",
+                                "env",
+                                "key",
+                                "parameter",
+                                "name",
+                                "变量",
+                                "配置项",
+                            ]
+                        )
+                    ),
+                    0,
+                )
+                desc_col_idx = next(
+                    (
+                        i
+                        for i, c in enumerate(lower_cols)
+                        if any(k in c for k in ["desc", "description", "meaning", "说明", "描述"])
+                    ),
+                    -1,
+                )
+                continue
+
+            if all(re.match(r"^:?-+:?$", c) for c in cols if c):
+                continue
+
+            if in_config_table and 0 <= var_col_idx < len(cols):
+                raw_var = cols[var_col_idx].strip(" `*")
+                # Filter out invalid variable names, links, table headers, and markdown formatting
+                if (
+                    raw_var
+                    and not raw_var.startswith("#")
+                    and not raw_var.startswith("[")
+                    and " " not in raw_var
+                    and len(raw_var) >= 2
+                    and re.match(r"^[A-Za-z0-9_.-]+$", raw_var)
+                    and raw_var.lower()
+                    not in {
+                        "feature",
+                        "requirement",
+                        "resource",
+                        "category",
+                        "link",
+                        "description",
+                        "model",
+                        "type",
+                        "component",
+                        "default",
+                        "required",
+                        "platform",
+                        "variable",
+                        "name",
+                        "parameter",
+                        "value",
+                        "status",
+                        "version",
+                        "notes",
+                        "action",
+                        "role",
+                    }
+                ):
+                    desc = cols[desc_col_idx] if 0 <= desc_col_idx < len(cols) else ""
+                    facts.append(
+                        EvidenceFact(
+                            claim=f"Config/Env: {raw_var}" + (f" - {desc}" if desc else ""),
+                            fact_type="config_key",
+                            value=raw_var,
+                            evidence=[
+                                EvidenceLink(
+                                    source_path=source_path,
+                                    raw_text=row,
+                                    confidence="high",
+                                    extraction_method="table_extract",
+                                )
+                            ],
+                        )
+                    )
+        return facts
+
     def extract_config_keys(
         self, data: dict[str, Any], source_path: str, prefix: str = ""
     ) -> list[EvidenceFact]:
         facts: list[EvidenceFact] = []
+
+        # Special handling for Docker Compose files: extract clean environment variables and ports
+        if prefix == "" and "services" in data and isinstance(data["services"], dict):
+            for svc_name, svc_cfg in data["services"].items():
+                if not isinstance(svc_cfg, dict):
+                    continue
+                # 1. Environment variables
+                env_val = svc_cfg.get("environment")
+                if isinstance(env_val, list):
+                    for item in env_val:
+                        if isinstance(item, str) and "=" in item:
+                            k, v = item.split("=", 1)
+                            k = k.strip()
+                            v = v.strip().strip("'\"")
+                            facts.append(
+                                EvidenceFact(
+                                    claim=f"Docker Compose ({svc_name}) env: {k} (default: {v})",
+                                    fact_type="config_key",
+                                    value=k,
+                                    evidence=[
+                                        EvidenceLink(
+                                            source_path=source_path,
+                                            raw_text=f"{k}={v}",
+                                            confidence="high",
+                                            extraction_method="direct_read",
+                                        )
+                                    ],
+                                )
+                            )
+                        elif isinstance(item, str) and item.strip():
+                            k = item.strip()
+                            facts.append(
+                                EvidenceFact(
+                                    claim=f"Docker Compose ({svc_name}) env: {k}",
+                                    fact_type="config_key",
+                                    value=k,
+                                    evidence=[
+                                        EvidenceLink(
+                                            source_path=source_path,
+                                            raw_text=k,
+                                            confidence="high",
+                                            extraction_method="direct_read",
+                                        )
+                                    ],
+                                )
+                            )
+                elif isinstance(env_val, dict):
+                    for k, v in env_val.items():
+                        facts.append(
+                            EvidenceFact(
+                                claim=f"Docker Compose ({svc_name}) env: {k} (default: {v})",
+                                fact_type="config_key",
+                                value=str(k),
+                                evidence=[
+                                    EvidenceLink(
+                                        source_path=source_path,
+                                        raw_text=f"{k}: {v}",
+                                        confidence="high",
+                                        extraction_method="direct_read",
+                                    )
+                                ],
+                            )
+                        )
+                # 2. Ports
+                ports = svc_cfg.get("ports")
+                if isinstance(ports, list):
+                    for p in ports:
+                        facts.append(
+                            EvidenceFact(
+                                claim=f"Docker Compose ({svc_name}) exposed port: {p}",
+                                fact_type="config_key",
+                                value=f"Port {p}",
+                                evidence=[
+                                    EvidenceLink(
+                                        source_path=source_path,
+                                        raw_text=f"ports: {p}",
+                                        confidence="high",
+                                        extraction_method="direct_read",
+                                    )
+                                ],
+                            )
+                        )
+            return facts
+
         for key, value in data.items():
             full_key = f"{prefix}.{key}" if prefix else key
             facts.append(
@@ -150,9 +361,7 @@ class EvidenceTool:
             )
         return None
 
-    def extract_dependencies(
-        self, deps: list[str], source_path: str
-    ) -> list[EvidenceFact]:
+    def extract_dependencies(self, deps: list[str], source_path: str) -> list[EvidenceFact]:
         facts: list[EvidenceFact] = []
         for dep in deps:
             name = re.split(r"[><=!~\[]", dep)[0].strip()
