@@ -36,6 +36,12 @@ Thumbs.db
 .env.*
 !.env.example
 
+# Eval trap fixtures deliberately include .env dot-config files. They carry
+# fake/deterministic values (never real secrets) and must be committed so the
+# discovery traps (hidden-entrypoints, incomplete-scan) are reproducible on a
+# fresh checkout.
+!evals/**/.env
+
 # other
 .history
 .pytest_temp/

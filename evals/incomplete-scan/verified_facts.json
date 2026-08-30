@@ -1,0 +1,23 @@
+[
+  {
+    "id": "worker_manifest",
+    "fact_type": "manifest",
+    "value": "worker",
+    "source": "services/worker/pyproject.toml",
+    "note": "services/worker has its own pyproject.toml declaring the worker script."
+  },
+  {
+    "id": "worker_entrypoint",
+    "fact_type": "command",
+    "value": "worker run",
+    "source": "services/worker/worker/__main__.py",
+    "note": "services/worker exposes a worker run entrypoint via its own __main__.py; a shallow root-only scan can miss it."
+  },
+  {
+    "id": "worker_env",
+    "fact_type": "config",
+    "value": "WORKER_QUEUE",
+    "source": "services/worker/.env",
+    "note": "services/worker/.env defines WORKER_QUEUE (default jobs) read by the worker."
+  }
+]

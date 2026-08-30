@@ -57,6 +57,14 @@ bundle, and must annotate the `coverage` report's `uncovered_categories` and
 `low_confidence_facts` — resolving each gap or explicitly accepting it with a
 written reason before continuing.
 
+Per scout, return structured fields — `searched`, `evidence_found` (each with
+`path:line` refs + a `low`/`medium`/`high` confidence), `unresolved`, and
+`recommended_followup`. Then pass the **six pre-ReBattle coverage checks**
+(`tasks/scan.md` §3): tests, CI / deployment, examples, nested packages,
+runtime entrypoint, and "beyond README". A load-bearing `low`-confidence claim
+or an unresolved area is closed by a targeted **Follow-up Scout** deep dive,
+never by asking Python to guess.
+
 Where the LLM cannot ground a claim in evidence, it leaves the field empty
 and the corresponding Markdown slot renders `UNKNOWN` — never invent
 install steps, commands, or env vars that the Python evidence did not

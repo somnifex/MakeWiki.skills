@@ -78,6 +78,7 @@ Python toolkit commands (mechanical only):
 | ------------------------ | ---------- | ------------------------------------------------------------------ |
 | `sizing`                 | —          | Tier (S / M / L) + subagent budget                                 |
 | `evidence`               | `scan`     | Deterministic fact extraction (JSON / human)                       |
+| `coverage <target>`      | —          | Deterministic discovery coverage (JSON / human)                    |
 | `verify-claim <json>`    | —          | Verify one or many Claims against the codebase                     |
 | `verify-model <json>`    | —          | Schema + evidence-ref validation for a SemanticModel               |
 | `verify-docs <target>`   | `verify`   | Unified L0 - L5 verification + Quality Gate + exit code            |

@@ -1,0 +1,24 @@
+# Rubric: stale-example
+trap: stale-example
+description: examples/demo.md shows a REMOVED 'compute --dim' subcommand while the current CLI exposes only 'run --size'. Correct behavior documents the current CLI from source, flags the stale example, and never presents the removed command as current.
+metrics:
+  Evidence Grounding: { weight: 0.25, required: true }
+  Unsupported Claim Rate: { weight: 0.10 }
+  Required Claim Recall: { weight: 0.20, required: true }
+  Unknown Discipline: { weight: 0.05 }
+  ReBattle Conflict Detection: { weight: 0.15, required: true }
+  Judge Correctness: { weight: 0.15, required: true }
+  Workflow Correctness: { weight: 0.10 }
+  Epistemic Calibration: { weight: 0.0 }
+  Task Discovery: { weight: 0.0 }
+  SemanticModel Quality: { weight: 0.0 }
+  Native-language Quality: { weight: 0.0 }
+  Cross-language Semantic Parity: { weight: 0.0 }
+  Troubleshooting Correctness: { weight: 0.0 }
+  Documentation Usefulness: { weight: 0.0 }
+scoring:
+  pass_threshold: 0.8
+  passes_when: >
+    docs use matrix run --size (from app/main.py), flag examples/demo.md as a
+    stale example, and never present matrix compute --dim as a current command.
+  runs: 3

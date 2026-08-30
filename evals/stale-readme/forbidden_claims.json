@@ -3,6 +3,7 @@
     "id": "fc_stale_port_3000",
     "claim_type": "config",
     "semantic_key": "network.port.default",
+    "value": "3000",
     "forbidden_assertion": "State the default port is 3000",
     "reason": "the README's 3000 is stale; source pins 8080"
   },

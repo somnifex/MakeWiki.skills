@@ -153,6 +153,9 @@ def _fixture_bundle(trap: str, run_dir: Path, *, seed: int, host: str) -> dict[s
         "indirect-config": fixtures_bundles.INDIRECT_CONFIG,
         "stale-readme": fixtures_bundles.STALE_README,
         "monorepo-discovery": fixtures_bundles.MONOREPO_DISCOVERY,
+        "conflicting-tests": fixtures_bundles.CONFLICTING_TESTS,
+        "stale-example": fixtures_bundles.STALE_EXAMPLE,
+        "incomplete-scan": fixtures_bundles.INCOMPLETE_SCAN,
     }.get(trap)
 
 

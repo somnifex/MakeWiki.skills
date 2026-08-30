@@ -1,0 +1,17 @@
+[
+  {
+    "path": "packages/svc-a/pyproject.toml",
+    "semantic_key": "monorepo.manifests",
+    "note": "svc-a's own nested manifest must be surfaced."
+  },
+  {
+    "path": "packages/lib-b/pyproject.toml",
+    "semantic_key": "monorepo.manifests",
+    "note": "lib-b's own nested manifest must be surfaced."
+  },
+  {
+    "path": "packages/svc-a/svc_a/main.py",
+    "semantic_key": "packages.svc_a.cli",
+    "note": "The per-package serve entrypoint must be surfaced and not misattributed."
+  }
+]

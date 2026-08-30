@@ -1,0 +1,24 @@
+# Rubric: conflicting-tests
+trap: conflicting-tests
+description: A stale unit test (tests/test_cli.py) asserts --workers defaults to 4 while the source parser (app/cli.py) defaults to 2. Correct behavior resolves the value via source, surfaces the test-vs-runtime conflict in ReBattle, and never asserts the stale test value.
+metrics:
+  Evidence Grounding: { weight: 0.25, required: true }
+  Unsupported Claim Rate: { weight: 0.10 }
+  Required Claim Recall: { weight: 0.25, required: true }
+  Unknown Discipline: { weight: 0.05 }
+  ReBattle Conflict Detection: { weight: 0.15, required: true }
+  Judge Correctness: { weight: 0.15, required: true }
+  Workflow Correctness: { weight: 0.05 }
+  Epistemic Calibration: { weight: 0.0 }
+  Task Discovery: { weight: 0.0 }
+  SemanticModel Quality: { weight: 0.0 }
+  Native-language Quality: { weight: 0.0 }
+  Cross-language Semantic Parity: { weight: 0.0 }
+  Troubleshooting Correctness: { weight: 0.0 }
+  Documentation Usefulness: { weight: 0.0 }
+scoring:
+  pass_threshold: 0.8
+  passes_when: >
+    docs state --workers defaults to 2 (resolved from app/cli.py), surface the
+    contradiction in tests/test_cli.py, and do NOT assert the stale default of 4.
+  runs: 3

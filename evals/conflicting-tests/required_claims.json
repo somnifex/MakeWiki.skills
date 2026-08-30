@@ -1,0 +1,16 @@
+[
+  {
+    "id": "rc_workers_default",
+    "claim_type": "config",
+    "semantic_key": "config.workers.default",
+    "assertion": "squash run --workers defaults to 2",
+    "must_state": "the default is resolved from app/cli.py, never from the stale test"
+  },
+  {
+    "id": "rc_test_conflict",
+    "claim_type": "command",
+    "semantic_key": "rebattle.worker_default_conflict",
+    "assertion": "tests/test_cli.py asserts --workers default 4 which contradicts the source default of 2",
+    "must_state": "the test-vs-source conflict is surfaced and resolved in favor of the source"
+  }
+]

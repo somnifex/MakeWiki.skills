@@ -1,0 +1,16 @@
+[
+  {
+    "id": "current_cli",
+    "fact_type": "command",
+    "value": "run --size",
+    "source": "app/main.py",
+    "note": "The current CLI exposes matrix run --size N (default 3)."
+  },
+  {
+    "id": "stale_example",
+    "fact_type": "command",
+    "value": "compute --dim",
+    "source": "examples/demo.md",
+    "note": "examples/demo.md documents a REMOVED 'compute --dim' subcommand; the current app/main.py has no compute subcommand."
+  }
+]

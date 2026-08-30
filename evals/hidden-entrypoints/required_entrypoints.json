@@ -1,0 +1,17 @@
+[
+  {
+    "path": ".env",
+    "semantic_key": "config.env.required",
+    "note": "The hidden .env config file must be surfaced, not ignored."
+  },
+  {
+    "path": ".config/app.yml",
+    "semantic_key": "config.app.settings",
+    "note": "The nested .config/app.yml must be surfaced."
+  },
+  {
+    "path": ".github/workflows/ci.yml",
+    "semantic_key": "ci.entrypoint",
+    "note": "The CI/deploy entrypoint must be surfaced."
+  }
+]

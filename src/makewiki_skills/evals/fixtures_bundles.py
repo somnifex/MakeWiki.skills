@@ -132,7 +132,10 @@ AMBIGUOUS_INSTALL = {
     "run_id": "fixture-ambiguous",
     "evidence": {
         "facts": [
-            {"id": "dev_deps", "semantic_key": "install.dependencies", "value": "pytest,ruff", "source": "pyproject.toml"}
+            {"id": "vf_name", "semantic_key": "project.name", "value": "widget", "source": "pyproject.toml"},
+            {"id": "vf_version", "semantic_key": "project.version", "value": "0.4.1", "source": "pyproject.toml"},
+            {"id": "vf_dev_pytest", "semantic_key": "install.dependencies", "value": "pytest", "source": "pyproject.toml"},
+            {"id": "vf_dev_ruff", "semantic_key": "install.dependencies", "value": "ruff", "source": "pyproject.toml"},
         ],
         "detected_packages": [],
     },
@@ -223,7 +226,8 @@ HIDDEN_ENTRYPOINTS = {
         "facts": [
             {"id": "env_token", "semantic_key": "config.env.required", "value": "API_TOKEN", "source": ".env"},
             {"id": "env_db", "semantic_key": "config.env.required", "value": "DB_URL", "source": ".env"},
-            {"id": "app_yml", "semantic_key": "config.app.settings", "value": "telemetry,workers", "source": ".config/app.yml"},
+            {"id": "yml_telemetry", "semantic_key": "config.app.settings", "value": "telemetry", "source": ".config/app.yml"},
+            {"id": "yml_workers", "semantic_key": "config.app.settings", "value": "workers", "source": ".config/app.yml"},
             {"id": "ci_wf", "semantic_key": "ci.entrypoint", "value": "ci workflow", "source": ".github/workflows/ci.yml"},
         ],
         "detected_packages": [],
@@ -467,6 +471,7 @@ STALE_README = {
         "facts": [
             {"id": "source_port", "semantic_key": "network.port.default", "value": "8080", "source": "app/echo_cli/main.py"},
             {"id": "readme_port", "semantic_key": "network.port.default", "value": "3000", "source": "README.md"},
+            {"id": "cli_echo", "semantic_key": "cli.commands", "value": "echo", "source": "app/echo_cli/main.py"},
         ],
         "detected_packages": [],
     },
@@ -573,6 +578,7 @@ MONOREPO_DISCOVERY = {
             {"id": "svc_a_manifest", "semantic_key": "monorepo.manifests", "value": "svc-a", "source": "packages/svc-a/pyproject.toml"},
             {"id": "lib_b_manifest", "semantic_key": "monorepo.manifests", "value": "lib-b", "source": "packages/lib-b/pyproject.toml"},
             {"id": "svc_a_cli", "semantic_key": "packages.svc_a.cli", "value": "serve", "source": "packages/svc-a/svc_a/main.py"},
+            {"id": "svc_a_port", "semantic_key": "packages.svc_a.port", "value": "9000", "source": "packages/svc-a/svc_a/main.py"},
         ],
         "detected_packages": ["svc-a", "lib-b"],
     },
@@ -669,6 +675,346 @@ MONOREPO_DISCOVERY = {
             "- `packages/svc-a` exposes the `serve` command (default port 9000).\n"
             "- `packages/lib-b` exposes the `lib-b` entrypoint.\n"
             "Each package ships its own `pyproject.toml`.\n"
+        ),
+    },
+}
+
+
+# ---------------------------------------------------------------------------
+# conflicting-tests: a stale unit test asserts --workers defaults to 4 while
+# the source parser (app/cli.py) defaults to 2. Correct handoff resolves via
+# the source, surfaces the test-vs-runtime conflict in ReBattle, and never
+# asserts the stale 4.
+# ---------------------------------------------------------------------------
+CONFLICTING_TESTS = {
+    "trap": "conflicting-tests",
+    "run_id": "fixture-conflicting-tests",
+    "evidence": {
+        "facts": [
+            {"id": "cli_workers_default", "semantic_key": "config.workers.default", "value": "2", "source": "app/cli.py"},
+            {"id": "cli_workers_flag", "semantic_key": "cli.workers.flag", "value": "--workers", "source": "app/cli.py"},
+            {"id": "test_workers_stale", "semantic_key": "config.workers.default", "value": "4", "source": "tests/test_cli.py"},
+        ],
+        "detected_packages": [],
+    },
+    "agent_claims": {
+        "sets": [
+            {
+                "agent_id": "agent_red",
+                "perspective": "user_experience",
+                "claims": [
+                    {"agent_id": "agent_red", "claim_type": "config", "semantic_key": "config.workers.default",
+                     "assertion": "--workers defaults to 4 (from tests)", "value": "4",
+                     "confidence": "low", "evidence_refs": ["tests/test_cli.py"]},
+                ],
+            },
+            {
+                "agent_id": "agent_green",
+                "perspective": "code_implementation",
+                "claims": [
+                    {"agent_id": "agent_green", "claim_type": "config", "semantic_key": "config.workers.default",
+                     "assertion": "--workers defaults to 2 (from parser)", "value": "2",
+                     "confidence": "high", "evidence_refs": ["app/cli.py"]},
+                    {"agent_id": "agent_green", "claim_type": "command", "semantic_key": "rebattle.worker_default_conflict",
+                     "assertion": "tests assert 4 but the source defaults to 2", "value": "conflict",
+                     "confidence": "high", "evidence_refs": ["tests/test_cli.py", "app/cli.py"]},
+                ],
+            },
+        ]
+    },
+    "rebattle": {
+        "discrepancies": [
+            {"topic": "config.workers.default", "participants": ["agent_red", "agent_green"],
+             "source_values": {"agent_red": "4", "agent_green": "2"}}
+        ]
+    },
+    "adjudications": {
+        "rulings": [
+            {"topic": "config.workers.default", "ruling": "accepted", "final_assertion": "2",
+             "verified_via_codebase": True, "evidence_refs": ["app/cli.py"],
+             "adjudicator_reasoning": "app/cli.py parses --workers default 2; the test is stale"},
+        ]
+    },
+    "semantic_model": {
+        "dotenv": [],
+        "user_tasks": [],
+        "troubleshooting": [],
+        "provenance": {"config": "llm"},
+        "claims": [
+            {"semantic_key": "config.workers.default", "value": "2", "claim_type": "config"},
+            {"semantic_key": "rebattle.worker_default_conflict", "value": "conflict", "claim_type": "command"},
+        ],
+    },
+    "semantic_audit": {
+        "auditor": "fake_llm_auditor",
+        "documents_digest": "fixture",
+        "verdicts": [
+            {"review_item_id": "L3:README.md:workers", "layer": "L3", "status": "passed"},
+            {"review_item_id": "L3:README.md:entrypoint", "layer": "L3", "status": "passed"},
+            {"review_item_id": "L4b:README.md:workers", "layer": "L4b", "status": "passed"},
+            {"review_item_id": "L5:README.md", "layer": "L5", "status": "passed"},
+        ],
+        "rejected": False,
+        "rejection_reason": "",
+    },
+    "mechanical_report": {
+        "total_checks": 6,
+        "layers": [
+            {"layer": "L0", "name": "Structure", "verdict": "passed", "checks": []},
+            {"layer": "L1", "name": "Agents", "verdict": "passed", "checks": []},
+            {"layer": "L2", "name": "Interface", "verdict": "passed", "checks": []},
+            {"layer": "L4", "name": "Cross-lang", "verdict": "passed", "checks": [
+                {"layer": "L4", "claim_type": "l4a_mechanical", "status": "passed",
+                 "claim_text": "all technical blocks tagged", "detail": ""},
+                {"layer": "L4", "claim_type": "l4b_semantic", "status": "passed",
+                 "review_item_id": "L4b:README.md:workers", "detail": ""},
+            ]},
+            {"layer": "L3", "name": "Semantic", "verdict": "passed", "checks": [
+                {"layer": "L3", "claim_type": "l3", "status": "passed", "review_item_id": "L3:README.md:workers", "detail": ""},
+                {"layer": "L3", "claim_type": "l3", "status": "passed", "review_item_id": "L3:README.md:entrypoint", "detail": ""}]},
+            {"layer": "L5", "name": "Audit", "verdict": "passed", "checks": [
+                {"layer": "L5", "claim_type": "l5", "status": "passed", "review_item_id": "L5:README.md", "detail": ""}]},
+        ],
+    },
+    "quality_gate": {
+        "verdict": "passed",
+        "ci_exit_code": 0,
+        "semantic_complete": True,
+        "pending_llm_layers": [],
+        "mechanical_passed": True,
+    },
+    "docs": {
+        "README.md": (
+            "# squash\n\n"
+            "`squash run --workers` defaults to 2 (from `app/cli.py`). "
+            "A stale unit test asserts 4; the source is authoritative.\n"
+        ),
+    },
+}
+
+
+# ---------------------------------------------------------------------------
+# stale-example: examples/demo.md documents a REMOVED 'compute --dim'
+# subcommand while the current CLI exposes only 'run --size'. Correct handoff
+# documents the current CLI from source and flags the stale example, never
+# presenting the removed command as current.
+# ---------------------------------------------------------------------------
+STALE_EXAMPLE = {
+    "trap": "stale-example",
+    "run_id": "fixture-stale-example",
+    "evidence": {
+        "facts": [
+            {"id": "current_cli", "semantic_key": "cli.matrix.run", "value": "run --size", "source": "app/main.py"},
+            {"id": "stale_example", "semantic_key": "cli.matrix.stale_example", "value": "compute --dim", "source": "examples/demo.md"},
+        ],
+        "detected_packages": [],
+    },
+    "agent_claims": {
+        "sets": [
+            {
+                "agent_id": "agent_blue",
+                "perspective": "code_implementation",
+                "claims": [
+                    {"agent_id": "agent_blue", "claim_type": "command", "semantic_key": "cli.matrix.run",
+                     "assertion": "matrix run --size (default 3) from app/main.py", "value": "run",
+                     "confidence": "high", "evidence_refs": ["app/main.py"]},
+                    {"agent_id": "agent_blue", "claim_type": "command", "semantic_key": "cli.matrix.stale_example",
+                     "assertion": "examples/demo.md shows a removed compute --dim subcommand", "value": "stale",
+                     "confidence": "high", "evidence_refs": ["examples/demo.md"]},
+                ],
+            },
+            {
+                "agent_id": "agent_red",
+                "perspective": "user_experience",
+                "claims": [
+                    {"agent_id": "agent_red", "claim_type": "command", "semantic_key": "cli.matrix.run",
+                     "assertion": "run via matrix compute --dim (from example)", "value": "compute --dim",
+                     "confidence": "low", "evidence_refs": ["examples/demo.md"]},
+                ],
+            },
+        ]
+    },
+    "rebattle": {
+        "discrepancies": [
+            {"topic": "cli.matrix.run", "participants": ["agent_red", "agent_blue"],
+             "source_values": {"agent_red": "compute --dim", "agent_blue": "run --size"}}
+        ]
+    },
+    "adjudications": {
+        "rulings": [
+            {"topic": "cli.matrix.run", "ruling": "accepted", "final_assertion": "run --size",
+             "verified_via_codebase": True, "evidence_refs": ["app/main.py"],
+             "adjudicator_reasoning": "the current parser exposes only 'run --size'; examples/demo.md is stale"},
+            {"topic": "cli.matrix.stale_example", "ruling": "accepted", "final_assertion": "stale",
+             "verified_via_codebase": True, "evidence_refs": ["examples/demo.md"],
+             "adjudicator_reasoning": "the example is flagged as non-current"},
+        ]
+    },
+    "semantic_model": {
+        "dotenv": [],
+        "user_tasks": [],
+        "troubleshooting": [],
+        "provenance": {"cli": "llm"},
+        "claims": [
+            {"semantic_key": "cli.matrix.run", "value": "run --size", "claim_type": "command"},
+            {"semantic_key": "cli.matrix.stale_example", "value": "stale", "claim_type": "command"},
+        ],
+    },
+    "semantic_audit": {
+        "auditor": "fake_llm_auditor",
+        "documents_digest": "fixture",
+        "verdicts": [
+            {"review_item_id": "L3:README.md:cli", "layer": "L3", "status": "passed"},
+            {"review_item_id": "L3:README.md:entrypoint", "layer": "L3", "status": "passed"},
+            {"review_item_id": "L4b:README.md:cli", "layer": "L4b", "status": "passed"},
+            {"review_item_id": "L5:README.md", "layer": "L5", "status": "passed"},
+        ],
+        "rejected": False,
+        "rejection_reason": "",
+    },
+    "mechanical_report": {
+        "total_checks": 6,
+        "layers": [
+            {"layer": "L0", "name": "Structure", "verdict": "passed", "checks": []},
+            {"layer": "L1", "name": "Agents", "verdict": "passed", "checks": []},
+            {"layer": "L2", "name": "Interface", "verdict": "passed", "checks": []},
+            {"layer": "L4", "name": "Cross-lang", "verdict": "passed", "checks": [
+                {"layer": "L4", "claim_type": "l4a_mechanical", "status": "passed",
+                 "claim_text": "all technical blocks tagged", "detail": ""},
+                {"layer": "L4", "claim_type": "l4b_semantic", "status": "passed",
+                 "review_item_id": "L4b:README.md:cli", "detail": ""},
+            ]},
+            {"layer": "L3", "name": "Semantic", "verdict": "passed", "checks": [
+                {"layer": "L3", "claim_type": "l3", "status": "passed", "review_item_id": "L3:README.md:cli", "detail": ""},
+                {"layer": "L3", "claim_type": "l3", "status": "passed", "review_item_id": "L3:README.md:entrypoint", "detail": ""}]},
+            {"layer": "L5", "name": "Audit", "verdict": "passed", "checks": [
+                {"layer": "L5", "claim_type": "l5", "status": "passed", "review_item_id": "L5:README.md", "detail": ""}]},
+        ],
+    },
+    "quality_gate": {
+        "verdict": "passed",
+        "ci_exit_code": 0,
+        "semantic_complete": True,
+        "pending_llm_layers": [],
+        "mechanical_passed": True,
+    },
+    "docs": {
+        "README.md": (
+            "# matrix\n\n"
+            "Current CLI exposes `matrix run --size` (default 3). "
+            "`examples/demo.md` shows a removed `compute --dim` subcommand and is stale.\n"
+        ),
+    },
+}
+
+
+# ---------------------------------------------------------------------------
+# incomplete-scan: a nested services/worker package (own pyproject.toml,
+# __main__ entrypoint, .env config) that a shallow root-only scan MISSES.
+# Correct handoff surfaces the nested package — manifest, entrypoint, and
+# config — and does not claim the repo is single-package.
+# ---------------------------------------------------------------------------
+INCOMPLETE_SCAN = {
+    "trap": "incomplete-scan",
+    "run_id": "fixture-incomplete-scan",
+    "evidence": {
+        "facts": [
+            {"id": "worker_manifest", "semantic_key": "services.worker.manifest", "value": "worker", "source": "services/worker/pyproject.toml"},
+            {"id": "worker_entrypoint", "semantic_key": "services.worker.entrypoint", "value": "worker", "source": "services/worker/worker/__main__.py"},
+            {"id": "worker_env", "semantic_key": "services.worker.env", "value": "WORKER_QUEUE", "source": "services/worker/.env"},
+        ],
+        "detected_packages": ["worker"],
+    },
+    "agent_claims": {
+        "sets": [
+            {
+                "agent_id": "agent_green",
+                "perspective": "code_implementation",
+                "claims": [
+                    {"agent_id": "agent_green", "claim_type": "command", "semantic_key": "services.worker.entrypoint",
+                     "assertion": "services/worker exposes a worker run entrypoint via its own __main__.py", "value": "worker",
+                     "confidence": "high", "evidence_refs": ["services/worker/worker/__main__.py"]},
+                    {"agent_id": "agent_green", "claim_type": "manifest", "semantic_key": "services.worker.manifest",
+                     "assertion": "services/worker has its own pyproject.toml", "value": "worker",
+                     "confidence": "high", "evidence_refs": ["services/worker/pyproject.toml"]},
+                    {"agent_id": "agent_green", "claim_type": "config", "semantic_key": "services.worker.env",
+                     "assertion": "services/worker/.env defines WORKER_QUEUE", "value": "WORKER_QUEUE",
+                     "confidence": "high", "evidence_refs": ["services/worker/.env"]},
+                ],
+            },
+        ]
+    },
+    "rebattle": {
+        "discrepancies": [],
+    },
+    "adjudications": {
+        "rulings": [
+            {"topic": "services.worker.entrypoint", "ruling": "accepted", "final_assertion": "worker",
+             "verified_via_codebase": True, "evidence_refs": ["services/worker/worker/__main__.py"],
+             "adjudicator_reasoning": "nested package entrypoint surfaced, not missed"},
+            {"topic": "services.worker.manifest", "ruling": "accepted", "final_assertion": "worker",
+             "verified_via_codebase": True, "evidence_refs": ["services/worker/pyproject.toml"],
+             "adjudicator_reasoning": "nested manifest surfaced"},
+            {"topic": "services.worker.env", "ruling": "accepted", "final_assertion": "WORKER_QUEUE",
+             "verified_via_codebase": True, "evidence_refs": ["services/worker/.env"],
+             "adjudicator_reasoning": "nested .env config surfaced"},
+        ]
+    },
+    "semantic_model": {
+        "dotenv": ["WORKER_QUEUE"],
+        "user_tasks": [],
+        "troubleshooting": [],
+        "provenance": {"packages": "llm"},
+        "claims": [
+            {"semantic_key": "services.worker.entrypoint", "value": "worker", "claim_type": "command"},
+            {"semantic_key": "services.worker.manifest", "value": "worker", "claim_type": "manifest"},
+            {"semantic_key": "services.worker.env", "value": "WORKER_QUEUE", "claim_type": "config"},
+        ],
+    },
+    "semantic_audit": {
+        "auditor": "fake_llm_auditor",
+        "documents_digest": "fixture",
+        "verdicts": [
+            {"review_item_id": "L3:README.md:packages", "layer": "L3", "status": "passed"},
+            {"review_item_id": "L3:README.md:entrypoint", "layer": "L3", "status": "passed"},
+            {"review_item_id": "L4b:README.md:packages", "layer": "L4b", "status": "passed"},
+            {"review_item_id": "L5:README.md", "layer": "L5", "status": "passed"},
+        ],
+        "rejected": False,
+        "rejection_reason": "",
+    },
+    "mechanical_report": {
+        "total_checks": 6,
+        "layers": [
+            {"layer": "L0", "name": "Structure", "verdict": "passed", "checks": []},
+            {"layer": "L1", "name": "Agents", "verdict": "passed", "checks": []},
+            {"layer": "L2", "name": "Interface", "verdict": "passed", "checks": []},
+            {"layer": "L4", "name": "Cross-lang", "verdict": "passed", "checks": [
+                {"layer": "L4", "claim_type": "l4a_mechanical", "status": "passed",
+                 "claim_text": "all technical blocks tagged", "detail": ""},
+                {"layer": "L4", "claim_type": "l4b_semantic", "status": "passed",
+                 "review_item_id": "L4b:README.md:packages", "detail": ""},
+            ]},
+            {"layer": "L3", "name": "Semantic", "verdict": "passed", "checks": [
+                {"layer": "L3", "claim_type": "l3", "status": "passed", "review_item_id": "L3:README.md:packages", "detail": ""},
+                {"layer": "L3", "claim_type": "l3", "status": "passed", "review_item_id": "L3:README.md:entrypoint", "detail": ""}]},
+            {"layer": "L5", "name": "Audit", "verdict": "passed", "checks": [
+                {"layer": "L5", "claim_type": "l5", "status": "passed", "review_item_id": "L5:README.md", "detail": ""}]},
+        ],
+    },
+    "quality_gate": {
+        "verdict": "passed",
+        "ci_exit_code": 0,
+        "semantic_complete": True,
+        "pending_llm_layers": [],
+        "mechanical_passed": True,
+    },
+    "docs": {
+        "README.md": (
+            "# hub\n\n"
+            "The repo also contains a nested `services/worker` package: "
+            "its own `pyproject.toml`, a `worker run` entrypoint, and a "
+            "`WORKER_QUEUE` config key read from `services/worker/.env`.\n"
         ),
     },
 }

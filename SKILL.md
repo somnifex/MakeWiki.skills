@@ -439,6 +439,11 @@ Self-Reflection: verify every reported file path actually exists on disk;
 surface (do not hide) any conflict between sources (e.g. stale README vs code).
 End by listing UNEXPLORED / UNRESOLVED areas (dirs and topics you did not inspect).
 Output a structured summary with verified file paths and line citations.
+Return all five fields: searched, evidence_found (each with refs + a
+low|medium|high confidence), unresolved, recommended_followup. Mark every
+load-bearing claim low|medium|high — a low-confidence or unresolved entry is
+handed to a FOLLOW-UP SCOUT, it is not carried silently and never delegated to
+Python to guess.
 ```
 
 
@@ -491,8 +496,14 @@ You are the Quality Auditor and Reviewer for the generated documentation in '{ou
 2. Run cross-language consistency review: every code block and parameter in English matches every other language 1:1, keyed on stable block IDs (`[[id:...]]`), never on position.
 3. Scan for broken Markdown links and AI clichés.
 4. Read the Quality Gate result from 'python run_toolkit.py verify-docs {output_dir}' and resolve any failed or pending layers in place.
-5. Autonomous Self-Healing: if discrepancies, typos, or missing commands are found, edit the Markdown files in place immediately.
-6. Emit a machine-readable `SemanticAuditBundle` JSON capturing your L3 / L4b / L5 semantic verdicts (see Section 3A). After every in-place edit, re-run the bundle so its `documents_digest` matches the final audited markdown set — never emit a bundle whose digest is stale against the files on disk. Save it as `<output_dir>/semantic_audit.json`.
+5. Adversarial semantic audit — four checks beyond grounding:
+   - Unsupported claims: any assertion with no citable source (downgrade or cut it).
+   - Omitted prerequisites: any prerequisite / setup step the docs assume but never state.
+   - Wrong workflow order: steps that cannot run in the order presented (e.g. a build before install).
+   - Overclaim: any confidence beyond what the evidence supports (L5); hedge it.
+   - Multilingual semantic drift: the same stable section/block meaning reduced or paraphrased off-track across languages.
+6. Autonomous Self-Healing: if discrepancies, typos, or missing commands are found, edit the Markdown files in place immediately.
+7. Emit a machine-readable `SemanticAuditBundle` JSON capturing your L3 / L4b / L5 semantic verdicts (see Section 3A). After every in-place edit, re-run the bundle so its `documents_digest` matches the final audited markdown set — never emit a bundle whose digest is stale against the files on disk. Save it as `<output_dir>/semantic_audit.json`.
 ```
 
 ---
@@ -626,11 +637,19 @@ semantic observations; Python never invents them.
 
 1. Reconcile every scout's `unexplored` / `unresolved` areas against the
    `coverage` report's `uncovered_categories` and `low_confidence_facts`.
-2. For each entry, **resolve it** (dispatch a targeted deep-dive) or
-   **explicitly accept it** with a written reason.
-3. **If still-unchecked important directories or categories remain, do NOT
+2. Answer the **six pre-ReBattle coverage checks** (see `tasks/scan.md` §3):
+   tests, CI / deployment, examples, nested packages, runtime entrypoint,
+   and "beyond README". Each is **covered** (evidence exists) or
+   **explicitly accepted** (written reason); a `no` left unresolved blocks Judge.
+3. For each still-unresolved entry **or** any scout claim marked
+   `confidence: low`, dispatch a targeted **Follow-up Scout** (a single-purpose
+   Round-2 deep dive riding the scout's `recommended_followup`), or
+   **explicitly accept** it with a written reason. Never ask Python to guess a
+   semantic gap.
+4. **If still-unchecked important directories or categories remain, do NOT
    enter the Judge stage** — the gaps must be closed or consciously accepted
-   first.
+   first; an unresolved `confidence: low` load-bearing fact is presumed
+   UNKNOWN until a Follow-up Scout closes it.
 
 ### Phase 2: ReBattle Adversarial Cross-Examination & Adjudication
 
@@ -647,11 +666,20 @@ the Mechanical Facts.
   error runbooks.
 
 #### Cross-examination & debate (Round 2)
-Subagents challenge each other's claims using AST evidence.
+Subagents challenge each other's claims using AST evidence, actively hunting
+across the Adversarial Search Categories (see `tasks/scan.md` §4):
+contradictory evidence, stale docs, environment differences, overrides, and
+test-vs-runtime differences. Every detected conflict surfaces as a ReBattle
+discrepancy keyed on its semantic topic — a conflict that goes unsurfaced is a
+discovery failure.
 
 #### Adjudication & unified Semantic Model (Round 3)
 The Main Agent acts as Judge, compiles the authoritative `SemanticModel` and
-the LLM-authored ClaimSet. Optional mechanical helper:
+the LLM-authored ClaimSet. **The Judge resolves each dispute on evidence
+strength — the number and independence of concrete `path:line` citations and
+mechanical proof — never on which agent asserted more confidently.** A
+confident claim with one weak source loses to a hedged claim with two
+independent code citations. Optional mechanical helper:
 `python <makewiki_root>/scripts/run_toolkit.py rebattle-diff <claim-files>`
 produces a deterministic dispute matrix.
 

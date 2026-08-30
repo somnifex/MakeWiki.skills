@@ -1,0 +1,6 @@
+[project]
+name = "worker"
+version = "0.1.0"
+
+[project.scripts]
+worker = "worker.__main__:main"
