@@ -241,3 +241,70 @@ def test_deprecated_aliases_are_listed_in_api_md():
         if target in NON_AUTHORITATIVE_COMMANDS:
             continue
         assert f"`{target}`" in text, f"references/api.md must reference `{target}`"
+
+
+def test_authoritative_cli_table_in_claude_md_is_fully_registered():
+    """Every command named in CLAUDE.md's authoritative CLI table is registered.
+
+    The root CLAUDE.md is the contract source for the CLI surface. Its
+    ``## Authoritative CLI surface`` table must not advertise any command that
+    is not a registered Typer command (including the non-authoritative legacy
+    family, which is still registered but never presented as authoritative).
+    This is the direct, single-source-of-truth direction of the contract.
+    """
+    claude_md = _read(PROJECT_ROOT / "CLAUDE.md")
+    start = claude_md.index("## Authoritative CLI surface")
+    end = claude_md.index("## Working notes")
+    section = claude_md[start:end]
+
+    pattern = re.compile(r"`([a-z][a-z0-9-]*)`")
+    listed = {m.group(1) for m in pattern.finditer(section)} - NON_COMMAND_TOKENS
+    assert listed, "CLAUDE.md authoritative CLI table must name at least one command"
+
+    unregistered = listed - REGISTERED_COMMANDS
+    assert not unregistered, (
+        "CLAUDE.md authoritative CLI table names commands that are not registered: "
+        + ", ".join(sorted(unregistered))
+    )
+
+    # The authoritative table must also name every registered non-authoritative
+    # command, so the legacy scaffold family is visible (and marked non-auth)
+    # rather than silently hidden.
+    for cmd in sorted(NON_AUTHORITATIVE_COMMANDS):
+        assert f"`{cmd}`" in section, (
+            f"CLAUDE.md authoritative CLI table must list `{cmd}` (marked "
+            "non-authoritative)"
+        )
+
+
+def test_doc_scan_scope_covers_required_paths():
+    """The doc-scan corpus must cover every path the contract cares about.
+
+    Deliverable scope: the root single-language docs (SKILL, AGENTS, CLAUDE,
+    README, README.en), every subskill SKILL.md, every reference doc, and every
+    tasks/** planning doc. Missing any of these would let a command drift out
+    of the documented/registered contract unnoticed.
+    """
+    files = {p for p in _all_documentation_files()}
+    required = {
+        PROJECT_ROOT / "SKILL.md",
+        PROJECT_ROOT / "AGENTS.md",
+        PROJECT_ROOT / "CLAUDE.md",
+        PROJECT_ROOT / "README.md",
+        PROJECT_ROOT / "README.en.md",
+    }
+    for path in required:
+        assert path in files, f"doc scan scope missing required file {path}"
+
+    # Every subskill SKILL.md is in scope.
+    subskill_skills = set((PROJECT_ROOT / "subskills").glob("*/SKILL.md"))
+    assert subskill_skills, "expected at least one subskills/*/SKILL.md"
+    assert subskill_skills <= files, (
+        "doc scan scope must include every subskills/*/SKILL.md: "
+        + ", ".join(sorted(str(p.relative_to(PROJECT_ROOT)) for p in subskill_skills - files))
+    )
+
+    # At least one reference doc and one tasks/** doc are in scope.
+    assert any("references" in p.parts for p in files), "doc scan scope missing references/**"
+    assert any("tasks" in p.parts for p in files), "doc scan scope missing tasks/**"
+

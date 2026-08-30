@@ -28,7 +28,7 @@ mechanical_plane:
   forbidden: "Inventing narrative content (FAQ / troubleshooting / usage)"
 
 bridge:
-  decision: "Quality Gate (PASS / FAIL, exit code 0 / 1)"
+  decision: "Quality Gate (honest four-state verdict: passed / pending_semantic_review / pending_mechanical_verification / failed; CI exit code 0 / 1 / 0-or-2 / 3)"
 ```
 
 ### Cognitive Authority Boundary

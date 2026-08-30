@@ -2,6 +2,7 @@
 
 
 
+
 ## Overview
 
 In MakeWiki v2, documentation is treated as a set of **structured, verifiable
@@ -164,7 +165,8 @@ ids such as `FW_AUTH_FLOW`. A semantic_key is a slash-shaped dotted path.
 **LLM-judged layers**: Python emits the underlying evidence and a tentative
 status, and the Skill layer's Auditor / Semantic Revision step resolves them
 into `passed` / `failed` / `hedged`. The Quality Gate reads the resolved
-status to decide PASS / FAIL.
+status to produce its four-state verdict (`passed` / `pending_semantic_review`
+/ `pending_mechanical_verification` / `failed`).
 
 ---
 

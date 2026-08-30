@@ -12,7 +12,21 @@ from pathlib import Path
 
 REPO_URL = "https://github.com/somnifex/MakeWiki.skills.git"
 DEFAULT_VERSION = "2.0.0"
-IGNORED_SHA256_MSG = "MAKEWIKI_TOOLKIT_SHA256 unset; skipping archive integrity check"
+# Provenance env vars. Version pins the skill↔toolkit pair; commit pins the Git
+# identity; archive SHA256 is the archive integrity checksum. These are kept
+# distinct — a checksum is NOT a Git identity.
+VERSION_ENV = "MAKEWIKI_TOOLKIT_VERSION"
+COMMIT_ENV = "MAKEWIKI_TOOLKIT_COMMIT"
+ARCHIVE_SHA256_ENV = "MAKEWIKI_TOOLKIT_ARCHIVE_SHA256"
+# Legacy combined name that conflated the Git identity with the archive
+# checksum. Kept as a deprecated compatibility alias for one release cycle;
+# reading it warns but does not error.
+LEGACY_SHA256_ENV = "MAKEWIKI_TOOLKIT_SHA256"
+LEGACY_SHA256_WARNING = (
+    "MAKEWIKI_TOOLKIT_SHA256 is deprecated; use MAKEWIKI_TOOLKIT_ARCHIVE_SHA256 "
+    "for the archive integrity checksum"
+)
+IGNORED_SHA256_MSG = "MAKEWIKI_TOOLKIT_ARCHIVE_SHA256 unset; skipping archive integrity check"
 REQUIRED_PATHS = (
     "pyproject.toml",
     "scripts/run_toolkit.py",
@@ -45,13 +59,44 @@ def requested_version() -> str:
     ``MAKEWIKI_TOOLKIT_VERSION`` pins the exact skill↔toolkit pair. When unset,
     fall back to the version this repo is currently developed at.
     """
-    return os.environ.get("MAKEWIKI_TOOLKIT_VERSION", DEFAULT_VERSION).lstrip("v")
+    return os.environ.get(VERSION_ENV, DEFAULT_VERSION).lstrip("v")
+
+
+def requested_commit() -> str | None:
+    """Return the Git commit identity to pin, or None when not specified.
+
+    ``MAKEWIKI_TOOLKIT_COMMIT`` pins the exact Git commit; it is distinct from
+    the archive integrity checksum (``MAKEWIKI_TOOLKIT_ARCHIVE_SHA256``).
+    """
+    value = os.environ.get(COMMIT_ENV, "").strip()
+    return value or None
+
+
+def requested_archive_sha256() -> str | None:
+    """Return the expected SHA256 of the archive, or None when not pinned.
+
+    Reads ``MAKEWIKI_TOOLKIT_ARCHIVE_SHA256`` (the archive integrity checksum).
+    Falls back to the legacy ``MAKEWIKI_TOOLKIT_SHA256`` name for one release
+    cycle with a warning when the deprecated name is consumed — warn, never
+    error, so old callers keep working while migrating.
+    """
+    value = os.environ.get(ARCHIVE_SHA256_ENV, "").strip().lower()
+    if value:
+        return value
+    legacy = os.environ.get(LEGACY_SHA256_ENV, "").strip().lower()
+    if legacy:
+        print(LEGACY_SHA256_WARNING)
+        return legacy
+    return None
 
 
 def requested_sha256() -> str | None:
-    """Return the expected SHA256 of the archive, or None when not pinned."""
-    value = os.environ.get("MAKEWIKI_TOOLKIT_SHA256", "").strip().lower()
-    return value or None
+    """Deprecated alias of :func:`requested_archive_sha256`.
+
+    Retained so existing callers/tests of the pre-split name keep working; it
+    returns the modern archive checksum (or the deprecated alias value).
+    """
+    return requested_archive_sha256()
 
 
 def tag_archive_url(version: str) -> str:
@@ -179,7 +224,12 @@ def populate_from_archive(target: Path, version: str, expected_sha256: str | Non
         record_archive_sha256(target, verified_sha256)
 
 
-def populate_from_git(target: Path, version: str, expected_sha256: str | None = None) -> None:
+def populate_from_git(
+    target: Path,
+    version: str,
+    expected_sha256: str | None = None,
+    commit: str | None = None,
+) -> None:
     target.parent.mkdir(parents=True, exist_ok=True)
     if target.exists():
         shutil.rmtree(target)
@@ -189,17 +239,23 @@ def populate_from_git(target: Path, version: str, expected_sha256: str | None = 
         ["git", "clone", "--depth", "1", "--branch", tag, git_clone_url(), str(target)],
         check=True,
     )
+    if commit:
+        print(f"Pinning git install to commit {commit}")
+        subprocess.run(
+            ["git", "-C", str(target), "checkout", commit],
+            check=True,
+        )
     if expected_sha256:
         verify_git_checkout_sha256(target, expected_sha256)
     # Record the exact fetched commit SHA (git identity) — kept separate from
     # the archive checksum used for zip installs.
-    commit = subprocess.run(
+    fetched = subprocess.run(
         ["git", "-C", str(target), "rev-parse", "HEAD"],
         check=True,
         capture_output=True,
         text=True,
     ).stdout.strip()
-    record_commit(target, commit)
+    record_commit(target, fetched)
     record_version(target, version)
 
 
@@ -225,7 +281,8 @@ def verify_git_checkout_sha256(root: Path, expected: str) -> None:
 def ensure_home_toolkit() -> Path:
     target = toolkit_root()
     version = requested_version()
-    expected_sha256 = requested_sha256()
+    expected_sha256 = requested_archive_sha256()
+    commit = requested_commit()
     local_source = discover_local_source(Path(__file__).resolve())
     if local_source is not None:
         if local_source.resolve() == target.resolve():
@@ -242,7 +299,7 @@ def ensure_home_toolkit() -> Path:
 
     if shutil.which("git"):
         try:
-            populate_from_git(target, version)
+            populate_from_git(target, version, expected_sha256, commit)
             return target
         except subprocess.CalledProcessError:
             pass

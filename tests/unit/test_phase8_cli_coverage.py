@@ -360,6 +360,67 @@ def test_bootstrap_requested_sha256_lowercases_value(monkeypatch):
     assert bootstrap.requested_sha256() == "abcdef1234"
 
 
+# ---------- bootstrap provenance env split (#31) ----------------------------
+# MAKEWIKI_TOOLKIT_VERSION (version) / MAKEWIKI_TOOLKIT_COMMIT (git identity) /
+# MAKEWIKI_TOOLKIT_ARCHIVE_SHA256 (checksum) are distinct. The legacy combined
+# name MAKEWIKI_TOOLKIT_SHA256 warns but still works for one release cycle.
+
+
+def test_bootstrap_archive_sha256_reads_modern_env(monkeypatch, capsys):
+    monkeypatch.delenv("MAKEWIKI_TOOLKIT_SHA256", raising=False)
+    monkeypatch.setenv("MAKEWIKI_TOOLKIT_ARCHIVE_SHA256", "aBc123")
+    bootstrap = _load_bootstrap_module()
+    assert bootstrap.requested_archive_sha256() == "abc123"
+    assert "deprecated" not in capsys.readouterr().out
+
+
+def test_bootstrap_archive_sha256_prefers_modern_over_legacy(monkeypatch, capsys):
+    monkeypatch.setenv("MAKEWIKI_TOOLKIT_ARCHIVE_SHA256", "modernSHA")
+    monkeypatch.setenv("MAKEWIKI_TOOLKIT_SHA256", "legacySHA")
+    bootstrap = _load_bootstrap_module()
+    # Modern name wins; the deprecated alias is not consulted, so no warning.
+    assert bootstrap.requested_archive_sha256() == "modernsha"
+    assert "deprecated" not in capsys.readouterr().out
+
+
+def test_bootstrap_archive_sha256_legacy_alias_warns(monkeypatch, capsys):
+    monkeypatch.delenv("MAKEWIKI_TOOLKIT_ARCHIVE_SHA256", raising=False)
+    monkeypatch.setenv("MAKEWIKI_TOOLKIT_SHA256", "abc123")
+    bootstrap = _load_bootstrap_module()
+    assert bootstrap.requested_archive_sha256() == "abc123"  # still works
+    out = capsys.readouterr().out
+    assert "deprecated" in out
+    assert "MAKEWIKI_TOOLKIT_ARCHIVE_SHA256" in out
+
+
+def test_bootstrap_archive_sha256_returns_none_when_unset(monkeypatch):
+    monkeypatch.delenv("MAKEWIKI_TOOLKIT_ARCHIVE_SHA256", raising=False)
+    monkeypatch.delenv("MAKEWIKI_TOOLKIT_SHA256", raising=False)
+    bootstrap = _load_bootstrap_module()
+    assert bootstrap.requested_archive_sha256() is None
+
+
+def test_bootstrap_legacy_requested_sha256_alias_matches_modern(monkeypatch):
+    monkeypatch.delenv("MAKEWIKI_TOOLKIT_ARCHIVE_SHA256", raising=False)
+    monkeypatch.setenv("MAKEWIKI_TOOLKIT_SHA256", "abc123")
+    bootstrap = _load_bootstrap_module()
+    assert bootstrap.requested_sha256() == bootstrap.requested_archive_sha256() == "abc123"
+
+
+def test_bootstrap_commit_env_is_distinct_from_checksum(monkeypatch):
+    monkeypatch.setenv("MAKEWIKI_TOOLKIT_COMMIT", "a1b2c3d4")
+    monkeypatch.delenv("MAKEWIKI_TOOLKIT_ARCHIVE_SHA256", raising=False)
+    bootstrap = _load_bootstrap_module()
+    assert bootstrap.requested_commit() == "a1b2c3d4"
+    assert bootstrap.requested_archive_sha256() is None  # commit != checksum
+
+
+def test_bootstrap_commit_env_none_when_unset(monkeypatch):
+    monkeypatch.delenv("MAKEWIKI_TOOLKIT_COMMIT", raising=False)
+    bootstrap = _load_bootstrap_module()
+    assert bootstrap.requested_commit() is None
+
+
 def test_bootstrap_tag_archive_url_pins_exact_release_tag():
     bootstrap = _load_bootstrap_module()
     assert (

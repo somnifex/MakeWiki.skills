@@ -11,7 +11,7 @@
   <a href="tests/"><img src="https://img.shields.io/badge/tests-passing-brightgreen.svg" alt="Tests"></a>
   <a href="SKILL.md"><img src="https://img.shields.io/badge/architecture-LLM%2Dfirst-orange.svg" alt="LLM-first"></a>
   <a href="references/grounding_policy.md"><img src="https://img.shields.io/badge/verification-L0%E2%80%93L5-purple.svg" alt="L0-L5 Verification"></a>
-  <a href="SKILL.md"><img src="https://img.shields.io/badge/quality%20gate-PASS%2FFAIL-success.svg" alt="Quality Gate"></a>
+  <a href="SKILL.md"><img src="https://img.shields.io/badge/quality%20gate-4%2Dstate-success.svg" alt="Quality Gate (four-state)"></a>
   <a href="subskills/site/"><img src="https://img.shields.io/badge/site-Offline%20SPA-purple.svg" alt="Static Site"></a>
   <a href="subskills/export/"><img src="https://img.shields.io/badge/export-HTML%20%7C%20EPUB-blueviolet.svg" alt="Export HTML/EPUB"></a>
   <a href="subskills/sync/"><img src="https://img.shields.io/badge/sync-Confluence%20%7C%20Notion-teal.svg" alt="Sync Knowledge Base"></a>
@@ -61,7 +61,7 @@ CLI 表面按权威名 + 向后兼容别名设计，Python 部分严格只做机
 | 配置生成                 | `/makewiki-init`                         | —                   | —       | 生成默认 `makewiki.config.yaml`                                 |
 | Toolkit: 尺寸          | `makewiki sizing <path>`                 | —                   | 机械      | 评估 Tier S/M/L                                               |
 | Toolkit: 证据          | `makewiki evidence <path>`               | `makewiki scan`     | 机械      | 输出事实 JSON（不解读）                                              |
-| Toolkit: 验证          | `makewiki verify-docs <path>`            | `makewiki verify`   | 机械      | L0–L5 + QualityGate → PASS/FAIL + CI exit code              |
+| Toolkit: 验证          | `makewiki verify-docs <path>`            | `makewiki verify`   | 机械      | L0–L5 + QualityGate → 四态裁决（passed / pending_semantic_review / pending_mechanical_verification / failed）+ CI exit code |
 | Toolkit: 声明验证        | `makewiki verify-claim <claim.json>`     | —                   | 机械      | 单条/多条 Claim 的 L 状态                                          |
 | Toolkit: 模型验证        | `makewiki verify-model <model.json>`     | —                   | 机械      | SemanticModel schema + 证据引用校验                               |
 | Toolkit: 跨语言对比       | `makewiki parity <path>`                 | —                   | 机械      | 块 ID 完全相同 + 对齐段落输出                                          |
@@ -122,12 +122,12 @@ flowchart LR
         V3["verify-docs L3<br/>行为证据"]
         V4["verify-docs L4<br/>块 ID + 对齐段落"]
         V5["verify-docs L5<br/>低置信列表"]
-        QG["QualityGate<br/>L0–L5 → PASS/FAIL"]
+        QG["QualityGate<br/>L0–L5 → 四态裁决"]
     end
 
     Cognitive -->|Claim/语义输入| Mechanical
     Mechanical -->|证据 + L 状态| Cognitive
-    QG -->|exit code 0/1| CI[CI / 流水线]
+    QG -->|exit code 0/1/2/3| CI[CI / 流水线]
 ```
 
 - **认知平面（Cognitive Plane）**：由 LLM 子代理承担所有理解、推理、对抗、写作与审计；可借助 Host Capability 选择并行 / 串行 / 主代理降级策略。
@@ -147,7 +147,7 @@ MakeWiki 不再宣称"零幻觉"，而提供**可验证的证据驱动文档**�
 - **L3 行为**：退出码、错误条件、日志位置、执行流可追溯到源码处理器（Python 提供行为证据，LLM 判定）。
 - **L4 跨语言**：通过稳定块 ID（`getting_started.install` 等）与稳定 H2 节标记（`<!-- makewiki:section=<slug> -->`）做完全相同比对（L4a 机械），再输出对齐段落供 LLM 散文审计（L4b 语义）。跨语言比对始终按稳定块/节 ID 匹配，绝不按标题文本或标题位置；各语言小节顺序可不同。
 - **L5 认识论**：所有低置信 / 未接地命令由 Python 列出，LLM 审计做最终判断；审计结论以 `SemanticAuditBundle` JSON 持久化，由 `verify-docs --semantic-audit <file>`（`verify-docs` 上的一个标志）消费，Python 只校验 schema 与摘要、绝不复判语义，文档变更后旧 bundle 判为过期需重新审计。
-- **Quality Gate**：单次 `verify-docs` 调用汇总 L0–L5 → `QualityGateResult`（PASS/FAIL + Grounding Score + 未解决关键问题计数），并返回 CI exit code。
+- **Quality Gate**：单次 `verify-docs` 调用汇总 L0–L5 → `QualityGateResult`，输出诚实的**四态裁决** `passed` / `pending_semantic_review` / `pending_mechanical_verification` / `failed`（附 Grounding Score、机械分数、未解决关键/主要/次要问题计数与每层状态），并把裁决映射为 CI exit code（`passed`→0、`failed`→1、`pending_semantic_review`→0（`allow_pending_llm_layers` 为 true）或 2、`pending_mechanical_verification`→3）。
 
 `zero-hallucination` 不是工程承诺；**Grounding Score、未解决关键问题数、L0–L5 状态** 才是。详见 [`references/grounding_policy.md`](references/grounding_policy.md)。
 

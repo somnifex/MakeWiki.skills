@@ -170,7 +170,8 @@ host_capability_fallback:
 quality_gate:
   verdict_source: "evaluate_quality_gate(report, cfg) -> QualityGateResult"
   fields:
-    passed: bool
+    passed: bool                    # strictly (verdict == "passed"); a pending gate is never passed
+    verdict: "passed | pending_semantic_review | pending_mechanical_verification | failed"
     syntax_passed: bool               # L0
     existence_passed: bool            # L1
     interface_passed: bool            # L2
@@ -183,7 +184,7 @@ quality_gate:
     unresolved_minor: int
     revision_rounds: int
     details: dict
-  exit_code: "0 if passed else 1"
+  ci_exit_code: "passed -> 0, failed -> 1, pending_semantic_review -> 0 (when quality.allow_pending_llm_layers) else 2, pending_mechanical_verification -> 3"
   config:
     quality.fail_on_critical: true
     quality.min_grounding_score: 1.0

@@ -1,91 +1,155 @@
 #!/usr/bin/env python3
-"""Gold-file checklist printer for the MakeWiki evals suite.
+"""MakeWiki eval harness — prepare / check / score / aggregate.
 
-Dependency-free: this script just walks each trap under `evals/` and reports
-whether all five gold files (plus a README/source) are present, so you can
-tell at a glance whether a trap is ready to be run as an LLM agent-behavioral
-eval.
+Host-agnostic. The host (an agent) runs the authoritative ``/makewiki`` flow on
+a prepared trap repo and writes run artifacts; this script mechanically scores
+and aggregates them. It never calls an LLM and never judges prose.
 
-Behavioral evals are run N >= 3 times per trap (see evals/README.md,
-Section 33): each run drives an LLM agent to write documentation against the
-trap repo, then scores the output against the gold files and rubric.
+Commands:
+    check [trap...]                 gold-file completeness check (default).
+    prepare <trap>                  prepare an isolated run repo (+ run bundle
+                                    with --fixture for host-less evaluation).
+    score <run-dir> <trap-dir>      deterministically score one run bundle.
+    aggregate <trap>                roll N >= 3 runs of a trap into one aggregate.
 
-Usage:
-    python evals/run_evals.py            # check every trap
-    python evals/run_evals.py my-trap    # check one trap only
+Examples:
+    python evals/run_evals.py check                     # all traps ready?
+    python evals/run_evals.py prepare misleading-readme --fixture
+    python evals/run_evals.py score evals/runs/misleading-readme/run-0 evals/misleading-readme
+    python evals/run_evals.py aggregate misleading-readme
 """
 
-import json
-import os
+from __future__ import annotations
+
+import argparse
 import sys
+from pathlib import Path
 
-HERE = os.path.dirname(os.path.abspath(__file__))
+from makewiki_skills.evals import runner
 
-# trap name -> list of gold files that must exist
-REQUIRED = [
-    "README.md",
-    "verified_facts.json",
-    "required_claims.json",
-    "forbidden_claims.json",
-    "expected_unknowns.json",
-    "rubric.yaml",
-]
-
-# gold files that must parse as JSON / YAML-ish (schema spot checks)
-JSON_GOLDS = [
-    "verified_facts.json",
-    "required_claims.json",
-    "forbidden_claims.json",
-    "expected_unknowns.json",
-]
+HERE = Path(__file__).resolve().parent
 
 
-def _check(trap_dir):
-    name = os.path.basename(trap_dir)
-    missing = [f for f in REQUIRED if not os.path.exists(os.path.join(trap_dir, f))]
-    parse_errors = []
-    for gold in JSON_GOLDS:
-        path = os.path.join(trap_dir, gold)
-        if not os.path.exists(path):
-            continue
-        try:
-            with open(path, encoding="utf-8") as fh:
-                json.load(fh)
-        except Exception as exc:  # noqa: BLE001 - report any parse failure
-            parse_errors.append(f"{gold}: {exc}")
-    return name, missing, parse_errors
+def _evals_root() -> Path:
+    return HERE
 
 
-def main(argv):
-    filters = argv[1:]
-    traps = sorted(
-        d
-        for d in os.listdir(HERE)
-        if os.path.isdir(os.path.join(HERE, d)) and not d.startswith(".")
-        and os.path.exists(os.path.join(HERE, d, "rubric.yaml"))
-    )
-    if filters:
-        traps = [t for t in traps if any(f in t for f in filters)]
+def _runs_root() -> Path:
+    return HERE / "runs"
 
-    if not traps:
-        print(f"No traps matched the filter: {' '.join(filters)}")
-        return 1
 
+def cmd_check(args: argparse.Namespace) -> int:
+    if not hasattr(args, "traps") or not args.traps:
+        names, incomplete = runner.check_fixtures(_evals_root())
+        traps = names
+    else:
+        incomplete = []
+        traps = []
+        for name in args.traps:
+            trap_dir = _evals_root() / name
+            missing, malformed = runner.fixture_status(trap_dir)
+            traps.append(name)
+            if missing or malformed:
+                incomplete.append((name, missing, malformed))
     bad = 0
     print("MakeWiki evals — gold-file checklist\n")
-    for trap in traps:
-        name, missing, parse_errors = _check(os.path.join(HERE, trap))
-        status = "OK  " if not missing and not parse_errors else "FAIL"
+    for name in traps:
+        missing, malformed = runner.fixture_status(_evals_root() / name)
+        ok = not missing and not malformed
+        status = "OK  " if ok else "FAIL"
         print(f"[{status}] {name}")
         for f in missing:
             print(f"        missing: {f}")
-        for err in parse_errors:
-            print(f"        invalid: {err}")
-        if missing or parse_errors:
+        for f in malformed:
+            print(f"        invalid: {f}")
+        if not ok:
             bad += 1
-
     print(f"\n{len(traps)} trap(s) checked, {bad} incomplete.")
     return 1 if bad else 0
+
+
+def cmd_prepare(args: argparse.Namespace) -> int:
+    trap_dir = _evals_root() / args.trap
+    if not (trap_dir / "rubric.yaml").is_file():
+        print(f"No such trap: {args.trap}")
+        return 1
+    runs_root = Path(args.runs_root).resolve() if args.runs_root else _runs_root()
+    n = int(getattr(args, "n", 1) or 1)
+    for i in range(n):
+        run_dir = runner.prepare(
+            trap_dir,
+            runs_root,
+            run_id=f"run-{i}" if n > 1 else None,
+            seed=i,
+            fixture=args.fixture,
+            host=args.host,
+        )
+        print(run_dir)
+    return 0
+
+
+def cmd_score(args: argparse.Namespace) -> int:
+    run_dir = Path(args.run_dir).resolve()
+    trap_dir = Path(args.trap_dir).resolve()
+    score = runner.score(run_dir, trap_dir)
+    print(f"trap={score.trap} run={score.run_id} mechanical_pass={score.mechanical_pass}")
+    for m in score.metrics:
+        mark = "PASS" if m.passed else "FAIL"
+        print(f"  [{mark}] {m.name}: {m.detail}")
+        if m.keys:
+            print(f"        keys: {', '.join(m.keys)}")
+    return 0 if score.mechanical_pass else 1
+
+
+def cmd_aggregate(args: argparse.Namespace) -> int:
+    runs_root = Path(args.runs_root).resolve() if args.runs_root else _runs_root()
+    agg = runner.aggregate(runs_root, args.trap, trap_dir=_evals_root() / args.trap)
+    print(f"trap={agg.trap} runs={agg.n_runs} (N>=3: {agg.n_satisfied})")
+    print(f"  overall_pass_rate={agg.overall_pass_rate}")
+    print(f"  mean_mechanical_pass={agg.mean_mechanical_pass} variance={agg.variance}")
+    print(f"  required_claim_recall={agg.required_claim_recall}")
+    print(f"  unsupported_claim_rate={agg.unsupported_claim_rate}")
+    print(f"  unknown_discipline_rate={agg.unknown_discipline_rate}")
+    if agg.common_failure_classes:
+        print(f"  common_failure_classes={', '.join(agg.common_failure_classes)}")
+    for m in agg.metric_aggregates:
+        print(f"  metric {m.name}: pass_rate={m.pass_rate} ({m.passed}/{m.total})")
+    return 0
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(prog="run_evals.py", description=__doc__)
+    sub = parser.add_subparsers(dest="command")
+
+    p_check = sub.add_parser("check", help="gold-file completeness check")
+    p_check.add_argument("traps", nargs="*")
+
+    p_prepare = sub.add_parser("prepare", help="prepare a run repo (+ fixture bundle)")
+    p_prepare.add_argument("trap")
+    p_prepare.add_argument("--fixture", action="store_true", help="write a fake-LLM run bundle")
+    p_prepare.add_argument("--n", type=int, default=1, help="number of runs to prepare")
+    p_prepare.add_argument("--runs-root", default=None)
+    p_prepare.add_argument("--host", default="", help="host label for a fixture run")
+
+    p_score = sub.add_parser("score", help="score one run bundle")
+    p_score.add_argument("run_dir")
+    p_score.add_argument("trap_dir")
+
+    p_agg = sub.add_parser("aggregate", help="aggregate N runs of one trap")
+    p_agg.add_argument("trap")
+    p_agg.add_argument("--runs-root", default=None)
+
+    args = parser.parse_args(argv)
+    if not args.command or args.command == "check":
+        return cmd_check(args)
+    if args.command == "prepare":
+        return cmd_prepare(args)
+    if args.command == "score":
+        return cmd_score(args)
+    if args.command == "aggregate":
+        return cmd_aggregate(args)
+    parser.print_help()
+    return 2
 
 
 if __name__ == "__main__":

@@ -12,7 +12,7 @@
   <a href="tests/"><img src="https://img.shields.io/badge/tests-passing-brightgreen.svg" alt="Tests"></a>
   <a href="SKILL.md"><img src="https://img.shields.io/badge/architecture-LLM%2Dfirst-orange.svg" alt="LLM-first"></a>
   <a href="references/grounding_policy.md"><img src="https://img.shields.io/badge/verification-L0%E2%80%93L5-purple.svg" alt="L0-L5 Verification"></a>
-  <a href="SKILL.md"><img src="https://img.shields.io/badge/quality%20gate-PASS%2FFAIL-success.svg" alt="Quality Gate"></a>
+  <a href="SKILL.md"><img src="https://img.shields.io/badge/quality%20gate-4%2Dstate-success.svg" alt="Quality Gate (four-state)"></a>
   <a href="subskills/site/"><img src="https://img.shields.io/badge/site-Offline%20SPA-purple.svg" alt="Static Site"></a>
   <a href="subskills/export/"><img src="https://img.shields.io/badge/export-HTML%20%7C%20EPUB-blueviolet.svg" alt="Export HTML/EPUB"></a>
   <a href="subskills/sync/"><img src="https://img.shields.io/badge/sync-Confluence%20%7C%20Notion-teal.svg" alt="Sync Knowledge Base"></a>
@@ -62,7 +62,7 @@ The CLI surface is designed around authoritative names with backward-compatible 
 | Config Init                     | `/makewiki-init`                       | —                   | Generate default `makewiki.config.yaml`                              |
 | Toolkit: Sizing                 | `makewiki sizing <path>`               | —                   | Tier S/M/L classification                                            |
 | Toolkit: Evidence               | `makewiki evidence <path>`             | `makewiki scan`     | Fact JSON (no interpretation)                                        |
-| Toolkit: Verify                 | `makewiki verify-docs <path>`          | `makewiki verify`   | L0–L5 + QualityGate → PASS/FAIL + CI exit code                       |
+| Toolkit: Verify                 | `makewiki verify-docs <path>`          | `makewiki verify`   | L0–L5 + QualityGate → four-state verdict (`passed` / `pending_semantic_review` / `pending_mechanical_verification` / `failed`) + CI exit code |
 | Toolkit: Claim verify           | `makewiki verify-claim <claim.json>`   | —                   | Per-claim L-status                                                   |
 | Toolkit: Model verify           | `makewiki verify-model <model.json>`   | —                   | SemanticModel schema + evidence-ref validation                       |
 | Toolkit: Parity                 | `makewiki parity <path>`               | —                   | Block-ID exact match + aligned passages                              |
@@ -123,12 +123,12 @@ flowchart LR
         V3["verify-docs L3<br/>behavior evidence"]
         V4["verify-docs L4<br/>block ID + aligned passages"]
         V5["verify-docs L5<br/>low-confidence list"]
-        QG["QualityGate<br/>L0–L5 → PASS/FAIL"]
+        QG["QualityGate<br/>L0–L5 → 4-state verdict"]
     end
 
     Cognitive -->|claim / semantic input| Mechanical
     Mechanical -->|evidence + L-status| Cognitive
-    QG -->|exit code 0/1| CI[CI / pipeline]
+    QG -->|exit code 0/1/2/3| CI[CI / pipeline]
 ```
 
 - **Cognitive Plane**: LLM subagents own all comprehension, reasoning, debate, writing, and auditing. Host capabilities select parallel / sequential / main-agent fallback.
@@ -148,7 +148,7 @@ MakeWiki no longer claims "zero hallucinations." It delivers **verifiable, evide
 - **L3 Behavior** — exit codes, error conditions, log paths, and execution flows trace to source handlers (Python supplies evidence, LLM judges).
 - **L4 Cross-language** — stable block IDs (`getting_started.install`, etc.) and stable H2 section markers (`<!-- makewiki:section=<slug> -->`) enable exact-match parity (L4a mechanical) plus aligned-passage output for LLM prose auditing (L4b semantic). Cross-language matching is always keyed on stable block/section IDs, never on heading text or heading position; section ORDER may differ per language.
 - **L5 Epistemic** — low-confidence and ungrounded commands are surfaced by Python; the LLM auditor reasons over them. The audit conclusions are persisted as a `SemanticAuditBundle` JSON, consumed by `verify-docs --semantic-audit <file>` (a flag on the `verify-docs` command); Python only validates schema and digests and never re-judges the verdicts, and a bundle is rejected as stale if the documents change.
-- **Quality Gate** — a single `verify-docs` run aggregates L0–L5 into a `QualityGateResult` (PASS/FAIL + Grounding Score + unresolved critical count) and returns a CI exit code.
+- **Quality Gate** — a single `verify-docs` run aggregates L0–L5 into a `QualityGateResult` with an honest four-state verdict (`passed` / `pending_semantic_review` / `pending_mechanical_verification` / `failed`, plus Grounding Score, mechanical score, unresolved counts, and per-layer status) and returns a CI exit code (`passed`→0, `failed`→1, `pending_semantic_review`→0 when `quality.allow_pending_llm_layers` else 2, `pending_mechanical_verification`→3).
 
 `zero-hallucination` is not an engineering promise. **Grounding Score, unresolved critical counts, and L0–L5 status** are. See [`references/grounding_policy.md`](references/grounding_policy.md).
 

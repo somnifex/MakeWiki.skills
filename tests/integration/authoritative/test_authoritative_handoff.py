@@ -43,7 +43,7 @@ from makewiki_skills.scanner.evidence_collector import EvidenceCollector
 from makewiki_skills.scanner.evidence_registry import EvidenceRegistry
 from makewiki_skills.scanner.project_detector import ProjectDetector
 from makewiki_skills.verification.orchestrator import VerificationOrchestrator
-from makewiki_skills.verification.quality_gate import evaluate_quality_gate
+from makewiki_skills.verification.quality_gate import ci_exit_code_for, evaluate_quality_gate
 from makewiki_skills.verification.report import VerificationCheck
 from makewiki_skills.verification.semantic_audit import (
     SemanticAuditBundle,
@@ -480,6 +480,29 @@ def test_authoritative_handoff_partial_then_full_audit(tmp_path: Path) -> None:
     assert gate_partial.verdict == "pending_semantic_review"
     assert gate_partial.passed is False
     assert gate_partial.semantic_complete is False
+    # EXIT-CODE SEPARATION: the CI exit code must be decoupled from the truth
+    # verdict. The real gate maps a pending_semantic_review to ci_exit_code 0 by
+    # default (an LLM review outstanding is not a mechanical failure), so exit 0
+    # here means "semantic review pending, allowed by exit policy" — NOT passed.
+    # Asserting this pinpoints that a genuine pending is honored (never
+    # short-circuited into a vacuous pass just because the exit code is 0).
+    assert gate_partial.ci_exit_code == 0
+    assert gate_partial.exit_code == gate_partial.ci_exit_code  # alias stays honest
+    assert gate_partial.passed is False  # exit-0 is never conflated with passed
+    # The CLAUDE.md "0-or-2" exit policy: the SAME pending_semantic_review
+    # verdict maps to the honest base code 2 when allow_pending_llm_layers is not
+    # granted — the verdict-to-code mapping, pinned directly from the gate's own
+    # policy table.
+    assert ci_exit_code_for("pending_semantic_review", allow_pending_llm_layers=False) == 2
+    assert ci_exit_code_for("pending_semantic_review", allow_pending_llm_layers=True) == 0
+    # And under the strict policy the real gate escalates an unadjudicated bundle
+    # to a hard failure (Python gate exit 1), never a papered-over pass.
+    gate_partial_strict = evaluate_quality_gate(
+        report_partial, allow_pending_llm_layers=False
+    )
+    assert gate_partial_strict.verdict == "failed"
+    assert gate_partial_strict.ci_exit_code == 1
+    assert gate_partial_strict.passed is False
 
     # 3. FULL: build from the review-item registry of the partial report. The
     # registry still lists every expected item (the L3 item included), so this
@@ -498,6 +521,11 @@ def test_authoritative_handoff_partial_then_full_audit(tmp_path: Path) -> None:
     assert gate_full.passed is True
     assert gate_full.semantic_complete is True
     assert gate_full.pending_llm_layers == []
+    assert gate_full.ci_exit_code == 0
+    # The full verdict-to-code closure of the CLAUDE.md exit-policy table.
+    assert ci_exit_code_for("passed") == 0
+    assert ci_exit_code_for("failed") == 1
+    assert ci_exit_code_for("pending_mechanical_verification") == 3
 
 
 # ---------------------------------------------------------------------------
