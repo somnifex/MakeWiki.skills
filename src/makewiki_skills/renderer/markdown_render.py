@@ -59,9 +59,7 @@ def slugify(text: str) -> str:
     return slug or "section"
 
 
-def _heading_open(
-    tokens: Sequence[Token], idx: int, options: OptionsDict, env: EnvType
-) -> str:
+def _heading_open(tokens: Sequence[Token], idx: int, options: OptionsDict, env: EnvType) -> str:
     """Attach a stable id to headings, de-duplicated within one document."""
     token = tokens[idx]
     inline = tokens[idx + 1] if idx + 1 < len(tokens) else None
