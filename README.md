@@ -55,11 +55,9 @@ CLI 表面按权威名 + 向后兼容别名设计，Python 部分严格只做机
 | 全流程 Skill            | `/makewiki`                              | —                   | 认知      | 完整流水线：Sizing → Scout → ReBattle → Writer → Review → Compile |
 | 站点编译                 | `/makewiki-site`                         | —                   | 机械      | 将既有 Markdown 编译为离线静态 Wiki                                   |
 | 文档质量门禁               | `/makewiki-validate`                     | —                   | 机械      | Markdown 结构与死链校验                                            |
-| 文档质量复核               | `/makewiki-review`                       | —              | 机械      | 跨语言校对：运行 `verify-docs` + `parity` + `semantic-review`（调用 `semantic-review` 生成对齐段落 + 行为证据） |
+| 文档质量复核               | `/makewiki-review`                       | `semantic-review`   | 机械      | 提取跨语言对齐段落 + 行为证据                                            |
 | 项目测绘                 | `/makewiki-scan`                         | —                   | 认知 + 机械 | 评估规模与提取事实（调用 `evidence`）                                    |
 | 配置生成                 | `/makewiki-init`                         | —                   | —       | 生成默认 `makewiki.config.yaml`                                 |
-| 导出                 | `/makewiki-export`                         | —              | 机械      | 编译 Markdown 为可打印 HTML 与 EPUB 电子书（`--format html|epub|all`，拒绝 `pdf`） |
-| 同步载荷                 | `/makewiki-sync`                           | —              | 机械      | 仅准备 Confluence/Notion 同步载荷包，不发布                           |
 | Toolkit: 尺寸          | `makewiki sizing <path>`                 | —                   | 机械      | 评估 Tier S/M/L                                               |
 | Toolkit: 证据          | `makewiki evidence <path>`               | `makewiki scan`     | 机械      | 输出事实 JSON（不解读）                                              |
 | Toolkit: 验证          | `makewiki verify-docs <path>`            | `makewiki verify`   | 机械      | L0–L5 + QualityGate → 四态裁决（passed / pending_semantic_review / pending_mechanical_verification / failed）+ CI exit code |
@@ -177,17 +175,15 @@ agent:                       # LLM-consumed
   max_audit_rounds: 3
   tier_override: auto
 
-site:                        # Legacy-consumed (仅被已废弃的 Pipeline 读取)
+site:                        # Python-consumed
   compile: true
   theme: auto
   include_search: true
-  output_subdir: site
 
 delivery:                    # LLM-consumed
   audience: dual
   include_deployment_runbook: true
   include_compatibility_matrix: true
-  include_health_checks: true
 
 quality:                     # Quality Gate 阈值
   min_grounding_score: 1.0
