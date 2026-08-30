@@ -1,0 +1,8 @@
+[
+  {
+    "id": "eu_heavy_streaming",
+    "topic": "'heavy' API / streaming / production usage",
+    "field": "feature.heavy",
+    "expected_treatment": "the README's unsupported claims must be absent or hedged; mark them UNKNOWN/unverified rather than asserted"
+  }
+]

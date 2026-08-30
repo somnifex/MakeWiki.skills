@@ -1,0 +1,24 @@
+# Rubric: monorepo
+trap: monorepo
+description: multiple packages each with their own CLI and version; correct docs must scope every claim to the right package path.
+metrics:
+  Evidence Grounding: { weight: 0.30, required: true }
+  Required Claim Recall: { weight: 0.25, required: true }
+  Unsupported Claim Rate: { weight: 0.20, required: true }
+  Task Discovery: { weight: 0.10 }
+  SemanticModel Quality: { weight: 0.15, required: true }
+  Unknown Discipline: { weight: 0.0 }
+  Workflow Correctness: { weight: 0.0 }
+  ReBattle Conflict Detection: { weight: 0.0 }
+  Judge Correctness: { weight: 0.0 }
+  Native-language Quality: { weight: 0.0 }
+  Cross-language Semantic Parity: { weight: 0.0 }
+  Troubleshooting Correctness: { weight: 0.0 }
+  Epistemic Calibration: { weight: 0.0 }
+  Documentation Usefulness: { weight: 0.0 }
+scoring:
+  pass_threshold: 0.8
+  passes_when: >
+    each package's commands and version are documented under its own path; no
+    claim is misattributed to the wrong package or to the repo root.
+  runs: 3

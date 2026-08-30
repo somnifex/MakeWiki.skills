@@ -1,0 +1,24 @@
+# Rubric: misleading-readme
+trap: misleading-readme
+description: README and source disagree on the default port; correct behavior is to trust the stronger source evidence (8080) and surface the conflict.
+metrics:
+  Evidence Grounding: { weight: 0.30, required: true }
+  Unsupported Claim Rate: { weight: 0.10 }
+  Required Claim Recall: { weight: 0.15, required: true }
+  Unknown Discipline: { weight: 0.05 }
+  ReBattle Conflict Detection: { weight: 0.25, required: true }
+  Judge Correctness: { weight: 0.15, required: true }
+  Epistemic Calibration: { weight: 0.0 }
+  Task Discovery: { weight: 0.0 }
+  Workflow Correctness: { weight: 0.0 }
+  SemanticModel Quality: { weight: 0.0 }
+  Native-language Quality: { weight: 0.0 }
+  Cross-language Semantic Parity: { weight: 0.0 }
+  Troubleshooting Correctness: { weight: 0.0 }
+  Documentation Usefulness: { weight: 0.0 }
+scoring:
+  pass_threshold: 0.8
+  passes_when: >
+    docs state 8080 as the default, grounded in app/server.py, AND do NOT assert
+    3000, AND explicitly note README/source disagree.
+  runs: 3

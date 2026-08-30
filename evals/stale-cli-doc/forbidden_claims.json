@@ -1,0 +1,16 @@
+[
+  {
+    "id": "fc_legacy_push_exists",
+    "claim_type": "command",
+    "semantic_key": "cli.command.legacy_push",
+    "forbidden_assertion": "'myapp legacy-push' exists as a working command",
+    "reason": "myapp.py no longer defines legacy-push; it is a stale README claim"
+  },
+  {
+    "id": "fc_force_flag",
+    "claim_type": "command",
+    "semantic_key": "cli.command.legacy_push.force",
+    "forbidden_assertion": "'myapp legacy-push --force' works",
+    "reason": "flag belongs to a command that does not exist in source"
+  }
+]

@@ -1,0 +1,16 @@
+[
+  {
+    "id": "rc_experimental",
+    "claim_type": "capability",
+    "semantic_key": "feature.live.experimental",
+    "assertion": "The 'live' renderer is experimental / behind a flag",
+    "must_state": "hedged as experimental, off by default"
+  },
+  {
+    "id": "rc_theme",
+    "claim_type": "capability",
+    "semantic_key": "feature.theme",
+    "assertion": "Themes are selectable with --theme",
+    "must_state": "themes option exists"
+  }
+]

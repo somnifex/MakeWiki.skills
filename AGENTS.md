@@ -140,13 +140,23 @@ of `parity`.
 6. **No AI Clichés**: Ban binary tropes ("不是而是"), abstract buzzwords
 
    ("收敛"), and trailing colons. Write natural, professional engineer prose.
-7. **Code Block Parity**: Commands and code blocks match 100% across all
+7. **Code Block Parity (keyed on stable IDs)**: Every technical fenced code
 
-   language versions.
+   block MUST carry a stable block ID `[[id:<slug>]]` (an untagged technical
+   block is an **L4a failure**; exemption only via
+   `[[parity:ignore reason="..."]]`). Every H2 section SHOULD carry a stable
+   section marker `<!-- makewiki:section=<slug> -->`. Section ORDER may differ
+   per language (native independent writing); all cross-language parity and
+   review is keyed on stable block + section IDs, never on heading text or
+   heading position.
 8. **Quality Gate Before Shipping**: Run `verify-docs` and read the
 
    `QualityGateResult`; resolve failed or pending layers before presenting
-   the final report.
+   the final report. The LLM Auditor persists its L3 / L4b / L5 verdicts into a
+   machine-readable `SemanticAuditBundle` JSON, consumed by
+   `verify-docs --semantic-audit <file>` (a flag, not a separate command);
+   a stale bundle (its `documents_digest` no longer matches the documents) is
+   rejected and must be re-audited.
 9. **Zero Pollution**: Skill-first; run Python tools in temporary isolated
 
    environments when needed, and clean up immediately.

@@ -1,0 +1,9 @@
+[
+  {
+    "id": "vf_ping",
+    "fact_type": "command",
+    "value": "scratch.core.ping()",
+    "source": "scratch/core.py",
+    "note": "the only evidence-backed fact is the trivial ping() helper"
+  }
+]

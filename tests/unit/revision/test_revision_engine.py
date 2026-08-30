@@ -232,3 +232,65 @@ def test_mechanical_repair_engine_clean_documents_no_actions():
     revised, report = engine.revise(docs)
     assert report.total_actions == 0
     assert len(report.actions) == 0
+
+
+def test_harmonizer_does_not_silently_skip_untagged_technical_block():
+    """An untagged technical fence records a warning instead of being silently
+    skipped; ID-tagged block behavior is unchanged."""
+    engine = MechanicalRepairEngine(auto_harmonize=True)
+    docs = {
+        "en": [
+            _doc(
+                "README.md",
+                "README.md",
+                "en",
+                "# T\n[[id:init]]\n```bash\napp init\n```\n",
+            )
+        ],
+        "zh-CN": [
+            _doc(
+                "README.zh-CN.md",
+                "README.md",
+                "zh-CN",
+                "# T\n[[id:init]]\n```bash\napp init\n```\n\n"
+                "```bash\napp untagged\n```\n",
+            )
+        ],
+    }
+    cross_report = CrossLanguageReview(languages_reviewed=["en", "zh-CN"])
+    revised, report = engine.revise(docs, cross_language_report=cross_report)
+
+    # The untagged technical fence surfaced a warning (not silently dropped).
+    assert any("untagged technical fence" in w for w in report.warnings)
+    assert any("zh-CN" in w and "README.md" in w for w in report.warnings)
+    # Tagged-block harmonization behavior is unchanged.
+    assert "app init" in revised["zh-CN"][0].content
+    # The untagged fence is left intact (never repaired to a silent no-op).
+    assert "app untagged" in revised["zh-CN"][0].content
+
+
+def test_tagged_block_independent_no_warning():
+    """A fully tagged, consistent pair produces no untagged warning."""
+    engine = MechanicalRepairEngine(auto_harmonize=True)
+    docs = {
+        "en": [
+            _doc(
+                "README.md",
+                "README.md",
+                "en",
+                "# T\n[[id:init]]\n```bash\napp init\n```\n",
+            )
+        ],
+        "zh-CN": [
+            _doc(
+                "README.zh-CN.md",
+                "README.md",
+                "zh-CN",
+                "# T\n[[id:init]]\n```bash\napp init\n```\n",
+            )
+        ],
+    }
+    cross_report = CrossLanguageReview(languages_reviewed=["en", "zh-CN"])
+    revised, report = engine.revise(docs, cross_language_report=cross_report)
+    assert report.warnings == []
+

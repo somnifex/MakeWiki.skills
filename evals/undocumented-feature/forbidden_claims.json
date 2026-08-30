@@ -1,0 +1,23 @@
+[
+  {
+    "id": "fc_production_ready",
+    "claim_type": "capability",
+    "semantic_key": "feature.live.certification",
+    "forbidden_assertion": "The 'live' renderer is production-ready",
+    "reason": "source marks it EXPERIMENTAL and off by default"
+  },
+  {
+    "id": "fc_guarantee_speed",
+    "claim_type": "behavior",
+    "semantic_key": "feature.live.speed",
+    "forbidden_assertion": "The theme pipeline 'guarantees' sub-second builds",
+    "reason": "'guarantees' is unfounded praise; the README claim is unverified marketing"
+  },
+  {
+    "id": "fc_live_default",
+    "claim_type": "config",
+    "semantic_key": "feature.live.default",
+    "forbidden_assertion": "The live renderer is the default",
+    "reason": "LIVE_RENDERER_DEFAULT_OFF = True"
+  }
+]

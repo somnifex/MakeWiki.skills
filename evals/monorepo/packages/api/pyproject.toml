@@ -1,0 +1,6 @@
+[project]
+name = "api-service"
+version = "2.1.0"
+
+[project.scripts]
+api = "api.cli:main"

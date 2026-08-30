@@ -1,5 +1,6 @@
 # MakeWiki.skills
 
+
 <p align="center">
   <strong>面向 AI Coding Assistant 的 LLM-first、证据驱动、多智能体文档编译器</strong>
 </p>
@@ -144,8 +145,8 @@ MakeWiki 不再宣称"零幻觉"，而提供**可验证的证据驱动文档**�
 - **L1 存在性**：所有引用的文件路径、可执行命令、配置键在仓库中存在。
 - **L2 接口**：CLI 参数名、标志、默认值、环境变量名、类型约束与源码声明一致。
 - **L3 行为**：退出码、错误条件、日志位置、执行流可追溯到源码处理器（Python 提供行为证据，LLM 判定）。
-- **L4 跨语言**：通过稳定块 ID（`getting_started.install` 等）做完全相同的机械比对 + 对齐段落输出供 LLM 散文审计。
-- **L5 认识论**：所有低置信 / 未接地命令由 Python 列出，LLM 审计做最终判断。
+- **L4 跨语言**：通过稳定块 ID（`getting_started.install` 等）与稳定 H2 节标记（`<!-- makewiki:section=<slug> -->`）做完全相同比对（L4a 机械），再输出对齐段落供 LLM 散文审计（L4b 语义）。跨语言比对始终按稳定块/节 ID 匹配，绝不按标题文本或标题位置；各语言小节顺序可不同。
+- **L5 认识论**：所有低置信 / 未接地命令由 Python 列出，LLM 审计做最终判断；审计结论以 `SemanticAuditBundle` JSON 持久化，由 `verify-docs --semantic-audit <file>`（`verify-docs` 上的一个标志）消费，Python 只校验 schema 与摘要、绝不复判语义，文档变更后旧 bundle 判为过期需重新审计。
 - **Quality Gate**：单次 `verify-docs` 调用汇总 L0–L5 → `QualityGateResult`（PASS/FAIL + Grounding Score + 未解决关键问题计数），并返回 CI exit code。
 
 `zero-hallucination` 不是工程承诺；**Grounding Score、未解决关键问题数、L0–L5 状态** 才是。详见 [`references/grounding_policy.md`](references/grounding_policy.md)。
@@ -186,7 +187,7 @@ delivery:                    # LLM-consumed
 
 quality:                     # Quality Gate 阈值
   fail_on_critical: true
-  min_grounding_score: 0.8
+  min_grounding_score: 1.0
 ```
 
 详细字段分类参见 `makewiki config schema` 与 `tests/contracts/test_config_consumption_contract.py`。

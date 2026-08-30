@@ -1,0 +1,8 @@
+[
+  {
+    "id": "eu_windows_support",
+    "topic": "Windows / WSL support",
+    "field": "platform.windows",
+    "expected_treatment": "mark Windows/WSL support as UNKNOWN, or state the repo is Linux-Makefile specific without claiming the rest"
+  }
+]

@@ -1,0 +1,23 @@
+[
+  {
+    "id": "rc_sync_cmd",
+    "claim_type": "command",
+    "semantic_key": "cli.sync",
+    "assertion": "Run syncs files with `python sync.py --config config.yaml`, reading endpoint and region from the config",
+    "must_state": "endpoint comes from config; the sync command is grounded in README.md"
+  },
+  {
+    "id": "rc_unsupported_region",
+    "claim_type": "error",
+    "semantic_key": "troubleshooting.unsupported_region",
+    "assertion": "A region outside us-east-1 / eu-west-1 raises UnsupportedRegionError naming the offending region",
+    "must_state": "the actual cause (region not in SUPPORTED_REGIONS) and the fix (set region to a supported value) must be grounded in sync.py"
+  },
+  {
+    "id": "rc_supported_regions",
+    "claim_type": "constant",
+    "semantic_key": "troubleshooting.supported_regions",
+    "assertion": "syncsvc supports regions us-east-1 and eu-west-1",
+    "must_state": "claim grounded in the SUPPORTED_REGIONS set in sync.py"
+  }
+]

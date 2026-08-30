@@ -1,0 +1,26 @@
+[
+  {
+    "id": "vf_api_cmd",
+    "fact_type": "command",
+    "value": "api --serve",
+    "source": "packages/api/pyproject.toml:[project.scripts].api + packages/api/api/cli.py"
+  },
+  {
+    "id": "vf_web_cmd",
+    "fact_type": "command",
+    "value": "web --build",
+    "source": "packages/web/pyproject.toml:[project.scripts].web + packages/web/web/cli.py"
+  },
+  {
+    "id": "vf_api_version",
+    "fact_type": "version",
+    "value": "2.1.0",
+    "source": "packages/api/pyproject.toml"
+  },
+  {
+    "id": "vf_web_version",
+    "fact_type": "version",
+    "value": "0.9.0",
+    "source": "packages/web/pyproject.toml"
+  }
+]

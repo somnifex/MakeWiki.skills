@@ -17,10 +17,29 @@ renders an `UNKNOWN` marker — it never invents prose.
 ## 1. Core Principles
 
 1. **Independent Generation, NEVER Machine-Translate**: Each language version is drafted from the `SemanticModel`. Never translate an English output to Chinese or vice versa.
-2. **100% Code Block & Config Key Parity**:
-   - Commands, flags, options, and code samples must match identically across all languages.
-   - Configuration key names, env var keys, and default values must match identically across all languages.
-   - The Python `parity` command enforces exact block-ID parity; the Auditor judges prose parity from `semantic-review` output.
+2. **100% Code Block & Config Key Parity (keyed on stable IDs)**:
+   - Every technical fenced code block MUST carry a stable block ID marker
+
+     `[[id:<slug>]]` immediately before the fence (or as the first line inside
+     the fence body); an untagged technical block is an **L4a failure**. A
+     block may be exempted only with an explicit
+     `[[parity:ignore reason="..."]]` marker.
+   - Every H2 section SHOULD carry a stable section marker
+
+     `<!-- makewiki:section=<slug> -->` immediately above it.
+   - Commands, flags, options, and code samples must match identically across
+
+     all languages for blocks carrying the same stable ID.
+   - Configuration key names, env var keys, and default values must match
+
+     identically across all languages.
+   - Section ORDER may differ per language (native independent writing); all
+
+     cross-language parity and review is keyed on stable block + section IDs,
+     never on heading text or heading position.
+   - The Python `parity` command enforces exact block-ID parity; the Auditor
+
+     judges prose parity from `semantic-review` output.
 3. **Subagent 4-Dimensional Self-Reflection Pass**:
    - *Grounding*: Check that every command is backed by `SemanticModel`.
    - *Parity*: Ensure no omitted flags or drifted commands compared to the English baseline.

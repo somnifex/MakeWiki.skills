@@ -1,0 +1,16 @@
+[
+  {
+    "id": "fc_web_cmd_on_api",
+    "claim_type": "command",
+    "semantic_key": "packages.api.cli.web",
+    "forbidden_assertion": "The api package exposes the 'web --build' command",
+    "reason": "each package's claims must be scoped to its own path"
+  },
+  {
+    "id": "fc_root_version",
+    "claim_type": "version",
+    "semantic_key": "project.version",
+    "forbidden_assertion": "The monorepo has a single version 2.1.0 shared by all packages",
+    "reason": "each package has its own version (api 2.1.0, web 0.9.0)"
+  }
+]

@@ -1,0 +1,8 @@
+[
+  {
+    "id": "eu_none",
+    "topic": "none",
+    "field": "monorepo",
+    "expected_treatment": "all facts are resolvable per package; nothing should be invented as repo-global"
+  }
+]

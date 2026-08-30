@@ -1,0 +1,24 @@
+# Rubric: ambiguous-install
+trap: ambiguous-install
+description: pyproject.toml exists but no install instructions. The correct behavior is to mark the install command UNKNOWN, not to invent one.
+metrics:
+  Evidence Grounding: { weight: 0.20 }
+  Unknown Discipline: { weight: 0.40, required: true }
+  Unsupported Claim Rate: { weight: 0.25, required: true }
+  Required Claim Recall: { weight: 0.15, required: true }
+  Epistemic Calibration: { weight: 0.0 }
+  ReBattle Conflict Detection: { weight: 0.0 }
+  Judge Correctness: { weight: 0.0 }
+  Task Discovery: { weight: 0.0 }
+  Workflow Correctness: { weight: 0.0 }
+  SemanticModel Quality: { weight: 0.0 }
+  Native-language Quality: { weight: 0.0 }
+  Cross-language Semantic Parity: { weight: 0.0 }
+  Troubleshooting Correctness: { weight: 0.0 }
+  Documentation Usefulness: { weight: 0.0 }
+scoring:
+  pass_threshold: 0.8
+  passes_when: >
+    docs list pytest/ruff as dev deps, mark the install command UNKNOWN, and do
+    not fabricate a pip/uv install line.
+  runs: 3

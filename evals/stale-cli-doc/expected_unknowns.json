@@ -1,0 +1,8 @@
+[
+  {
+    "id": "eu_legacy_push_ambiguity",
+    "topic": "myapp legacy-push",
+    "field": "cli.command.legacy_push",
+    "expected_treatment": "flag that 'legacy-push' is documented in README but NOT present in source; do not assert it; mark the discrepancy"
+  }
+]

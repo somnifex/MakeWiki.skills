@@ -1,0 +1,16 @@
+[
+  {
+    "id": "fc_heavy_api",
+    "claim_type": "capability",
+    "semantic_key": "feature.heavy.api",
+    "forbidden_assertion": "scratch exposes a 'heavy' API that is stable and production-ready",
+    "reason": "no 'heavy' API exists anywhere in source; the README claim is unsupported"
+  },
+  {
+    "id": "fc_streaming",
+    "claim_type": "capability",
+    "semantic_key": "feature.realtime.streaming",
+    "forbidden_assertion": "scratch supports real-time streaming to millions of users",
+    "reason": "no evidence backs this; it is fabricated"
+  }
+]

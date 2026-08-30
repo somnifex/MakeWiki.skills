@@ -1,0 +1,3 @@
+# syncsvc configuration
+endpoint: https://object-store.example.com
+region: ap-southeast-2

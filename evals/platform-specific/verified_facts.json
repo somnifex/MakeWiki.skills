@@ -1,0 +1,20 @@
+[
+  {
+    "id": "vf_build",
+    "fact_type": "command",
+    "value": "make build",
+    "source": "Makefile:build"
+  },
+  {
+    "id": "vf_test",
+    "fact_type": "command",
+    "value": "make test",
+    "source": "Makefile:test"
+  },
+  {
+    "id": "vf_clean",
+    "fact_type": "command",
+    "value": "make clean",
+    "source": "Makefile:clean"
+  }
+]

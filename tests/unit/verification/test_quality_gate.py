@@ -103,8 +103,12 @@ def test_pending_layer_does_not_fail_gate_by_default():
     cfg.quality.allow_pending_llm_layers = True
     cfg.quality.fail_on_critical = False
     result = evaluate_quality_gate(report, cfg, fail_on_critical=cfg.quality.fail_on_critical)
-    # L0/L1/L2 all pass and score is 1.0 -> gate passes even though L3 pending.
-    assert result.passed is True
+    # Pending LLM (no audit verdict) with allow_pending=True -> pending_semantic_review.
+    # exit-policy code 0, but NEVER passed: pending is never passed.
+    assert result.verdict == "pending_semantic_review"
+    assert result.passed is False
+    assert result.ci_exit_code == 0
+    assert result.exit_code == 0
 
 
 def test_llm_layer_passed_flags_reflect_actual_layer_status():
@@ -202,11 +206,11 @@ def _review_report(mech_passed: bool = True, llm_pending: bool = True) -> Compre
 
 
 def test_quality_gate_pending_semantic_review():
-    """Pending L3/L4/L5 yields verdict=pending_semantic_review, honest but non-failing.
+    """Pending L3/L4b/L5 yields verdict=pending_semantic_review, honest but non-failing.
 
-    The legacy ``passed`` bool and ``exit_code`` keep the historical
-    allow-pending-True contract (passed=True / exit 0), while ``verdict`` and
-    ``semantic_complete`` expose the true pending state.
+    The exit-policy CI code is 0 (allow_pending=True grants the exit policy), but
+    the gate is NEVER ``passed`` — ``passed == (verdict == "passed")`` strictly,
+    so a pending gate is never reported as passed (audit finding #1).
     """
     report = _review_report(llm_pending=True)
     cfg = MakeWikiConfig.default(Path("."))
@@ -216,9 +220,11 @@ def test_quality_gate_pending_semantic_review():
     assert result.mechanical_passed is True
     assert result.verdict == "pending_semantic_review"
     assert result.semantic_complete is False
-    assert set(result.pending_llm_layers) == {"L3", "L4", "L5"}
-    # Legacy contract preserved: passed True / exit 0 for pending-LLM-when-allowed.
-    assert result.passed is True
+    assert set(result.pending_llm_layers) == {"L3", "L4b", "L5"}
+    # Honesty contract: pending semantic review is NEVER passed.
+    assert result.passed is False
+    # Exit policy: pending semantic review exits 0 while allowed.
+    assert result.ci_exit_code == 0
     assert result.exit_code == 0
 
 
@@ -299,7 +305,10 @@ def test_quality_gate_pending_mechanical_layer_never_reports_passed():
     Regression guard: the verdict once ignored pending MECHANICAL layers, so an
     empty L1/L2 (→ pending) combined with fully-adjudicated LLM layers produced
     ``verdict="passed"`` while ``passed``/exit_code disagreed. A pending
-    mechanical layer must never yield a vacuous ``passed`` verdict.
+    mechanical layer must never yield a vacuous ``passed`` verdict — and, per
+    audit finding #4, it is reported as its own verdict
+    ``pending_mechanical_verification`` (ci_exit_code 3), distinct from the
+    LLM-pending state.
     """
     report = _review_report(llm_pending=False)
     # Empty L2 (no interface facts extracted) -> LayerReport with no checks -> pending.
@@ -308,7 +317,313 @@ def test_quality_gate_pending_mechanical_layer_never_reports_passed():
     assert result.verdict != "passed"  # honest: interface not proven
     assert result.interface_passed is False
     assert result.passed is False
-    # Pending (not failed) -> exit 0, but the gate has NOT reported a clean pass.
-    assert result.verdict == "pending_semantic_review"
-    assert result.exit_code == 0
+    assert result.verdict == "pending_mechanical_verification"
+    assert result.pending_mechanical_layers == ["L2"]
+    assert result.ci_exit_code == 3
+    assert result.exit_code == 3
     assert result.semantic_complete is True  # nothing pending on the LLM side
+
+
+# ---------------------------------------------------------------------------
+# CAI / audit-fix regressions: honesty contract, ci_exit_code mapping,
+# allow_pending_llm_layers flip, semantic bundle merge, CLI rendering.
+# ---------------------------------------------------------------------------
+
+
+def test_pending_semantic_review_never_has_passed_true():
+    """CRITICAL regression: ``passed == (verdict == "passed")`` STRICTLY.
+
+    A pending gate must NEVER yield ``passed=True`` — previously a mechanically-
+    clean report with pending LLM layers reported ``passed=True`` while the
+    verdict read ``pending_semantic_review``. That decoupling is removed.
+    """
+    for allow_pending in (True, False):
+        report = _review_report(llm_pending=True)
+        result = evaluate_quality_gate(
+            report,
+            MakeWikiConfig.default(Path(".")),
+            allow_pending_llm_layers=allow_pending,
+        )
+        assert result.passed is False
+        assert result.passed == (result.verdict == "passed")
+
+
+def test_allow_pending_llm_layers_false_forces_pending_to_failed():
+    """MAJOR: allow_pending_llm_layers actually changes the verdict.
+
+    When False, a pending LLM layer (L3/L4b/L5) with no audit verdict is NOT
+    allowed — the gate verdict flips to ``failed`` and Python exits 1.
+    """
+    report = _review_report(llm_pending=True)
+    # Mechanical layers clean, only LLM layers pending -> with the flag False,
+    # pending-with-no-bundle is not allowed.
+    cfg = MakeWikiConfig.default(Path("."))
+    cfg.quality.allow_pending_llm_layers = False
+    result = evaluate_quality_gate(report, cfg)
+    assert result.verdict == "failed"
+    assert result.passed is False
+    assert result.ci_exit_code == 1
+    assert result.exit_code == 1
+
+    # The same report with the flag True stays pending (exit-policy 0).
+    cfg2 = MakeWikiConfig.default(Path("."))
+    cfg2.quality.allow_pending_llm_layers = True
+    result2 = evaluate_quality_gate(report, cfg2)
+    assert result2.verdict == "pending_semantic_review"
+    assert result2.ci_exit_code == 0
+    assert result2.passed is False
+
+
+def test_ci_exit_code_mapping_all_four_branches():
+    """SPEC: ci_exit_code maps passed->0, failed->1, pending_semantic->0-or-2,
+    pending_mechanical->3 (the honest base for pending_semantic is 2)."""
+    from makewiki_skills.verification.quality_gate import ci_exit_code_for
+
+    assert ci_exit_code_for("passed") == 0
+    assert ci_exit_code_for("failed") == 1
+    # Base honest mapping for pending_semantic_review is 2; the default
+    # allow_pending exit policy overrides it to 0.
+    assert ci_exit_code_for("pending_semantic_review", allow_pending_llm_layers=False) == 2
+    assert ci_exit_code_for("pending_semantic_review", allow_pending_llm_layers=True) == 0
+    assert ci_exit_code_for("pending_mechanical_verification") == 3
+
+    # End-to-end: each reachable verdict surfaces the right process exit code.
+    passed = evaluate_quality_gate(
+        _review_report(llm_pending=False), MakeWikiConfig.default(Path("."))
+    )
+    assert passed.verdict == "passed"
+    assert passed.ci_exit_code == 0
+
+    _failed_report = _review_report(llm_pending=False)
+    _failed_report.layers["L1"] = _layer_with_failure("L1", "Existence", "x")
+    failed = evaluate_quality_gate(_failed_report, MakeWikiConfig.default(Path(".")))
+    assert failed.verdict == "failed"
+    assert failed.ci_exit_code == 1
+
+
+def test_quality_gate_separates_l4a_mechanical_and_l4b_semantic():
+    """REPORT: L4a (mechanical parity) and L4b (semantic prose parity) are
+    distinct states in the honest pipeline, not one conflated L4 layer.
+
+    A failed L4b (semantic) check is an LLM failure; a pending L4a (mechanical)
+    check is a mechanical pending that withholds PASS and reports
+    pending_mechanical_verification.
+    """
+    from makewiki_skills.verification.report import VerificationCheck
+
+    # Mechanical layers clean + L4a pending (one pending mechanical check) and
+    # L4b cleanly passed, L3/L5 passed -> pending_mechanical_verification.
+    report = _review_report(llm_pending=False)
+    report.layers["L4"] = LayerReport(
+        layer="L4",
+        name="Cross-language",
+        checks=[
+            VerificationCheck(
+                layer="L4", target="d.md", claim_type="l4a_mechanical",
+                claim_text="block parity", verified=False, status="pending",
+                detail="mechanical parity not yet proven",
+            ),
+            VerificationCheck(
+                layer="L4", target="d.md", claim_type="l4b_semantic",
+                claim_text="prose parity", verified=True, status="passed",
+                detail="adjudicated",
+            ),
+        ],
+    )
+    result = evaluate_quality_gate(report, MakeWikiConfig.default(Path(".")))
+    assert result.l4a_status == "pending"
+    assert result.l4b_status == "passed"
+    assert result.verdict == "pending_mechanical_verification"
+    assert result.ci_exit_code == 3
+    assert result.passed is False
+
+    # Now L4a passes but L4b fails -> an explicit LLM (semantic) failure -> failed.
+    report2 = _review_report(llm_pending=False)
+    report2.layers["L4"] = LayerReport(
+        layer="L4",
+        name="Cross-language",
+        checks=[
+            VerificationCheck(
+                layer="L4", target="d.md", claim_type="l4a_mechanical",
+                claim_text="block parity", verified=True, status="passed",
+                detail="ok",
+            ),
+            VerificationCheck(
+                layer="L4", target="d.md", claim_type="l4b_semantic",
+                claim_text="prose parity", verified=False, status="failed",
+                detail="LLM did not uphold prose parity",
+            ),
+        ],
+    )
+    result2 = evaluate_quality_gate(report2, MakeWikiConfig.default(Path(".")))
+    assert result2.l4a_status == "passed"
+    assert result2.l4b_status == "failed"
+    assert result2.verdict == "failed"
+    assert result2.ci_exit_code == 1
+
+
+# --- Orchestrator + semantic bundle merge (findings 7/9) ---------------------
+
+
+def _audit_bundle(verdicts):
+    from makewiki_skills.verification.semantic_audit import SemanticAuditBundle
+
+    return SemanticAuditBundle(
+        documents_digest="sha256:unused",
+        verdicts=verdicts,
+    )
+
+
+def test_orchestrator_merges_semantic_bundle_verdicts():
+    """An LLM audit bundle makes L3/L4b/L5 authoritative instead of pending."""
+    from makewiki_skills.generator.language_generator import GeneratedDocument
+    from makewiki_skills.verification.semantic_audit import (
+        SemanticAuditBundle,
+        SemanticAuditVerdict,
+    )
+
+    project_dir = Path(__file__).resolve().parents[3]
+    documents: dict[str, list[GeneratedDocument]] = {
+        "en": [GeneratedDocument(
+            filename="README.md", base_name="README", language_code="en",
+            content=project_dir.joinpath("README.md").read_text(encoding="utf-8"),
+        )],
+        "zh-CN": [GeneratedDocument(
+            filename="README.zh-CN.md", base_name="README", language_code="zh-CN",
+            content=project_dir.joinpath("README.en.md").read_text(encoding="utf-8"),
+        )],
+    }
+    bundle = SemanticAuditBundle(
+        documents_digest="sha256:unused",
+        verdicts=[
+            SemanticAuditVerdict(
+                review_item_id="L3:1", layer="L3", status="passed",
+                rationale_summary="ok",
+            ),
+            SemanticAuditVerdict(
+                review_item_id="L4b:1", layer="L4b", status="passed",
+                rationale_summary="ok",
+            ),
+            SemanticAuditVerdict(
+                review_item_id="L5:1", layer="L5", status="passed",
+                rationale_summary="ok",
+            ),
+        ],
+    )
+    orchestrator = VerificationOrchestrator(project_dir)
+    report = orchestrator.verify_documents(
+        documents, wiki_dir=project_dir, semantic_bundle=bundle
+    )
+    # The merged layers are adjudicated (passed), not pending.
+    assert report.layers["L3"].passed is True
+    assert report.layers["L5"].passed is True
+    l4b_checks = [c for c in report.layers["L4"].checks if c.claim_type == "l4b_semantic"]
+    assert l4b_checks and l4b_checks[0].status == "passed"
+    gate = evaluate_quality_gate(report, MakeWikiConfig.default(Path(".")))
+    assert gate.semantic_complete is True
+    assert gate.pending_llm_layers == []
+
+
+def test_orchestrator_stale_or_absent_bundle_leaves_semantic_layers_pending():
+    """Absent bundle (no --semantic-audit) leaves L3/L4b/L5 pending and the gate
+    NOT passed. A bundle that mentions none of the semantic layers also leaves
+    them pending (layers untouched stay pending)."""
+    from makewiki_skills.generator.language_generator import GeneratedDocument
+
+    project_dir = Path(__file__).resolve().parents[3]
+    documents: dict[str, list[GeneratedDocument]] = {
+        "en": [GeneratedDocument(
+            filename="README.md", base_name="README", language_code="en",
+            content=project_dir.joinpath("README.md").read_text(encoding="utf-8"),
+        )],
+        "zh-CN": [GeneratedDocument(
+            filename="README.zh-CN.md", base_name="README", language_code="zh-CN",
+            content=project_dir.joinpath("README.en.md").read_text(encoding="utf-8"),
+        )],
+    }
+    orchestrator = VerificationOrchestrator(project_dir)
+    # No bundle -> L3/L4b/L5 stay pending -> gate is NOT passed (honest).
+    report = orchestrator.verify_documents(documents, wiki_dir=project_dir)
+    gate = evaluate_quality_gate(report, MakeWikiConfig.default(Path(".")))
+    assert "L3" in gate.pending_llm_layers
+    assert "L4b" in gate.pending_llm_layers
+    assert "L5" in gate.pending_llm_layers
+    assert gate.passed is False
+
+    # A bundle that does not mention a semantic layer leaves it pending.
+    report2 = orchestrator.verify_documents(
+        documents,
+        wiki_dir=project_dir,
+        semantic_bundle=_audit_bundle(
+            [
+                {
+                    "review_item_id": "L3:1", "layer": "L3", "status": "passed",
+                    "rationale_summary": "ok",
+                }
+            ]
+        ),
+    )
+    gate2 = evaluate_quality_gate(report2, MakeWikiConfig.default(Path(".")))
+    assert "L3" not in gate2.pending_llm_layers
+    assert "L4b" in gate2.pending_llm_layers  # untouched by the bundle
+    assert "L5" in gate2.pending_llm_layers
+    assert gate2.passed is False
+
+
+def test_reverify_does_not_reset_valid_llm_verdict_to_pending():
+    """Re-verify contract: once a semantic layer carries an audit-bundle verdict
+    in the report, the gate must NOT reset it back to pending. The gate reads the
+    report faithfully — merged passed/failed semantic layers stay adjudicated."""
+    from makewiki_skills.verification.report import VerificationCheck
+
+    # Clean mechanical layers (L0/L1/L2 passed, empty L4a not applicable) with
+    # ADJUDICATED semantic layers (L3/L4b/L5 passed from an audit bundle).
+    layers: dict[str, LayerReport] = {}
+    for name in ("L0", "L1", "L2"):
+        layers[name] = LayerReport(
+            layer=name, name=name,
+            checks=[VerificationCheck(
+                layer=name, target="d.md", claim_type="structure",
+                claim_text="x", verified=True, status="passed", detail="ok",
+            )],
+        )
+    layers["L3"] = LayerReport(
+        layer="L3", name="Behavior",
+        checks=[VerificationCheck(
+            layer="L3", target="d.md", claim_type="behavior",
+            claim_text="behavior", verified=True, status="passed",
+            detail="audit verdict",
+        )],
+    )
+    layers["L4"] = LayerReport(
+        layer="L4", name="Cross-language",
+        checks=[
+            VerificationCheck(
+                layer="L4", target="d.md", claim_type="l4a_mechanical",
+                claim_text="parity", verified=True, status="passed", detail="ok",
+            ),
+            VerificationCheck(
+                layer="L4", target="d.md", claim_type="l4b_semantic",
+                claim_text="prose", verified=True, status="passed",
+                detail="audit verdict",
+            ),
+        ],
+    )
+    layers["L5"] = LayerReport(
+        layer="L5", name="Epistemic",
+        checks=[VerificationCheck(
+            layer="L5", target="d.md", claim_type="epistemic",
+            claim_text="epistemic", verified=True, status="passed",
+            detail="audit verdict",
+        )],
+    )
+    report = ComprehensiveVerificationReport(layers=layers)
+    result = evaluate_quality_gate(report, MakeWikiConfig.default(Path(".")))
+    # Valid audit verdicts are honoured, never reset to pending.
+    assert result.pending_llm_layers == []
+    assert result.semantic_complete is True
+    assert result.l3_status == "passed"
+    assert result.l4b_status == "passed"
+    assert result.l5_status == "passed"
+    assert result.verdict == "passed"
+    assert result.ci_exit_code == 0

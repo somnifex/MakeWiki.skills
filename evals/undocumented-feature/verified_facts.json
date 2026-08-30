@@ -1,0 +1,15 @@
+[
+  {
+    "id": "vf_live_flag",
+    "fact_type": "config",
+    "value": "EXPERIMENTAL_LIVE_RENDERER = True",
+    "source": "builder/render.py",
+    "note": "docs MUST attribute the 'live' renderer to an experimental flag"
+  },
+  {
+    "id": "vf_theme_opt",
+    "fact_type": "command",
+    "value": "builder --theme",
+    "source": "README.md"
+  }
+]

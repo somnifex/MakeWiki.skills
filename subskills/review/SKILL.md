@@ -49,20 +49,42 @@ aligned passages, then judges the LLM-judged layers:
 
 1. **L3 Behavior Audit** — does each documented command behave as described
    when actually run?
-2. **L4 Prose Parity Audit** — do the aligned passages agree in meaning
-   across languages (after Python's block-ID parity already enforced exact
-   code/command parity)?
+2. **L4b Prose Parity Audit** — do the aligned passages agree in meaning
+   across languages (after Python's L4a block-ID parity already enforced exact
+   code/command parity)? L4 matching is keyed on stable block IDs
+   (`[[id:...]]`) and stable H2 section markers
+   (`<!-- makewiki:section=<slug> -->`), never on heading text or heading
+   position — section ORDER may legitimately differ per language.
 3. **L5 Over-Assertion Audit** — are any claims more confident than the
    evidence supports? Are anti-AI-cliché rules followed?
 
 The Auditor uses the `references/anti_ai_cliche.md` style guide plus the
 Quality Gate thresholds from `makewiki.config.yaml:quality`.
 
+**Emit the SemanticAuditBundle.** After judging, the Auditor writes a
+machine-readable `SemanticAuditBundle` JSON capturing its L3 / L4b / L5
+verdicts — schema `{schema_version, documents_digest, semantic_model_digest?,
+auditor, audited_at, verdicts:[{review_item_id, layer: L3|L4b|L5, status:
+passed|failed, rationale_summary, evidence_refs, confidence}]}`. `documents_digest`
+is a sha256 over the audited markdown set, binding the audit to that exact
+revision. If the documents change after the bundle is written, the bundle is
+stale and must be rejected and re-audited. Python validates schema and digests
+but never re-judges the semantic verdicts.
+
 ### Step 3: In-Place Revision & Final Report
 
 - If discrepancies are detected, the Auditor revises the markdown files in
   place via the Skill's Semantic Revision step (Phase 3.5).
 - Ensure all languages receive matching fixes for code blocks and facts.
+- Re-emit the `SemanticAuditBundle` **after** all in-place edits so its
+  `documents_digest` matches the final markdown set, then consume it with
+  `verify-docs --semantic-audit <file>` (a flag on the existing `verify-docs`
+  command) so the Quality Gate folds the Auditor's semantic verdicts in:
+  ```bash
+  python <makewiki_root>/scripts/run_toolkit.py verify-docs . --semantic-audit ./makewiki/semantic_audit.json
+  ```
+  A stale bundle (digest mismatch) is rejected and the affected layers stay
+  `pending` until re-audited.
 - The final report contains real quality metrics: per-layer L0–L5 status,
   Grounding Score, Unresolved Claims, and the Quality Gate verdict — never
   the marketing phrase "zero-hallucination".

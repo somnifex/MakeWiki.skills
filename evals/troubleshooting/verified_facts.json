@@ -1,0 +1,26 @@
+[
+  {
+    "id": "vf_endpoint",
+    "fact_type": "config",
+    "value": "https://object-store.example.com",
+    "source": "config.example.yaml:endpoint"
+  },
+  {
+    "id": "vf_supported_regions",
+    "fact_type": "constant",
+    "value": "[\"us-east-1\", \"eu-west-1\"]",
+    "source": "sync.py:SUPPORTED_REGIONS"
+  },
+  {
+    "id": "vf_region_repro",
+    "fact_type": "config",
+    "value": "ap-southeast-2",
+    "source": "config.yaml:region (unsupported)"
+  },
+  {
+    "id": "vf_sync_command",
+    "fact_type": "command",
+    "value": "python sync.py --config config.yaml",
+    "source": "README.md:Quick start"
+  }
+]

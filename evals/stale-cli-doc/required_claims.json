@@ -1,0 +1,9 @@
+[
+  {
+    "id": "rc_real_commands",
+    "claim_type": "command",
+    "semantic_key": "cli.command.run.serve",
+    "assertion": "The real, source-verified commands are 'myapp run' and 'myapp serve'",
+    "must_state": "document run and serve from myapp.py"
+  }
+]

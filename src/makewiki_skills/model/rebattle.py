@@ -2,12 +2,13 @@
 
 from __future__ import annotations
 
+import json
 import uuid
 from typing import Any, Literal
 
 from pydantic import BaseModel, Field, model_validator
 
-from makewiki_skills.model.claim import CLAIM_TYPES
+from makewiki_skills.model.claim import ClaimType
 from makewiki_skills.model.semantic_model import (
     FAQItem,
     SemanticModel,
@@ -39,15 +40,16 @@ class AgentClaim(BaseModel):
     perspective: str = (
         "user_experience"  # "user_experience" | "code_implementation" | "deployment_ops"
     )
-    claim_type: str = (
-        "command"  # mechanical + cognitive ClaimType vocabulary
-    )
+    # Strict ClaimType Literal — pydantic rejects any value outside the
+    # vocabulary (e.g. the historical typo "ngx") at model_validate ingress.
+    claim_type: ClaimType = "command"
     semantic_key: str  # required — the meaning used for cross-agent grouping
     assertion: str
     value: str | None = None
     subject: str | None = None
     predicate: str | None = None
     object: Any = None
+    payload: dict[str, Any] = Field(default_factory=dict)
     source_file: str | None = None
     line_range: tuple[int, int] | None = None
     raw_evidence: str | None = None
@@ -55,15 +57,6 @@ class AgentClaim(BaseModel):
     # source_file when present and not explicitly supplied.
     evidence_refs: list[str] = Field(default_factory=list)
     confidence: Literal["high", "medium", "low", "inferred"] = "medium"
-
-    @model_validator(mode="after")
-    def _ensure_supported_claim_type(self) -> AgentClaim:
-        if self.claim_type not in CLAIM_TYPES:
-            raise ValueError(
-                f"claim_type {self.claim_type!r} is not in the ClaimType vocabulary "
-                f"{sorted(CLAIM_TYPES)}"
-            )
-        return self
 
     @model_validator(mode="after")
     def _map_evidence_refs(self) -> AgentClaim:
@@ -95,14 +88,29 @@ class Challenge(BaseModel):
     severity: Literal["critical", "major", "minor"] = "major"
 
 
+# Distinguishes a hard, mechanically-proven conflict (two agents asserting
+# different structured values for one semantic_key) from an LLM question (same
+# structured value, divergent prose). Only a structured_conflict is a hard
+# mechanical discrepancy; a semantic_review_candidate is routed to the Judge.
+DiscrepancyKind = Literal["structured_conflict", "semantic_review_candidate"]
+
+
 class Discrepancy(BaseModel):
-    """A detected divergence or debate point between different agent perspectives."""
+    """A detected divergence or debate point between different agent perspectives.
+
+    ``kind`` distinguishes hard mechanical conflicts (``structured_conflict``,
+    raised by Python when two or more agents disagree on the structured value of
+    one ``semantic_key``) from LLM questions (``semantic_review_candidate``,
+    same value but divergent prose — not a mechanical discrepancy). Downstream
+    can use it to separate hard conflicts from items needing the Judge.
+    """
 
     topic: str
     claim_type: str
     claims: list[AgentClaim] = Field(default_factory=list)
     challenges: list[Challenge] = Field(default_factory=list)
     status: Literal["open", "resolved", "dismissed"] = "open"
+    kind: DiscrepancyKind = "structured_conflict"
 
 
 class AdjudicationResult(BaseModel):
@@ -141,6 +149,35 @@ class AgentClaimSet(BaseModel):
     perspective: str
     claims: list[AgentClaim] = Field(default_factory=list)
 
+    @classmethod
+    def from_agent_bundle(cls, bundle: AgentClaimBundle) -> AgentClaimSet:
+        """Build an ``AgentClaimSet`` from a unified :class:`AgentClaimBundle`.
+
+        The bundle carries ``project_name`` plus one agent's claims; this
+        projects them onto the ``AgentClaimSet`` shape that ReBattle consumes.
+        """
+        return cls(
+            agent_id=bundle.agent_id,
+            perspective=bundle.perspective,
+            claims=list(bundle.claims),
+        )
+
+
+class AgentClaimBundle(BaseModel):
+    """A unified scout/debate output that can feed BOTH consumer paths.
+
+    The same bundle drives ``verify-claim`` (via ``ClaimSet.from_agent_bundle``,
+    see ``model.claim``) and ``rebattle-diff`` (via
+    ``AgentClaimSet.from_agent_bundle``), removing the two near-identical JSON
+    formats scouts previously maintained. Python adds no semantic content — it
+    only projects the bundle onto the shape each consumer needs.
+    """
+
+    project_name: str
+    agent_id: str
+    perspective: str
+    claims: list[AgentClaim] = Field(default_factory=list)
+
 
 # Deprecated: use AgentClaimSet. Kept as a module-level alias so existing
 # ``from makewiki_skills.model.rebattle import ClaimSet`` imports keep working.
@@ -160,13 +197,51 @@ class ReBattleArena:
     """Detects discrepancies between multiple AgentClaimSets and generates dispute matrices."""
 
     @staticmethod
-    def detect_discrepancies(claim_sets: list[AgentClaimSet]) -> list[Discrepancy]:
-        """Group claims by ``semantic_key`` (meaning) and detect conflicts.
+    def _structured_value(claim: AgentClaim) -> Any:
+        """Extract the canonical STRUCTURED value used for conflict comparison.
 
-        Two agents asserting DIFFERENT values (port 3000 vs 8080) but the SAME
-        ``semantic_key`` land in ONE discrepancy. The same value under different
-        ``semantic_key`` never collides. ``claim_type`` is retained on the
-        ``Discrepancy`` for display only.
+        Preference order: ``payload`` when it is a non-empty dict of scalar
+        fields (the most structured statement), else ``value``, else ``object``.
+        Prose (``assertion``) is deliberately excluded — divergent wording never
+        makes a mechanical conflict, and matching wording never hides one.
+        """
+        payload = claim.payload
+        if isinstance(payload, dict) and payload and all(
+            isinstance(v, (str, int, float, bool)) or v is None
+            for v in payload.values()
+        ):
+            return payload
+        if claim.value is not None:
+            return claim.value
+        return claim.object
+
+    @staticmethod
+    def _canonical_structured(value: Any) -> str:
+        """JSON-normalize a structured value so equivalent dicts/key-orders and
+        scalar/list forms compare deterministically."""
+        try:
+            return json.dumps(value, sort_keys=True, default=str)
+        except (TypeError, ValueError):
+            return repr(value)
+
+    @staticmethod
+    def detect_discrepancies(claim_sets: list[AgentClaimSet]) -> list[Discrepancy]:
+        """Group claims by ``semantic_key`` (meaning) and detect DETERMINISTIC
+        conflicts over the normalized STRUCTURED value.
+
+        This never simulates semantic reasoning. Mechanical logic detects only
+        what it can prove:
+
+        * Two or more DISTINCT agents sharing a semantics_key but disagreeing on
+          the structured value -> ``structured_conflict`` (hard). This is a true
+          mechanical discrepancy (e.g. port 3000 vs 8080), regardless of prose.
+        * Two or more distinct agents sharing BOTH semantics_key AND the same
+          structured value but expressing it with divergent prose ->
+          ``semantic_review_candidate`` (an LLM question, NOT a hard
+          mechanical discrepancy).
+        * A lone claim (no competing agent on the semantic_key) — whatever its
+          confidence — is undisputed / pending-adjudication and is routed to
+          the LLM Judge. It is NEVER auto-emitted as a discrepancy by Python.
         """
         claims_by_key: dict[str, list[AgentClaim]] = {}
 
@@ -177,30 +252,48 @@ class ReBattleArena:
         discrepancies: list[Discrepancy] = []
 
         for key, matched_claims in claims_by_key.items():
-            confidences = {c.confidence for c in matched_claims}
             agents = {c.agent_id for c in matched_claims}
             ctype = matched_claims[0].claim_type
 
-            if len(matched_claims) > 1 and len(agents) > 1:
-                assertions = {c.assertion.strip() for c in matched_claims}
-                if len(assertions) > 1 or "inferred" in confidences:
-                    discrepancies.append(
-                        Discrepancy(
-                            topic=key,
-                            claim_type=ctype,
-                            claims=matched_claims,
-                            status="open",
-                        )
-                    )
-            elif "inferred" in confidences or "low" in confidences:
+            # A lone claim — or several claims from the SAME agent — is
+            # undisputed. It is not a mechanical discrepancy and goes to the
+            # Judge; the old confidence-heuristic that flagged it is removed.
+            if len(agents) < 2:
+                continue
+
+            # Group by normalized structured value; compare across agents.
+            value_groups: dict[str, list[AgentClaim]] = {}
+            for claim in matched_claims:
+                norm = ReBattleArena._canonical_structured(
+                    ReBattleArena._structured_value(claim)
+                )
+                value_groups.setdefault(norm, []).append(claim)
+
+            if len(value_groups) > 1:
+                # Distinct structured values across agents -> hard conflict.
                 discrepancies.append(
                     Discrepancy(
                         topic=key,
                         claim_type=ctype,
                         claims=matched_claims,
                         status="open",
+                        kind="structured_conflict",
                     )
                 )
+            else:
+                # All agents agree on the structured value; the only possible
+                # difference is prose -> an LLM question, not a hard conflict.
+                assertions = {c.assertion.strip() for c in matched_claims}
+                if len(assertions) > 1:
+                    discrepancies.append(
+                        Discrepancy(
+                            topic=key,
+                            claim_type=ctype,
+                            claims=matched_claims,
+                            status="open",
+                            kind="semantic_review_candidate",
+                        )
+                    )
 
         return discrepancies
 

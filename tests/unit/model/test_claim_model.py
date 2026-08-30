@@ -2,6 +2,8 @@
 
 from pathlib import Path
 
+import pytest
+
 from makewiki_skills.model.claim import (
     Claim,
     ClaimEvidence,
@@ -358,15 +360,11 @@ def test_l0_syntax_check_is_genuine():
             predicate="executes",
             object="myapp run",
         ),
-        # unhandled/unknown claim type
-        Claim(
-            claim_id="CMD_RUN",
-            claim_type="bogus_type",
-            semantic_key="cli.command.run",
-            subject="myapp",
-            predicate="executes",
-            object="myapp run",
-        ),
+        # NOTE: an unknown claim_type (e.g. "bogus_type") can no longer be
+        # constructed here — claim_type is a strict ClaimType Literal that
+        # rejects it at model_validate ingress (see
+        # test_claim_type_literal_rejects_invalid). L0's claim_type membership
+        # check is thus guaranteed at the model boundary.
         # semantic_key not slash/dot-path shaped
         Claim(
             claim_id="CFG_PORT",
@@ -550,3 +548,53 @@ def test_claim_id_is_slug_not_mechanical_prefix():
     )
     verified_bad = verify_claims_against_codebase(ClaimSet(project_name="myapp", claims=[bad]), Path("."))
     assert verified_bad.get_by_id("run!fast").verification.l0_syntax != "passed"
+
+
+def test_claim_type_literal_rejects_invalid():
+    """claim_type is a strict ClaimType Literal: an invalid value (historical
+    'ngx') raises at ClaimSet.from_llm_json / model_validate ingress, while all
+    14 vocabulary types pass."""
+    from makewiki_skills.model.claim import ClaimType
+
+    valid_types = list(ClaimType.__args__)
+    assert len(valid_types) == 14
+
+    # All 14 valid types ingest cleanly as llm_claim claims.
+    for i, ct in enumerate(valid_types):
+        data = [
+            {
+                "claim_id": f"C{i}",
+                "claim_type": ct,
+                "semantic_key": f"vocab.t{i}",
+                "subject": "myapp",
+                "predicate": "asserts",
+                "object": "x",
+            }
+        ]
+        cs = ClaimSet.from_llm_json("myapp", data)
+        assert cs.get_by_id(f"C{i}").claim_type == ct
+
+    # The historical typo is rejected at ingress.
+    bogus = [
+        {
+            "claim_id": "C_NGX",
+            "claim_type": "ngx",
+            "semantic_key": "vocab.ngx",
+            "subject": "myapp",
+            "predicate": "asserts",
+            "object": "x",
+        }
+    ]
+    with pytest.raises(ValueError):
+        ClaimSet.from_llm_json("myapp", bogus)
+
+    # Direct construction is equally rejected.
+    with pytest.raises(ValueError):
+        Claim(
+            claim_id="C_NGX",
+            claim_type="ngx",
+            semantic_key="vocab.ngx",
+            subject="myapp",
+            predicate="asserts",
+            object="x",
+        )

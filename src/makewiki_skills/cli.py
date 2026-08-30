@@ -239,6 +239,13 @@ def verify_docs(
     ),
     langs: list[str] = typer.Option(["en", "zh-CN"], "--lang", "-l"),
     config_path: Path | None = typer.Option(None, "--config", "-c"),
+    semantic_audit: Path | None = typer.Option(
+        None,
+        "--semantic-audit",
+        help="Path to an LLM SemanticAuditBundle JSON. When provided, L3/L4b/L5 "
+        "verdicts from the bundle are merged into the report as authoritative; "
+        "without it, L3/L4b/L5 are reported PENDING.",
+    ),
     output_format: str = typer.Option(
         "human", "--format", "-f", help="Output format: human | json"
     ),
@@ -248,8 +255,8 @@ def verify_docs(
     Verifies that every claim in the generated documentation is grounded —
     paths exist (L1), interfaces/probes match (L2), behavior is evidenced
     (L3), languages agree (L4), and over-assertion is flagged (L5). The Quality
-    Gate aggregates the layers into a PASS/FAIL decision mapped to the CI exit
-    code (0 pass / 1 fail).
+    Gate aggregates the layers into an honest verdict (PASS / FAIL / PENDING /
+    N/A) mapped to the CI exit code via ``result.ci_exit_code``.
     """
     from makewiki_skills.languages.registry import LanguageRegistry
     from makewiki_skills.model.document_artifact import GeneratedDocument
@@ -302,7 +309,13 @@ def verify_docs(
         documents[lang_code] = docs
 
     orchestrator = VerificationOrchestrator(target)
-    report = orchestrator.verify_documents(documents, wiki_dir=resolved_wiki_dir)
+
+    semantic_bundle = _load_semantic_audit(semantic_audit, resolved_wiki_dir)
+    report = orchestrator.verify_documents(
+        documents,
+        wiki_dir=resolved_wiki_dir,
+        semantic_bundle=semantic_bundle,
+    )
     result = evaluate_quality_gate(
         report, cfg, fail_on_critical=cfg.quality.fail_on_critical
     )
@@ -315,28 +328,38 @@ def verify_docs(
                 ensure_ascii=False,
             )
         )
-        raise typer.Exit(result.exit_code)
+        raise typer.Exit(result.ci_exit_code)
 
     console.print("[bold]L0-L5 Verification[/bold]")
-    for layer_name in ("L0", "L1", "L2", "L3", "L4", "L5"):
-        layer_report = report.layers.get(layer_name)
-        if layer_report is None:
-            continue
-        state = (
-            "[green]passed[/green]"
-            if layer_report.passed
-            else "[red]failed[/red]"
-        )
-        console.print(
-            f"  {layer_name} ({layer_report.name}): {state} "
-            f"{layer_report.passed_count}/{layer_report.total_checks}"
-        )
+    # Mechanical layers: L0/L1/L2/L4a. Semantic/LLM layers: L3/L4b/L5.
+    layer_rows = [
+        ("L0", "Syntax & Structure", result.l0_status),
+        ("L1", "Existence", result.l1_status),
+        ("L2", "Interface", result.l2_status),
+        ("L3", "Behavior (LLM)", result.l3_status),
+        ("L4a", "Cross-language parity (mechanical)", result.l4a_status),
+        ("L4b", "Prose parity (LLM)", result.l4b_status),
+        ("L5", "Epistemic (LLM)", result.l5_status),
+    ]
+    for marker, label, status in layer_rows:
+        console.print(f"  {marker} ({label}): {_render_layer_status(status)}")
 
     console.print(f"[bold]Quality Gate:[/bold] Grounding score {result.grounding_score:.1%}")
-    gate_mark = "[green]PASS[/green]" if result.passed else "[red]FAIL[/red]"
-    console.print(f"  Gate verdict: {gate_mark}")
+    console.print(f"  Gate verdict: {_render_gate_verdict(result)}")
+    console.print(
+        f"  CI exit code: {result.ci_exit_code}  "
+        f"(passed=0, failed=1, pending_semantic=0/2, pending_mechanical=3)"
+    )
     if result.unresolved_critical:
         console.print(f"  [yellow]Unresolved critical: {result.unresolved_critical}[/yellow]")
+    if result.pending_llm_layers:
+        console.print(
+            f"  [yellow]Pending LLM layers: {', '.join(result.pending_llm_layers)}[/yellow]"
+        )
+    if result.pending_mechanical_layers:
+        console.print(
+            f"  [yellow]Pending mechanical layers: {', '.join(result.pending_mechanical_layers)}[/yellow]"
+        )
 
     failures = [
         check
@@ -356,7 +379,7 @@ def verify_docs(
             )
         console.print(table)
 
-    raise typer.Exit(result.exit_code)
+    raise typer.Exit(result.ci_exit_code)
 
 
 @app.command(name="verify")
@@ -367,6 +390,11 @@ def verify_alias(
     ),
     langs: list[str] = typer.Option(["en", "zh-CN"], "--lang", "-l"),
     config_path: Path | None = typer.Option(None, "--config", "-c"),
+    semantic_audit: Path | None = typer.Option(
+        None,
+        "--semantic-audit",
+        help="Path to an LLM SemanticAuditBundle JSON. Without it, L3/L4b/L5 are PENDING.",
+    ),
     output_format: str = typer.Option(
         "human", "--format", "-f", help="Output format: human | json"
     ),
@@ -376,7 +404,7 @@ def verify_alias(
     Retained for backward compatibility; runs the same unified L0-L5
     verification and Quality Gate.
     """
-    verify_docs(target, wiki_dir, langs, config_path, output_format)
+    verify_docs(target, wiki_dir, langs, config_path, semantic_audit, output_format)
 
 
 @app.command(name="verify-claim")
@@ -885,6 +913,93 @@ def _load_config(config_path: Path | None, target: Path) -> MakeWikiConfig:
     if default_path.is_file():
         return MakeWikiConfig.load(default_path, target)
     return MakeWikiConfig.default(target)
+
+
+# --- verify-docs honest rendering helpers ------------------------------------
+
+
+def _render_layer_status(status: str) -> str:
+    """Render one layer's verdict with a DISTINCT marker per state.
+
+    passed -> PASS, failed -> FAIL, pending -> PEND, not_applicable -> N/A.
+    A pending layer is NEVER rendered as PASS.
+    """
+    marker: str
+    color: str
+    if status == "passed":
+        marker, color = "PASS", "green"
+    elif status == "failed":
+        marker, color = "FAIL", "red"
+    elif status == "pending":
+        marker, color = "PEND", "yellow"
+    elif status == "not_applicable":
+        marker, color = "N/A", "dim"
+    else:  # unknown / unexpected
+        marker, color = "PEND", "yellow"
+    return f"[{color}]{marker}[/{color}]"
+
+
+def _render_gate_verdict(result: Any) -> str:
+    """Render the honest gate verdict line with a distinct marker.
+
+    PASS only when the verdict is genuinely ``passed`` — a pending gate is
+    never printed PASS, regardless of the exit-policy CI code.
+    """
+    verdict = result.verdict
+    if verdict == "passed":
+        return "[green]PASS[/green] (passed)"
+    if verdict == "failed":
+        return "[red]FAIL[/red] (failed)"
+    if verdict == "pending_mechanical_verification":
+        return "[yellow]PEND[/yellow] (pending_mechanical_verification)"
+    return "[yellow]PEND[/yellow] (pending_semantic_review)"
+
+
+def _load_semantic_audit(
+    semantic_audit: Path | None, resolved_wiki_dir: Path
+) -> Any:
+    """Load and validate an LLM SemanticAuditBundle, if requested.
+
+    Returns the parsed bundle when it is present and still matches the verified
+    documents; returns ``None`` when no bundle was requested OR the bundle is
+    stale/absent so L3/L4b/L5 stay PENDING at the gate. Diagnostics are written
+    to stderr so the stdout (JSON payload or human table) stays clean.
+    """
+    if semantic_audit is None:
+        return None
+    from rich.console import Console as _StderrConsole
+
+    from makewiki_skills.verification.semantic_audit import (
+        bundle_matches_documents,
+        load_audit_bundle,
+    )
+
+    err = _StderrConsole(stderr=True, highlight=False)
+
+    audit_path = Path(semantic_audit).resolve()
+    if not audit_path.is_file():
+        err.print(f"[yellow]Semantic audit file not found: {audit_path}[/yellow]")
+        err.print("[yellow]L3/L4b/L5 remain PENDING.[/yellow]")
+        return None
+
+    try:
+        bundle = load_audit_bundle(audit_path)
+    except ValueError as exc:
+        err.print(f"[yellow]Invalid semantic audit bundle: {exc}[/yellow]")
+        err.print("[yellow]L3/L4b/L5 remain PENDING.[/yellow]")
+        return None
+
+    doc_paths = sorted(resolved_wiki_dir.rglob("*.md"))
+    if doc_paths and not bundle_matches_documents(bundle, doc_paths):
+        err.print(
+            "[yellow]Semantic audit bundle is stale (document digest mismatch).[/yellow]"
+        )
+        err.print(
+            "[yellow]L3/L4b/L5 remain PENDING; the bundle is NOT merged.[/yellow]"
+        )
+        return None
+
+    return bundle
 
 
 @app.command(name="build-site")

@@ -1,0 +1,9 @@
+[
+  {
+    "id": "rc_deps",
+    "claim_type": "prerequisite",
+    "semantic_key": "install.dependencies",
+    "assertion": "Dev tooling requires pytest and ruff",
+    "must_state": "pytest and ruff are dev dependencies per pyproject"
+  }
+]

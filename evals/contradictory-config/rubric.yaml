@@ -1,0 +1,24 @@
+# Rubric: contradictory-config
+trap: contradictory-config
+description: two config locations disagree on the port; correct behavior is to raise the dispute and resolve via stronger evidence.
+metrics:
+  ReBattle Conflict Detection: { weight: 0.30, required: true }
+  Judge Correctness: { weight: 0.25, required: true }
+  Evidence Grounding: { weight: 0.20, required: true }
+  Unsupported Claim Rate: { weight: 0.10 }
+  Unknown Discipline: { weight: 0.15, required: true }
+  Required Claim Recall: { weight: 0.0 }
+  Task Discovery: { weight: 0.0 }
+  Workflow Correctness: { weight: 0.0 }
+  SemanticModel Quality: { weight: 0.0 }
+  Native-language Quality: { weight: 0.0 }
+  Cross-language Semantic Parity: { weight: 0.0 }
+  Troubleshooting Correctness: { weight: 0.0 }
+  Epistemic Calibration: { weight: 0.0 }
+  Documentation Usefulness: { weight: 0.0 }
+scoring:
+  pass_threshold: 0.8
+  passes_when: >
+    docs explicitly note config.yaml=8080 vs docker-compose=9090, resolve or flag
+    the conflict, and do not silently assert one value.
+  runs: 3

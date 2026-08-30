@@ -1,0 +1,8 @@
+# docker-compose service for app
+services:
+  app:
+    image: app:latest
+    environment:
+      - PORT=9090
+    ports:
+      - "9090:9090"

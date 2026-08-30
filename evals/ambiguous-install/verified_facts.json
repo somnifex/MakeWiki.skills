@@ -1,0 +1,26 @@
+[
+  {
+    "id": "vf_name",
+    "fact_type": "version",
+    "value": "widget",
+    "source": "pyproject.toml:[project].name"
+  },
+  {
+    "id": "vf_version",
+    "fact_type": "version",
+    "value": "0.4.1",
+    "source": "pyproject.toml:[project].version"
+  },
+  {
+    "id": "vf_dev_deps",
+    "fact_type": "dependency",
+    "value": "pytest",
+    "source": "pyproject.toml:optional-dependencies.dev"
+  },
+  {
+    "id": "vf_ruff_dep",
+    "fact_type": "dependency",
+    "value": "ruff",
+    "source": "pyproject.toml:optional-dependencies.dev"
+  }
+]

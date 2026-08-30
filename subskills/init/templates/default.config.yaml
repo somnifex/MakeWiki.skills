@@ -86,7 +86,7 @@ documentation_policy:
   include_architecture_analysis: false            # LLM-consumed
   include_directory_overview: false               # LLM-consumed
   include_source_walkthroughs: false              # LLM-consumed
-  forbid_unfounded_praise: true                   # LLM-consumed
+  forbid_unfounded_praise: true                   # SHARED (Python validator + LLM writer)
   banned_descriptors:                             # Python-consumed (validator)
     - powerful
     - robust

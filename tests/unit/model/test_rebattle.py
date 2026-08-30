@@ -2,10 +2,13 @@
 
 from __future__ import annotations
 
+import pytest
+
 from makewiki_skills.model.rebattle import (
     AdjudicatedClaim,
     AdjudicationResult,
     AgentClaim,
+    AgentClaimBundle,
     AgentClaimSet,
     ReBattleArena,
 )
@@ -49,13 +52,10 @@ def test_agent_claim_requires_semantic_key() -> None:
 
 
 def test_agent_claim_rejects_unknown_claim_type() -> None:
-    """claim_type must be a member of the ClaimType vocabulary (no 'ngx')."""
+    """claim_type is a strict ClaimType Literal — 'ngx' is rejected at ingress."""
     _claim(agent_id="agent_red", semantic_key="x.y", assertion="a", claim_type="command")
-    try:
+    with pytest.raises(ValueError):
         _claim(agent_id="agent_red", semantic_key="x.y", assertion="a", claim_type="ngx")
-    except Exception:
-        return
-    raise AssertionError("AgentClaim with claim_type 'ngx' must be rejected")
 
 
 def test_agent_claim_evidence_refs_maps_from_source_file() -> None:
@@ -302,3 +302,217 @@ def test_synthesize_consensus_modified_ruling() -> None:
     assert consensus[0].ruling == "modified"
     assert consensus[0].final_assertion == "app --fast (requires --no-cache)"
     assert consensus[0].verified_via_codebase is True
+
+
+def test_identical_prose_different_structured_value_flagged() -> None:
+    """Same semantic_key + IDENTICAL assertion prose, but different structured
+    value (3000 vs 8080) -> a hard structured_conflict.
+
+    This is the case the old assertion-set-difference logic MISSED: matching
+    prose must never hide a real value conflict.
+    """
+    red = _claim(
+        agent_id="agent_red",
+        semantic_key="network.port",
+        assertion="The app listens on the configured port.",
+        value="3000",
+    )
+    blue = _claim(
+        agent_id="agent_blue",
+        semantic_key="network.port",
+        assertion="The app listens on the configured port.",
+        value="8080",
+    )
+    discs = ReBattleArena.detect_discrepancies(
+        [
+            AgentClaimSet(agent_id="agent_red", perspective="u", claims=[red]),
+            AgentClaimSet(agent_id="agent_blue", perspective="c", claims=[blue]),
+        ]
+    )
+    assert len(discs) == 1
+    assert discs[0].topic == "network.port"
+    assert discs[0].kind == "structured_conflict"
+    assert discs[0].status == "open"
+
+
+def test_identical_prose_different_payload_flagged() -> None:
+    """Same semantic_key + IDENTICAL prose, differing structured payload dicts
+    -> a hard structured_conflict (payload is preferred over value/object)."""
+    red = _claim(
+        agent_id="agent_red",
+        semantic_key="network.port",
+        assertion="The app listens on the configured port.",
+        value="ignored-when-payload-present",
+        payload={"port": 3000},
+    )
+    blue = _claim(
+        agent_id="agent_blue",
+        semantic_key="network.port",
+        assertion="The app listens on the configured port.",
+        payload={"port": 8080},
+    )
+    discs = ReBattleArena.detect_discrepancies(
+        [
+            AgentClaimSet(agent_id="agent_red", perspective="u", claims=[red]),
+            AgentClaimSet(agent_id="agent_blue", perspective="c", claims=[blue]),
+        ]
+    )
+    assert len(discs) == 1
+    assert discs[0].kind == "structured_conflict"
+
+
+def test_different_prose_same_structured_value_is_semantic_candidate() -> None:
+    """Same semantic_key + SAME structured value, differing prose -> a
+    semantic_review_candidate (LLM question), NOT a hard conflict.
+
+    This is the case the old logic flagged as a hard discrepancy based on
+    divergent prose — a false positive. Python cannot mechanically prove a
+    conflict when both agents agree on the value.
+    """
+    red = _claim(
+        agent_id="agent_red",
+        semantic_key="cli.command.run",
+        assertion="Run the app with make run.",
+        value="make run",
+    )
+    blue = _claim(
+        agent_id="agent_blue",
+        semantic_key="cli.command.run",
+        assertion="Start the service via `make run`.",
+        value="make run",
+    )
+    discs = ReBattleArena.detect_discrepancies(
+        [
+            AgentClaimSet(agent_id="agent_red", perspective="u", claims=[red]),
+            AgentClaimSet(agent_id="agent_blue", perspective="c", claims=[blue]),
+        ]
+    )
+    assert len(discs) == 1
+    assert discs[0].kind == "semantic_review_candidate"
+    # It is an LLM question, not a hard mechanical conflict.
+    assert discs[0].kind != "structured_conflict"
+
+
+def test_same_value_same_prose_no_discrepancy() -> None:
+    """Same semantic_key, same value, same prose -> no discrepancy at all."""
+    red = _claim(
+        agent_id="agent_red",
+        semantic_key="cli.command.run",
+        assertion="Run `make run`.",
+        value="make run",
+    )
+    blue = _claim(
+        agent_id="agent_blue",
+        semantic_key="cli.command.run",
+        assertion="Run `make run`.",
+        value="make run",
+    )
+    discs = ReBattleArena.detect_discrepancies(
+        [
+            AgentClaimSet(agent_id="agent_red", perspective="u", claims=[red]),
+            AgentClaimSet(agent_id="agent_blue", perspective="c", claims=[blue]),
+        ]
+    )
+    assert discs == []
+
+
+def test_lone_inferred_claim_not_open_discrepancy() -> None:
+    """A SINGLE inferred/low-confidence claim (no competing agent on the key) is
+    undisputed / pending-adjudication. The old confidence heuristic fabricated
+    an 'open' Discrepancy; it must now yield ZERO discrepancies and route to
+    the Judge instead."""
+    lone = _claim(
+        agent_id="agent_red",
+        semantic_key="config.parameter.port",
+        assertion="Port is set in config.",
+        value="3000",
+        confidence="inferred",
+    )
+    discs = ReBattleArena.detect_discrepancies(
+        [AgentClaimSet(agent_id="agent_red", perspective="u", claims=[lone])]
+    )
+    assert discs == []
+
+
+def test_unchallenged_claim_never_auto_accepted() -> None:
+    """An undisputed claim (no competing agent, no adjudication) must NEVER
+    yield ruling='accepted' — only the Judge (an explicit AdjudicationResult)
+    creates an accepted consensus."""
+    undisputed = _claim(
+        agent_id="agent_red",
+        semantic_key="cli.command.help",
+        assertion="app --help",
+        value="app --help",
+        confidence="inferred",
+    )
+    sets = [AgentClaimSet(agent_id="agent_red", perspective="u", claims=[undisputed])]
+
+    # No discrepancies at all (lone claim is not a mechanical discrepancy)...
+    assert ReBattleArena.detect_discrepancies(sets) == []
+
+    # ...and consensus leaves it a PENDING AgentClaim with no fabricated ruling.
+    consensus = ReBattleArena.synthesize_consensus(sets)
+    assert len(consensus) == 1
+    assert isinstance(consensus[0], AgentClaim)
+    assert not isinstance(consensus[0], AdjudicatedClaim)
+    # No AdjudicatedClaim was created anywhere, so no accepted ruling exists.
+    adjudicated = [c for c in consensus if isinstance(c, AdjudicatedClaim)]
+    assert all(a.ruling != "accepted" for a in adjudicated)
+
+
+def test_agent_claim_bundle_roundtrip() -> None:
+    """One AgentClaimBundle feeds BOTH AgentClaimSet.from_agent_bundle and
+    ClaimSet.from_agent_bundle with identical semantic_key / claim_type /
+    value — the unified protocol that removes scout format drift."""
+    from makewiki_skills.model.claim import ClaimSet as CoreClaimSet
+
+    bundle = AgentClaimBundle(
+        project_name="myapp",
+        agent_id="agent_red",
+        perspective="user_experience",
+        claims=[
+            AgentClaim(
+                claim_id="c1",
+                agent_id="agent_red",
+                claim_type="command",
+                semantic_key="cli.command.run",
+                assertion="Run `make run`.",
+                value="make run",
+            ),
+            AgentClaim(
+                claim_id="c2",
+                agent_id="agent_red",
+                claim_type="config",
+                semantic_key="config.parameter.port",
+                assertion="Port from config.",
+                value="3000",
+            ),
+        ],
+    )
+
+    # ReBattle path: the same bundle projects to an AgentClaimSet.
+    rebattle_set = AgentClaimSet.from_agent_bundle(bundle)
+    assert rebattle_set.agent_id == "agent_red"
+    assert rebattle_set.perspective == "user_experience"
+    assert [c.semantic_key for c in rebattle_set.claims] == [
+        "cli.command.run",
+        "config.parameter.port",
+    ]
+
+    # Verify path: the same bundle projects to a core ClaimSet (llm_claim).
+    claim_set = CoreClaimSet.from_agent_bundle(bundle)
+    assert claim_set.project_name == "myapp"
+    assert all(c.provenance == "llm_claim" for c in claim_set.claims)
+    assert {c.semantic_key for c in claim_set.claims} == {
+        "cli.command.run",
+        "config.parameter.port",
+    }
+    assert {c.claim_type for c in claim_set.claims} == {"command", "config"}
+    assert {c.object for c in claim_set.claims} == {"make run", "3000"}
+
+    # Both paths surface the same value / claim_type / semantic_key per claim.
+    by_key = {c.semantic_key: c for c in claim_set.claims}
+    assert by_key["cli.command.run"].object == "make run"
+    assert by_key["cli.command.run"].claim_type == "command"
+    assert by_key["config.parameter.port"].object == "3000"
+    assert by_key["config.parameter.port"].claim_type == "config"

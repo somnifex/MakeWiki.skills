@@ -1,0 +1,21 @@
+[
+  {
+    "id": "vf_cmd_start",
+    "fact_type": "command",
+    "value": "portal start --config config.yaml",
+    "source": "README.md:[[id:usage.code]] + README.zh-CN.md:[[id:usage.code]]",
+    "note": "the exact technical block (usage) must be byte-identical across languages"
+  },
+  {
+    "id": "vf_cmd_serve",
+    "fact_type": "command",
+    "value": "portal serve",
+    "source": "README.md:[[id:run.code]] + README.zh-CN.md:[[id:run.code]]"
+  },
+  {
+    "id": "vf_port",
+    "fact_type": "config",
+    "value": "PORT=8080",
+    "source": "[[id:config.sample]] both languages"
+  }
+]

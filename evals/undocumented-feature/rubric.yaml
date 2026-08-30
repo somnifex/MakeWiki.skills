@@ -1,0 +1,24 @@
+# Rubric: undocumented-feature
+trap: undocumented-feature
+description: the 'live' renderer sits behind an experimental flag; correct docs hedge and never call it production-ready or claim guarantees.
+metrics:
+  Evidence Grounding: { weight: 0.25, required: true }
+  Unknown Discipline: { weight: 0.25, required: true }
+  Epistemic Calibration: { weight: 0.20, required: true }
+  Unsupported Claim Rate: { weight: 0.15 }
+  Required Claim Recall: { weight: 0.15, required: true }
+  ReBattle Conflict Detection: { weight: 0.0 }
+  Judge Correctness: { weight: 0.0 }
+  Task Discovery: { weight: 0.0 }
+  Workflow Correctness: { weight: 0.0 }
+  SemanticModel Quality: { weight: 0.0 }
+  Native-language Quality: { weight: 0.0 }
+  Cross-language Semantic Parity: { weight: 0.0 }
+  Troubleshooting Correctness: { weight: 0.0 }
+  Documentation Usefulness: { weight: 0.0 }
+scoring:
+  pass_threshold: 0.8
+  passes_when: >
+    docs call the live renderer experimental/flagged, mention --theme, and never
+    call it production-ready, guaranteed, or the default.
+  runs: 3

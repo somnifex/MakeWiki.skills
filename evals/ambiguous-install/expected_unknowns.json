@@ -1,0 +1,8 @@
+[
+  {
+    "id": "eu_install_method",
+    "topic": "install command",
+    "field": "install.command",
+    "expected_treatment": "Mark the exact install command as UNKNOWN / 'inspect further'; do not invent one"
+  }
+]

@@ -1,6 +1,7 @@
 # MakeWiki.skills
 
 
+
 <p align="center">
   <strong>LLM-first, Evidence-backed, Multi-Agent Documentation Compiler for AI Coding Assistants</strong>
 </p>
@@ -145,8 +146,8 @@ MakeWiki no longer claims "zero hallucinations." It delivers **verifiable, evide
 - **L1 Existence** — every referenced file path, executable command, and config key exists in the repository.
 - **L2 Interface** — CLI argument names, flags, defaults, env vars, and type constraints match source declarations.
 - **L3 Behavior** — exit codes, error conditions, log paths, and execution flows trace to source handlers (Python supplies evidence, LLM judges).
-- **L4 Cross-language** — stable block IDs (`getting_started.install`, etc.) enable exact-match mechanical parity plus aligned-passage output for LLM prose auditing.
-- **L5 Epistemic** — low-confidence and ungrounded commands are surfaced by Python; the LLM auditor reasons over them.
+- **L4 Cross-language** — stable block IDs (`getting_started.install`, etc.) and stable H2 section markers (`<!-- makewiki:section=<slug> -->`) enable exact-match parity (L4a mechanical) plus aligned-passage output for LLM prose auditing (L4b semantic). Cross-language matching is always keyed on stable block/section IDs, never on heading text or heading position; section ORDER may differ per language.
+- **L5 Epistemic** — low-confidence and ungrounded commands are surfaced by Python; the LLM auditor reasons over them. The audit conclusions are persisted as a `SemanticAuditBundle` JSON, consumed by `verify-docs --semantic-audit <file>` (a flag on the `verify-docs` command); Python only validates schema and digests and never re-judges the verdicts, and a bundle is rejected as stale if the documents change.
 - **Quality Gate** — a single `verify-docs` run aggregates L0–L5 into a `QualityGateResult` (PASS/FAIL + Grounding Score + unresolved critical count) and returns a CI exit code.
 
 `zero-hallucination` is not an engineering promise. **Grounding Score, unresolved critical counts, and L0–L5 status** are. See [`references/grounding_policy.md`](references/grounding_policy.md).
@@ -187,7 +188,7 @@ delivery:                    # LLM-consumed
 
 quality:                     # Quality Gate thresholds
   fail_on_critical: true
-  min_grounding_score: 0.8
+  min_grounding_score: 1.0
 ```
 
 Field classifications live in the config schema and are enforced by `tests/contracts/test_config_consumption_contract.py`.

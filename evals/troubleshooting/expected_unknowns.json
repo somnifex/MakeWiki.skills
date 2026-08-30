@@ -1,0 +1,8 @@
+[
+  {
+    "id": "eu_object_store_url",
+    "topic": "object store URL",
+    "field": "troubleshooting",
+    "expected_treatment": "the live endpoint reachability / bucket name is not resolvable from source; mark UNKNOWN instead of asserting the store is reachable"
+  }
+]

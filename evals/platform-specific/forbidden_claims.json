@@ -1,0 +1,16 @@
+[
+  {
+    "id": "fc_wsl_inferred",
+    "claim_type": "constraint",
+    "semantic_key": "platform.windows.wsl",
+    "forbidden_assertion": "The project runs under WSL on Windows",
+    "reason": "no Windows/WSL evidence exists; only a Linux Makefile is present"
+  },
+  {
+    "id": "fc_cross_platform",
+    "claim_type": "constraint",
+    "semantic_key": "platform.supported",
+    "forbidden_assertion": "The project supports all major platforms",
+    "reason": "platform support cannot be inferred from a bare Linux Makefile"
+  }
+]

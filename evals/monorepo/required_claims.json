@@ -1,0 +1,16 @@
+[
+  {
+    "id": "rc_scope_api",
+    "claim_type": "command",
+    "semantic_key": "packages.api.cli",
+    "assertion": "The api package exposes the 'api' command (with --serve), scoped to packages/api",
+    "must_state": "claim belongs to packages/api, not the repo root or packages/web"
+  },
+  {
+    "id": "rc_scope_web",
+    "claim_type": "command",
+    "semantic_key": "packages.web.cli",
+    "assertion": "The web package exposes the 'web' command (with --build), scoped to packages/web",
+    "must_state": "claim belongs to packages/web"
+  }
+]

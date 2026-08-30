@@ -1,0 +1,24 @@
+# Rubric: multilingual-parity
+trap: multilingual-parity
+description: EN and ZH use different section order but stable section markers; parity must be keyed on stable IDs and bodies, never heading position.
+metrics:
+  Evidence Grounding: { weight: 0.15 }
+  Cross-language Semantic Parity: { weight: 0.40, required: true }
+  Native-language Quality: { weight: 0.25, required: true }
+  Required Claim Recall: { weight: 0.10 }
+  Unsupported Claim Rate: { weight: 0.10 }
+  Unknown Discipline: { weight: 0.0 }
+  Workflow Correctness: { weight: 0.0 }
+  Task Discovery: { weight: 0.0 }
+  ReBattle Conflict Detection: { weight: 0.0 }
+  Judge Correctness: { weight: 0.0 }
+  SemanticModel Quality: { weight: 0.0 }
+  Troubleshooting Correctness: { weight: 0.0 }
+  Epistemic Calibration: { weight: 0.0 }
+  Documentation Usefulness: { weight: 0.0 }
+scoring:
+  pass_threshold: 0.8
+  passes_when: >
+    technical blocks are byte-identical across languages despite reordered
+    sections, semantics match, and the ZH body reads as native Chinese.
+  runs: 3

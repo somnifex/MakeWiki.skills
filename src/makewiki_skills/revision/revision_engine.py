@@ -58,6 +58,7 @@ class RevisionReport:
     verified_resolutions: int = 0
     introduced_regressions: int = 0
     actions: list[RevisionAction] = field(default_factory=list)
+    warnings: list[str] = field(default_factory=list)
 
 
 class MechanicalRepairEngine:
@@ -161,7 +162,11 @@ class MechanicalRepairEngine:
 
         # 2. Cross-language code parity harmonization by stable block ID.
         if self.auto_harmonize and cross_language_report and len(revised_docs) >= 2:
-            harmonized_count = self._harmonize_cross_language_code(revised_docs)
+            harmonize_warnings: list[str] = []
+            harmonized_count = self._harmonize_cross_language_code(
+                revised_docs, warnings_out=harmonize_warnings
+            )
+            report.warnings.extend(harmonize_warnings)
             if harmonized_count > 0:
                 report.actions.append(
                     RevisionAction(
@@ -247,9 +252,108 @@ class MechanicalRepairEngine:
     # Mechanical: stable-ID cross-language code block harmonization
     # ------------------------------------------------------------------
     _BLOCK_ID_PATTERN = re.compile(r"\[\[id:([A-Za-z0-9_.\-]+)\]\]")
+    _PARITY_IGNORE_PATTERN = re.compile(r"\[\[parity:ignore(?:[^\]]*)\]\]")
     _CODE_BLOCK_PATTERN = re.compile(
         r"```(?P<lang>[a-zA-Z0-9_\-\+]*)\n(?P<code>.*?)```", re.DOTALL
     )
+    # Fences carrying one of these language tags are TECHNICAL and must carry a
+    # stable ID to participate in cross-language parity harmonization.
+    _TECHNICAL_LANGUAGES = frozenset(
+        {
+            "bash",
+            "sh",
+            "shell",
+            "zsh",
+            "console",
+            "powershell",
+            "ps1",
+            "cmd",
+            "batch",
+            "json",
+            "yaml",
+            "yml",
+            "toml",
+            "ini",
+            "xml",
+            "hocon",
+            "python",
+            "py",
+            "js",
+            "ts",
+            "sql",
+            "dockerfile",
+            "makefile",
+            "code",
+            "java",
+            "go",
+            "c",
+            "cpp",
+            "ruby",
+            "php",
+            "rust",
+            "swift",
+            "css",
+            "html",
+            "terraform",
+            "hcl",
+        }
+    )
+
+    @classmethod
+    def _untagged_technical_fences(cls, content: str) -> list[str]:
+        """Return the opener of every untagged, non-exempt technical fence.
+
+        A technical fence (lang in ``_TECHNICAL_LANGUAGES``) with no associated
+        ``[[id:...]]`` marker and no ``[[parity:ignore ...]]`` exemption is
+        returned so the caller can warn instead of silently skipping it during
+        harmonization. Returns the fence opener lines (e.g. ``"```bash"``) in
+        document order.
+        """
+        lines = content.splitlines()
+        untagged: list[str] = []
+        id_marker_seen = False
+        ignore_marker_seen = False
+        i = 0
+        while i < len(lines):
+            line = lines[i].strip()
+            if cls._BLOCK_ID_PATTERN.search(line):
+                id_marker_seen = True
+                i += 1
+                continue
+            if cls._PARITY_IGNORE_PATTERN.search(line):
+                ignore_marker_seen = True
+                i += 1
+                continue
+            if line.startswith("```"):
+                lang_match = re.match(r"```([a-zA-Z0-9_\-+]*)", line)
+                lang_tag = (lang_match.group(1).lower() if lang_match else "").strip()
+                # Marker may be the first line inside the fence body.
+                body_id = None
+                body_ignore = ignore_marker_seen
+                inner_idx = i + 1
+                while inner_idx < len(lines) and not lines[inner_idx].strip().startswith("```"):
+                    inner = lines[inner_idx].strip()
+                    if body_id is None:
+                        body_id = cls._BLOCK_ID_PATTERN.search(inner)
+                    body_ignore = body_ignore or bool(cls._PARITY_IGNORE_PATTERN.search(inner))
+                    if body_id is not None:
+                        break
+                    inner_idx += 1
+                tagged = id_marker_seen or body_id is not None
+                exempt = ignore_marker_seen or body_ignore
+                if lang_tag in cls._TECHNICAL_LANGUAGES and not tagged and not exempt:
+                    untagged.append(line)
+                # Consume the whole fence.
+                j = i + 1
+                while j < len(lines) and not lines[j].strip().startswith("```"):
+                    j += 1
+                i = j + 1
+                id_marker_seen = False
+                ignore_marker_seen = False
+                continue
+            # A non-fence, non-marker line does not change block identity.
+            i += 1
+        return untagged
 
     @classmethod
     def _block_id(cls, content: str) -> str | None:
@@ -320,7 +424,9 @@ class MechanicalRepairEngine:
         return blocks
 
     def _harmonize_cross_language_code(
-        self, documents: dict[str, list[DocumentArtifact]]
+        self,
+        documents: dict[str, list[DocumentArtifact]],
+        warnings_out: list[str] | None = None,
     ) -> int:
         """Harmonize code blocks across languages by stable block ID.
 
@@ -329,15 +435,33 @@ class MechanicalRepairEngine:
         it is appended verbatim from the primary; if a block differs byte-wise
         it is replaced with the primary's exact text. All comparisons are
         mechanical (hash + exact replacement).
+
+        Untagged technical fences (a technical lang with no ``[[id:...]]``) are
+        NOT silently skipped: each one is added as a warning to ``warnings_out``
+        (when provided) so the author is told the block could not participate in
+        parity harmonization. ID-tagged block behavior is unchanged.
+
+        Returns the number of harmonized (appended/replaced) blocks — an ``int``
+        so existing direct callers keep working; warnings flow through the
+        optional ``warnings_out`` parameter.
         """
         primary_lang = "en" if "en" in documents else next(iter(documents.keys()))
         primary_docs = {d.base_name: d for d in documents[primary_lang]}
         harmonized = 0
+        warnings: list[str] = []
 
         for lang, doc_list in documents.items():
             if lang == primary_lang:
                 continue
             for doc in doc_list:
+                # Record any untagged technical fence that would otherwise be
+                # silently skipped by the ID-keyed harmonizer.
+                for opener in self._untagged_technical_fences(doc.content):
+                    warnings.append(
+                        f"[{lang}:{doc.base_name}] untagged technical fence {opener!r} "
+                        "could not be harmonized; add [[id:<slug>]] or exempt with "
+                        '[[parity:ignore reason="..."]]'
+                    )
                 if doc.base_name not in primary_docs:
                     continue
                 primary_doc = primary_docs[doc.base_name]
@@ -371,6 +495,8 @@ class MechanicalRepairEngine:
                     doc.content += "\n\n" + "\n\n".join(append_blocks)
                     harmonized += len(append_blocks)
 
+        if warnings_out is not None:
+            warnings_out.extend(warnings)
         return harmonized
 
 

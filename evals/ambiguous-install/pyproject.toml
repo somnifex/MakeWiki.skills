@@ -1,0 +1,11 @@
+[project]
+name = "widget"
+version = "0.4.1"
+requires-python = ">=3.9"
+
+[project.optional-dependencies]
+dev = ["pytest", "ruff"]
+
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"

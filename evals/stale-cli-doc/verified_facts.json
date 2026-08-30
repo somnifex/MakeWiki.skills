@@ -1,0 +1,14 @@
+[
+  {
+    "id": "vf_cmd_run",
+    "fact_type": "command",
+    "value": "myapp run",
+    "source": "myapp.py:sub.add_parser('run')"
+  },
+  {
+    "id": "vf_cmd_serve",
+    "fact_type": "command",
+    "value": "myapp serve",
+    "source": "myapp.py:sub.add_parser('serve')"
+  }
+]

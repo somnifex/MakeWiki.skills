@@ -1,0 +1,16 @@
+[
+  {
+    "id": "fc_diverged_block",
+    "claim_type": "command",
+    "semantic_key": "multilingual.usage.code",
+    "forbidden_assertion": "The usage code block body differs between EN and zh-CN",
+    "reason": "technical blocks must be byte-identical across languages (L4a)"
+  },
+  {
+    "id": "fc_translationese",
+    "claim_type": "architecture",
+    "semantic_key": "multilingual.zh.translation",
+    "forbidden_assertion": "ZH reads as a literal machine translation of the EN prose",
+    "reason": "Native-language quality: independent generation, no translationese"
+  }
+]

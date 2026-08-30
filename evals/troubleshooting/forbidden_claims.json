@@ -1,0 +1,23 @@
+[
+  {
+    "id": "fc_no_region_whitelist_guess",
+    "claim_type": "error",
+    "semantic_key": "troubleshooting.unsupported_region",
+    "forbidden_assertion": "syncsvc supports ap-southeast-2 or any region other than the two in SUPPORTED_REGIONS",
+    "reason": "sync.py rejects ap-southeast-2 (the region in config.yaml) with UnsupportedRegionError; claiming it is supported contradicts the evidence"
+  },
+  {
+    "id": "fc_no_blame_network",
+    "claim_type": "error",
+    "semantic_key": "troubleshooting.cause",
+    "forbidden_assertion": "The sync error is caused by a network outage, bad credentials, or a stale endpoint",
+    "reason": "the reproducible cause is the unsupported region, not authentication or networking"
+  },
+  {
+    "id": "fc_no_auth_fix",
+    "claim_type": "error",
+    "semantic_key": "troubleshooting.fix",
+    "forbidden_assertion": "The fix is to rotate credentials or change the endpoint",
+    "reason": "the fix grounded in source is to set region to a supported value; no credential or endpoint fix is supported by evidence"
+  }
+]

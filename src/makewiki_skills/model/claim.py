@@ -4,9 +4,12 @@ from __future__ import annotations
 
 import re
 from pathlib import Path
-from typing import Any, Literal, cast, get_args
+from typing import TYPE_CHECKING, Any, Literal, cast, get_args
 
 from pydantic import BaseModel, Field
+
+if TYPE_CHECKING:
+    from makewiki_skills.model.rebattle import AgentClaimBundle
 
 from makewiki_skills.scanner.evidence_registry import EvidenceRegistry
 from makewiki_skills.scanner.project_detector import ProjectDetectionResult
@@ -94,7 +97,9 @@ class Claim(BaseModel):
     # proves (command | config | path | version) and cognitive types only an LLM
     # Agent authors (workflow | persona | prerequisite | behavior | error_case |
     # faq_topic | troubleshooting | constraint | capability | architecture).
-    claim_type: str
+    # It is a strict Literal, so pydantic rejects any value outside the
+    # vocabulary (e.g. the historical typo "ngx") at model_validate / ingress.
+    claim_type: ClaimType
     semantic_key: str
 
     subject: str
@@ -154,6 +159,33 @@ class ClaimSet(BaseModel):
             claim.provenance = "llm_claim"
             claims.append(claim)
         return cls(project_name=project_name, claims=claims)
+
+    @classmethod
+    def from_agent_bundle(cls, bundle: AgentClaimBundle) -> ClaimSet:
+        """Convert an :class:`AgentClaimBundle` into a :class:`ClaimSet`.
+
+        This lets ONE scout/debate bundle feed both ``verify-claim`` (via
+        ``ClaimSet``) and ``rebattle-diff`` (via ``AgentClaimSet``) without
+        maintaining two divergent JSON formats. Each ``AgentClaim`` becomes a
+        ``Claim`` marked ``provenance="llm_claim"``. Field names are shared
+        between the two models, so the conversion is a mechanical 1:1 mapping —
+        Python invents no semantic content here.
+        """
+        claims: list[Claim] = []
+        for ac in bundle.claims:
+            claim = Claim(
+                claim_id=ac.claim_id,
+                claim_type=ac.claim_type,
+                semantic_key=ac.semantic_key,
+                subject=ac.subject or ac.semantic_key,
+                predicate=ac.predicate or "asserts",
+                object=ac.object if ac.object is not None else ac.value,
+                payload=dict(ac.payload),
+                confidence=ac.confidence,
+            )
+            claim.provenance = "llm_claim"
+            claims.append(claim)
+        return cls(project_name=bundle.project_name, claims=claims)
 
 
 def _slugify(text: str) -> str:

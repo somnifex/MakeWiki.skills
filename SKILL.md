@@ -224,6 +224,84 @@ adjudicating semantics.
 
 ---
 
+## 3A. SemanticAuditBundle (Auditor Output, L3 / L4b / L5)
+
+The semantic layers — L3 behavior meaning, L4b prose parity, L5 epistemic
+standing — are decided by the LLM Auditor, not by mechanical code. The
+Auditor persists its verdicts into a **machine-readable `SemanticAuditBundle`**
+JSON that the toolkit consumes without re-judging the semantics.
+
+### The Auditor MUST emit the bundle
+
+In **Phase 4** and in the review subskill, after reasoning over L0 - L5, the
+Auditor writes a `SemanticAuditBundle` JSON (see the Auditor prompt in Section
+6). Each semantic verdict is recorded per review item; a layer or item the
+Auditor does not mention simply remains `pending` at the Quality Gate *by
+absence* — never by an explicit value.
+
+The bundle schema (`SemanticAuditBundle`, see
+`src/makewiki_skills/verification/semantic_audit.py`) is:
+
+```yaml
+schema_version: 1                       # bundle schema version
+documents_digest: "sha256:<hex>"        # sha256 over the audited markdown doc set
+semantic_model_digest: "sha256:<hex>"   # optional; binds to the SemanticModel snapshot
+auditor: "llm_auditor"                  # auditor identity
+audited_at: "<UTC ISO-8601>"            # when the audit was performed
+verdicts:                               # list of semantic verdicts
+  - review_item_id: "L3:workflow.start-server"   # specific review item (e.g. L3:<slug>)
+    layer: "L3"                         # one of L3 | L4b | L5
+    status: "passed"                    # one of passed | failed
+    rationale_summary: "..."            # why the Auditor judged this way
+    evidence_refs: ["src/app/cli.py:120-148"]   # optional source citations
+    confidence: "medium"                # one of high | medium | low
+```
+
+`documents_digest` is a sha256 over the concatenated, path-sorted raw bytes of
+the audited markdown documents; it binds the audit to the exact document
+revision it was performed against.
+
+### Staleness rule
+
+If the documents (or the optional semantic model snapshot) change **after** the
+bundle was produced, the bundle's digest no longer matches, so the bundle is
+**stale and must be rejected and re-audited**. The toolkit raises a stale-audit
+error rather than silently trusting an audit of an older revision. The Auditor
+must therefore emit the bundle **last**, after all in-place edits, so its
+`documents_digest` matches the final markdown set on disk.
+
+### Consumption boundary
+
+Python validates the bundle's schema and digests and aggregates the verdicts
+into the Quality Gate, but it **never re-judges the semantic verdicts**: it does
+not decide whether a `passed`/`failed` verdict is reasonable, and it never
+overrides the Auditor's adjudication. A layer the Auditor did not mention stays
+`pending`.
+
+### `verify-docs --semantic-audit <file>`
+
+The Auditor's bundle is machine-consumed by `verify-docs` via the
+`--semantic-audit <file>` flag (a flag on the existing `verify-docs` command,
+not a separate command):
+
+```bash
+python run_toolkit.py verify-docs <target> --semantic-audit <output_dir>/semantic_audit.json
+```
+
+`verify-docs --semantic-audit <file>`:
+
+1. loads and schema-validates the bundle;
+2. verifies `documents_digest` against the current documents — a
+   mismatched (stale) bundle is **rejected** and the affected layers remain
+   `pending`, signaling that a re-audit is required;
+3. folds the Auditor's `passed`/`failed` semantic verdicts into the Quality
+   Gate, so the LLM-judged layers resolve from the bundle instead of sitting
+   `pending`;
+4. never re-judges the semantics — it only validates schema/digests and
+   aggregates.
+
+---
+
 ## 4. Dynamic Self-Configuration & Subagent Synthesis
 
 The Main Agent **dynamically synthesizes subagent roles** within the tier
@@ -341,10 +419,11 @@ Save all generated files under '{output_dir}/'.
 ```markdown
 You are the Quality Auditor and Reviewer for the generated documentation in '{output_dir}/'.
 1. Run codebase grounding verification to confirm all mentioned commands, config keys, and file paths exist.
-2. Run cross-language consistency review: every code block and parameter in English matches every other language 1:1.
+2. Run cross-language consistency review: every code block and parameter in English matches every other language 1:1, keyed on stable block IDs (`[[id:...]]`), never on position.
 3. Scan for broken Markdown links and AI clichés.
 4. Read the Quality Gate result from 'python run_toolkit.py verify-docs {output_dir}' and resolve any failed or pending layers in place.
 5. Autonomous Self-Healing: if discrepancies, typos, or missing commands are found, edit the Markdown files in place immediately.
+6. Emit a machine-readable `SemanticAuditBundle` JSON capturing your L3 / L4b / L5 semantic verdicts (see Section 3A). After every in-place edit, re-run the bundle so its `documents_digest` matches the final audited markdown set — never emit a bundle whose digest is stale against the files on disk. Save it as `<output_dir>/semantic_audit.json`.
 ```
 
 ---
@@ -407,13 +486,27 @@ See `references/anti_ai_cliche.md`. Highlights:
 
 1. **Independent generation, NEVER machine-translate** — write each language
    from the unified SemanticModel.
-2. **Code Block Parity** — 100% identical commands, flags, and config keys
-   across all languages.
-3. **Observable Behavior Only** — describe what users type and see; never
+2. **Stable Code-Block IDs for Parity** — every technical fenced code block
+   MUST carry a stable block ID marker `[[id:<slug>]]` immediately before the
+   fence (or as the first line inside the fence body). An untagged technical
+   block is an **L4a failure**. A block may be exempted from parity only with
+   an explicit `[[parity:ignore reason="..."]]` marker. Parity and revision
+   always match blocks by their stable ID — never by position.
+3. **Stable H2 Section Markers** — every H2 section SHOULD carry a stable
+   section marker `<!-- makewiki:section=<slug> -->` immediately above it.
+4. **Section ORDER may differ per language** — each language is written
+   natively and independently, so section order is NOT required to match across
+   languages. ALL cross-language parity and review (L4) is keyed on the stable
+   block + section IDs, never on heading text or heading position. Two language
+   versions may place the same `<slug>` section in different positions; they
+   must only agree where they carry the same block/section ID.
+5. **Code Block Parity** — 100% identical commands, flags, and config keys
+   across all languages, for blocks carrying the same stable ID.
+6. **Observable Behavior Only** — describe what users type and see; never
    expose internal source directory tours in user guides.
-4. **Strict Hedging** — when evidence is indirect, explicitly hedge
+7. **Strict Hedging** — when evidence is indirect, explicitly hedge
    (*"The repository contains X, suggesting Y may be supported"*).
-5. **No Invents-Unknowns** — Python returns `UNKNOWN` for unprovable slots;
+8. **No Invents-Unknowns** — Python returns `UNKNOWN` for unprovable slots;
    the LLM fills them or leaves them marked.
 
 ---
@@ -482,12 +575,20 @@ over any deltas.
    this drives the `VerificationOrchestrator` across L0 - L5 and feeds the
    `QualityGateResult` back to the Skill layer.
 2. The Auditor Subagent reads the Quality Gate output:
-   - Resolves failed mechanical layers (L0 / L1 / L2 / L4-exact) by editing
+   - Resolves failed mechanical layers (L0 / L1 / L2 / L4a) by editing
      the Markdown in place.
-   - Resolves pending LLM-judged layers (L3 / L4-prose / L5) by reasoning
-     over the evidence list Python provided.
-3. Re-run `verify-docs` until the gate passes (CI exit code 0) or until
-   `revision.max_rounds` is exhausted.
+   - Resolves pending LLM-judged layers (L3 / L4b / L5) by reasoning
+     over the evidence list Python provided, and **emits a machine-readable
+     `SemanticAuditBundle`** JSON with each semantic verdict (see Section 3A).
+3. Re-run `verify-docs` — now with `--semantic-audit <file>` to consume the
+   Auditor's bundle — until the gate passes (CI exit code 0) or until
+   `revision.max_rounds` is exhausted:
+   ```bash
+   python <makewiki_root>/scripts/run_toolkit.py verify-docs <target> --semantic-audit <output_dir>/semantic_audit.json
+   ```
+   The bundle must be emitted after all in-place edits so its `documents_digest`
+   matches the final markdown set; a stale bundle (digest mismatch) is rejected
+   and the affected semantic layers stay `pending` until a fresh audit.
 
 ### Phase 5: Offline Static Site Compilation (Mechanical)
 

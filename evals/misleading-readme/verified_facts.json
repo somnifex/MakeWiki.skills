@@ -1,0 +1,22 @@
+[
+  {
+    "id": "port_default_source",
+    "fact_type": "config",
+    "value": "8080",
+    "source": "app/server.py:DEFAULT_PORT",
+    "note": "The docs MUST state the authoritative default port from source is 8080."
+  },
+  {
+    "id": "port_readme_contradiction",
+    "fact_type": "config",
+    "value": "3000",
+    "source": "README.md",
+    "note": "The docs should note the README claims 3000 and flag the conflict."
+  },
+  {
+    "id": "default_host",
+    "fact_type": "config",
+    "value": "0.0.0.0",
+    "source": "app/server.py:DEFAULT_HOST"
+  }
+]

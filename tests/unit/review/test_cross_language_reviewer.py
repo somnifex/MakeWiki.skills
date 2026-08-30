@@ -91,3 +91,77 @@ def test_revision_instructions_generated():
     instructions = reviewer.generate_revision_instructions(result)
     assert len(instructions) > 0
     assert any(i.target_language == "zh-CN" for i in instructions)
+
+
+def test_aligned_passages_pair_by_section_and_block_id_not_h2_index():
+    """Aligned-passage extraction keys on stable section/block IDs, so sections
+    reordered across languages still pair correctly (not by H2 position)."""
+    en = _doc(
+        "en",
+        "guide.md",
+        (
+            "<!-- makewiki:section=usage -->\n"
+            "# Usage\n"
+            "[[id:run]]\n```bash\napp run\n```\n"
+            "Run the app.\n"
+            "\n"
+            "<!-- makewiki:section=install -->\n"
+            "# Install\n"
+            "[[id:install.init]]\n```bash\napp init\n```\n"
+        ),
+    )
+    # zh-CN reorders: install comes before usage; prose differs in meaning but
+    # this is LLM-judged; alignment must still be by stable IDs.
+    zh = _doc(
+        "zh-CN",
+        "guide.md",
+        (
+            "<!-- makewiki:section=install -->\n"
+            "# 安装\n"
+            "[[id:install.init]]\n```bash\napp init\n```\n"
+            "\n"
+            "<!-- makewiki:section=usage -->\n"
+            "# 用法\n"
+            "[[id:run]]\n```bash\napp run\n```\n"
+        ),
+    )
+
+    reviewer = CrossLanguageReviewer()
+    passages = reviewer.align_documents({"en": [en], "zh-CN": [zh]})
+
+    prose = [p for p in passages if p.block_id is None]
+    code = [p for p in passages if p.block_id is not None]
+
+    # Prose passages are keyed by stable section id, not H2 index/text.
+    prose_by_section = {p.section_id: p for p in prose}
+    assert set(prose_by_section) == {"usage", "install"}
+    assert sorted(prose_by_section["usage"].languages) == ["en", "zh-CN"]
+    assert sorted(prose_by_section["install"].languages) == ["en", "zh-CN"]
+
+    # Code passages are keyed by (section_id, block_id) and pair across langs.
+    code_keys = {(p.section_id, p.block_id) for p in code}
+    assert ("usage", "run") in code_keys
+    assert ("install", "install.init") in code_keys
+    run = next(p for p in code if (p.section_id, p.block_id) == ("usage", "run"))
+    assert sorted(run.languages) == ["en", "zh-CN"]
+    assert "app run" in run.texts["en"] and "app run" in run.texts["zh-CN"]
+
+    # The prose seen by the LLM excludes the code fences.
+    assert "```" not in prose_by_section["usage"].texts["en"]
+
+
+def test_aligned_passages_never_judge_meaning():
+    """align_documents only aligns; differing prose is preserved per language
+    (L4b meaning judgment is left to the LLM, never decided here)."""
+    en = _doc("en", "g.md", "<!-- makewiki:section=s -->\n# S\nEnglish prose.\n")
+    zh = _doc("zh-CN", "g.md", "<!-- makewiki:section=s -->\n# S\n\n中文正文。\n")
+
+    reviewer = CrossLanguageReviewer()
+    passages = reviewer.align_documents({"en": [en], "zh-CN": [zh]})
+
+    prose = next(p for p in passages if p.block_id is None and p.section_id == "s")
+    # Both languages' text are surfaced verbatim; no equality verdict is made.
+    assert "English prose." in prose.texts["en"]
+    assert "中文正文" in prose.texts["zh-CN"]
+    assert prose.languages == ["en", "zh-CN"]
+

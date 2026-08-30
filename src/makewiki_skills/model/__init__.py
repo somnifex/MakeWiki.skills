@@ -17,6 +17,7 @@ from makewiki_skills.model.rebattle import (
     AdjudicatedClaim,
     AdjudicationResult,
     AgentClaim,
+    AgentClaimBundle,
     AgentClaimSet,
 )
 
@@ -24,6 +25,7 @@ __all__ = [
     "AdjudicatedClaim",
     "AdjudicationResult",
     "AgentClaim",
+    "AgentClaimBundle",
     "AgentClaimSet",
     "Claim",
     "ClaimEvidence",

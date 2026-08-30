@@ -68,11 +68,14 @@ def test_gate_and_model_use_neutral_document_type():
 
 
 def test_authoritative_gate_verdict_vocabulary():
-    """The gate exposes the honest ``pending_semantic_review`` verdict, not just
-    passed/failed."""
+    """The gate exposes the honest four-state verdict vocabulary. ``passed``
+    requires the gate to be fully adjudicated and non-blocking; pending LLM
+    layers surface as ``pending_semantic_review``; pending mechanical layers as
+    ``pending_mechanical_verification``; anything blocking fails the gate."""
     assert set(get_args(QualityGateVerdict)) == {
         "passed",
         "pending_semantic_review",
+        "pending_mechanical_verification",
         "failed",
     }
 

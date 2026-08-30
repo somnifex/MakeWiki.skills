@@ -1,0 +1,24 @@
+# Rubric: platform-specific
+trap: platform-specific
+description: a Linux Makefile with no Windows/WSL evidence; correct docs document the targets but must not auto-infer WSL or cross-platform support.
+metrics:
+  Evidence Grounding: { weight: 0.25, required: true }
+  Unknown Discipline: { weight: 0.30, required: true }
+  Unsupported Claim Rate: { weight: 0.20, required: true }
+  Required Claim Recall: { weight: 0.15, required: true }
+  Epistemic Calibration: { weight: 0.10 }
+  ReBattle Conflict Detection: { weight: 0.0 }
+  Judge Correctness: { weight: 0.0 }
+  Task Discovery: { weight: 0.0 }
+  Workflow Correctness: { weight: 0.0 }
+  SemanticModel Quality: { weight: 0.0 }
+  Native-language Quality: { weight: 0.0 }
+  Cross-language Semantic Parity: { weight: 0.0 }
+  Troubleshooting Correctness: { weight: 0.0 }
+  Documentation Usefulness: { weight: 0.0 }
+scoring:
+  pass_threshold: 0.8
+  passes_when: >
+    docs list build/test/clean from the Makefile and do NOT claim WSL or
+    cross-platform support without evidence.
+  runs: 3

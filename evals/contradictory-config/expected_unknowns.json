@@ -1,0 +1,8 @@
+[
+  {
+    "id": "eu_effective_port",
+    "topic": "effective runtime port",
+    "field": "config.port.effective",
+    "expected_treatment": "the effective port depends on which config wins at runtime; flag it, don't assert a single fact as authoritative"
+  }
+]

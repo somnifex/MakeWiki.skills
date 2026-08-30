@@ -1,6 +1,7 @@
 # Claim Schema & Representation Standard
 
 
+
 ## Overview
 
 In MakeWiki v2, documentation is treated as a set of **structured, verifiable
@@ -89,6 +90,7 @@ and never invents cognitive content:
   "subject": "myapp",
   "predicate": "authenticates_users",
   "object": "auth flow",
+  "payload": {"flow": "login -> token -> refresh"},
   "source_file": "src/auth.py",
   "evidence_refs": ["src/auth.py"],
   "confidence": "high"
@@ -97,7 +99,14 @@ and never invents cognitive content:
 
 `semantic_key` is **REQUIRED** and is the canonical *meaning* of the claim (a
 dotted path such as `network.port` or `workflow.auth`). `evidence_refs`
-defaults to `[]` and maps from `source_file` when present.
+defaults to `[]` and maps from `source_file` when present. `payload` is an
+optional structured value dict; when it is a non-empty dict of scalar fields it
+is the canonical value used for conflict comparison (see §2).
+
+`claim_type` is a **strict `ClaimType` Literal** on both `Claim` and
+`AgentClaim`. pydantic rejects any value outside the 14-member vocabulary
+(e.g. the historical typo `"ngx"`) at `model_validate` / `from_llm_json`
+ingress with a `ValidationError`.
 
 ### Claim / MechanicalAssertion (model.claim)
 
@@ -161,18 +170,47 @@ status to decide PASS / FAIL.
 
 ## 2. ReBattle keys on meaning (semantic_key), never value
 
-ReBattle groups and compares claims by `semantic_key`:
+ReBattle groups and compares claims by `semantic_key` and, within a group, by
+the **normalized structured value** (`_structured_value`): it prefers
+`payload` when it is a non-empty dict of scalar fields, else `value`, else
+`object`. It never compares prose (`assertion`), because Python cannot derive
+semantic meaning from natural-language string differencing.
 
-- Two agents asserting **different values** (port 3000 vs 8080) but the **same**
-  `semantic_key` land in **one** discrepancy.
-- The **same value** under **different** `semantic_key` never collides.
-- `claim_type` is a secondary attribute retained on a `Discrepancy` for display
-  only.
+`detect_discrepancies` builds `{semantic_key -> claims}` and, per group:
 
-`detect_discrepancies` builds `{semantic_key -> claims}` and flags a group when
-multiple agents assert differing assertions, or when a claim's confidence is
-`inferred`/`low`. `synthesize_consensus` and `_consensus_agent_claims` also key
-and deduplicate by `semantic_key`.
+- **`structured_conflict` (hard)** — two or more **distinct agents** share a
+  `semantic_key` but disagree on the structured value (port 3000 vs 8080),
+  even when the prose is identical.
+- **`semantic_review_candidate` (LLM question, NOT a hard conflict)** — two or
+  more distinct agents agree on the structured value but express it with
+  divergent prose.
+- **Lone claim** — a `semantic_key` with claims from a single agent (whatever
+  their confidence) is **undisputed / pending-adjudication**. It is routed to
+  the LLM Judge and is NEVER auto-emitted as a discrepancy by Python. (The old
+  heuristic that flagged a lone `inferred`/`low` claim as an `open`
+  discrepancy is removed.)
+
+Each `Discrepancy` carries an explicit
+`kind: DiscrepancyKind = "structured_conflict" | "semantic_review_candidate"`
+so downstream can separate hard conflicts from LLM questions. `claim_type` is
+retained on a `Discrepancy` for display only.
+
+`synthesize_consensus` and `_consensus_agent_claims` key and deduplicate by
+`semantic_key`; they wrap an `AdjudicatedClaim` only when an explicit Judge
+ruling exists.
+
+### The unified AgentClaimBundle protocol
+
+Scouts emit **one** `AgentClaimBundle` (`project_name`, `agent_id`,
+`perspective`, `claims`) instead of maintaining two near-identical formats.
+The same bundle feeds both consumers via mechanical projection:
+
+- `AgentClaimSet.from_agent_bundle(bundle)` — ReBattle / `rebattle-diff` path.
+- `ClaimSet.from_agent_bundle(bundle)` — `verify-claim` path; each `AgentClaim`
+  becomes a `Claim` with `provenance="llm_claim"`.
+
+Both converters preserve `semantic_key`, `claim_type`, and the structured
+value. `ClaimSet.from_llm_json` is retained for backward compatibility.
 
 ---
 

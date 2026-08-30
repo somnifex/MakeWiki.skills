@@ -1,0 +1,16 @@
+[
+  {
+    "id": "fc_readme_port_3000",
+    "claim_type": "config",
+    "semantic_key": "network.port.default",
+    "forbidden_assertion": "The default port is 3000",
+    "reason": "asserts the stale README value over the authoritative source"
+  },
+  {
+    "id": "fc_no_conflict_note",
+    "claim_type": "config",
+    "semantic_key": "network.port.default",
+    "forbidden_assertion": "State the port with no caveat that README and source disagree",
+    "reason": "must surface the conflict (ReBattle), not silently pick one source"
+  }
+]

@@ -1,0 +1,9 @@
+[
+  {
+    "id": "rc_default_port",
+    "claim_type": "config",
+    "semantic_key": "network.port.default",
+    "assertion": "The server default port is 8080 (per app/server.py)",
+    "must_state": "8080 as the real default, grounded in source"
+  }
+]

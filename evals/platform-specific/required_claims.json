@@ -1,0 +1,9 @@
+[
+  {
+    "id": "rc_build_targets",
+    "claim_type": "command",
+    "semantic_key": "cli.make.build-test",
+    "assertion": "The Makefile defines build, test, and clean targets",
+    "must_state": "document the real Makefile targets"
+  }
+]

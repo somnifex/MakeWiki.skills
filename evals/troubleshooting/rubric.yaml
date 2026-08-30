@@ -1,0 +1,26 @@
+# Rubric: troubleshooting
+trap: troubleshooting
+description: a reproducible error (unsupported region) reproducable from sync.py; docs must capture the actual cause and fix from evidence rather than guessing.
+metrics:
+  Troubleshooting Correctness: { weight: 0.35, required: true }
+  Evidence Grounding: { weight: 0.25, required: true }
+  Required Claim Recall: { weight: 0.20, required: true }
+  Unsupported Claim Rate: { weight: 0.20, required: true }
+  Unknown Discipline: { weight: 0.0 }
+  Task Discovery: { weight: 0.0 }
+  Workflow Correctness: { weight: 0.0 }
+  ReBattle Conflict Detection: { weight: 0.0 }
+  Judge Correctness: { weight: 0.0 }
+  SemanticModel Quality: { weight: 0.0 }
+  Native-language Quality: { weight: 0.0 }
+  Cross-language Semantic Parity: { weight: 0.0 }
+  Epistemic Calibration: { weight: 0.0 }
+  Documentation Usefulness: { weight: 0.0 }
+scoring:
+  pass_threshold: 0.8
+  passes_when: >
+    the troubleshooting section reproduces the region error and names the real
+    cause (region not in SUPPORTED_REGIONS) and the evidence-backed fix
+    (set region to us-east-1 or eu-west-1), without blaming network or
+    credentials.
+  runs: 3

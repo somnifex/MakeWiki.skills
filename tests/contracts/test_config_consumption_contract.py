@@ -202,10 +202,14 @@ def test_yaml_config_templates_annotate_consumption():
     """Each field in the bundled config templates is annotated Python vs LLM.
 
     The annotation may appear either as ``# Python-consumed`` / ``# LLM-consumed``
-    on the field line itself, or as a section/block comment on the most recent
-    preceding ``#``-prefixed line at the same or shallower indentation.
-    Anything left unannotated means it drifted out of the consumption contract.
+    (or the SHARED form, which is read by both planes) on the field line itself,
+    or as a section/block comment on the most recent preceding ``#``-prefixed
+    line at the same or shallower indentation. Anything left unannotated means
+    it drifted out of the consumption contract.
     """
+    # SHARED is a first-class consumption category (Python validator + LLM
+    # writer); it is accepted alongside ``Python-consumed`` / ``LLM-consumed``.
+    VALID_ANNOTATIONS = ("Python-consumed", "LLM-consumed", "SHARED")
     template_paths = [
         PROJECT_ROOT / "templates" / "config.yaml",
         PROJECT_ROOT / "subskills" / "init" / "templates" / "default.config.yaml",
@@ -233,7 +237,7 @@ def test_yaml_config_templates_annotate_consumption():
                 indent_len = len(match.group("indent"))
                 rest = match.group("rest") or ""
                 annotations: list[str] = []
-                if "Python-consumed" in rest or "LLM-consumed" in rest:
+                if any(tok in rest for tok in VALID_ANNOTATIONS):
                     annotations.append(rest)
                 preceding = text[:start]
                 for line in reversed(preceding.splitlines()):
@@ -249,7 +253,7 @@ def test_yaml_config_templates_annotate_consumption():
                         continue
                     break
                 joined = "\n".join(annotations)
-                if "Python-consumed" not in joined and "LLM-consumed" not in joined:
+                if not any(tok in joined for tok in VALID_ANNOTATIONS):
                     missing.append(f"{path.relative_to(PROJECT_ROOT)}:{field} lacks consumer annotation")
     assert not missing, "\n".join(missing)
 

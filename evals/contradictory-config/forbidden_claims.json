@@ -1,0 +1,9 @@
+[
+  {
+    "id": "fc_single_value_silent",
+    "claim_type": "config",
+    "semantic_key": "config.port.default",
+    "forbidden_assertion": "State a single definitive port with no mention of the other config",
+    "reason": "must raise the dispute, not silently pick one source"
+  }
+]

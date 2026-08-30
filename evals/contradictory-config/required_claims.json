@@ -1,0 +1,9 @@
+[
+  {
+    "id": "rc_dispute",
+    "claim_type": "constraint",
+    "semantic_key": "config.port.conflict",
+    "assertion": "Two config locations disagree on the port (8080 in config.yaml vs 9090 in docker-compose.yml)",
+    "must_state": "surface the contradiction explicitly"
+  }
+]

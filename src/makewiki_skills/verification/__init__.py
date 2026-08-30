@@ -23,6 +23,17 @@ from makewiki_skills.verification.report import (
     VerificationSource,
     VerificationStatus,
 )
+from makewiki_skills.verification.semantic_audit import (
+    SemanticAuditBundle,
+    SemanticAuditLayer,
+    SemanticAuditStatus,
+    SemanticAuditVerdict,
+    StaleAuditError,
+    compute_documents_digest,
+    is_stale,
+    load_audit_bundle,
+    validate_audit_bundle,
+)
 
 __all__ = [
     "CodeGroundingVerifier",
@@ -44,4 +55,13 @@ __all__ = [
     "GroundingReport",
     "CodebaseCheck",
     "CodebaseVerificationReport",
+    "SemanticAuditBundle",
+    "SemanticAuditLayer",
+    "SemanticAuditStatus",
+    "SemanticAuditVerdict",
+    "StaleAuditError",
+    "compute_documents_digest",
+    "is_stale",
+    "load_audit_bundle",
+    "validate_audit_bundle",
 ]

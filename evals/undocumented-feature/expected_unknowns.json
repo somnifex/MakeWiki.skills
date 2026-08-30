@@ -1,0 +1,8 @@
+[
+  {
+    "id": "eu_live_reliability",
+    "topic": "live renderer reliability",
+    "field": "feature.live.reliability",
+    "expected_treatment": "hedge: label the live renderer experimental, do not assert reliability or guarantees"
+  }
+]

@@ -1,0 +1,16 @@
+[
+  {
+    "id": "rc_parity_by_section",
+    "claim_type": "architecture",
+    "semantic_key": "multilingual.pairing",
+    "assertion": "Docs must pair technical blocks by stable section/block ID, not heading position",
+    "must_state": "both languages carry the same ID-tagged code blocks with identical bodies"
+  },
+  {
+    "id": "rc_zh_native",
+    "claim_type": "architecture",
+    "semantic_key": "multilingual.zh",
+    "assertion": "The zh-CN doc reads as natively written Chinese about the same tool",
+    "must_state": "ZH is independent native writing, same meaning as EN"
+  }
+]

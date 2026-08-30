@@ -1,0 +1,16 @@
+[
+  {
+    "id": "fc_pip_editable",
+    "claim_type": "prerequisite",
+    "semantic_key": "install.command",
+    "forbidden_assertion": "Install the package with 'pip install -e .'",
+    "reason": "no install instruction exists anywhere in the repo; asserting a specific install command invents evidence"
+  },
+  {
+    "id": "fc_uv_claim",
+    "claim_type": "prerequisite",
+    "semantic_key": "install.command",
+    "forbidden_assertion": "Install using 'uv sync'",
+    "reason": "uv/uv.lock is not present; the tooling is not proven"
+  }
+]
