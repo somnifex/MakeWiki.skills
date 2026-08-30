@@ -387,7 +387,14 @@ def evaluate_quality_gate(
         behavior_passed=behavior_passed,
         cross_language_passed=cross_language_passed,
         epistemic_passed=epistemic_passed,
-        mechanical_passed=all_mechanical and not any_l4a_failed,
+        # ``mechanical_passed`` is TRUE only when every mechanical plane is
+        # genuinely proven, NOT merely un-failed: L0/L1/L2 must be passed, L4a
+        # must be passed or not_applicable (a PENDING L4a must NOT count as
+        # passed), and the grounding threshold must be met. It is independent of
+        # the LLM semantic state, so a pending L3/L4b/L5 does not drag it down.
+        mechanical_passed=(
+            all_mechanical and l4a_status in ("passed", "not_applicable") and meets_score
+        ),
         semantic_complete=semantic_complete,
         grounding_score=grounding_score,
         mechanical_score=mechanical_score,

@@ -66,3 +66,41 @@ fabricated content.
 - `faq.<lang>.md` — Known limits, common pitfalls. Empty → `UNKNOWN`.
 - `troubleshooting.<lang>.md` — Incident runbook: Error symptom → Root cause → Fix steps. Empty → `UNKNOWN`.
 - `index.md` — Root multilingual index and navigation map.
+
+---
+
+## 3. Reading Configuration (LLM-consumed fields)
+
+Each Language Writer reads the following configuration from
+`makewiki.config.yaml` and lets it steer authoring — these are the LLM-owned
+authoring knobs the Cognitive Plane consults:
+
+- **`documentation_policy.audience`** and **`documentation_policy.structure_strategy`**
+  — who the docs are for and how they are organized. Defaults are
+  `end-user` and `user-journey`; honor them when deciding coverage and section
+  order (Diátaxis is the base structure; do not contradict an explicit
+  `structure_strategy`).
+- **`documentation_policy.prevent_task_oriented_sections`** — when true (the
+  default), prefer task/how-to-oriented sections over feature enumeration.
+- **`documentation_policy.include_architecture_analysis`** /
+  **`include_directory_overview`** / **`include_source_walkthroughs`** — when a
+  flag is true, additionally author the corresponding page
+  (`architecture-analysis.<lang>.md` / `directory-overview.<lang>.md` /
+  source-walkthrough sections on relevant pages); when false (default), do not.
+- **`language_profiles.<lang>.tone`** — per-language writer tone override
+  (e.g. a `zh-CN` profile may set a more concise tone). Falls back to the
+  engine's default tone when unset.
+- **`content_depth.*`** — bounds on how much material to author
+  (`max_faq_items`, `max_usage_examples`, `max_troubleshooting_items`,
+  `mode`). Honor these caps so FAQ / usage / troubleshooting pages do not
+  exceed them, and use `split_usage_threshold` to decide when to split a
+  command's usage into sub-pages.
+- **`delivery.*`** — whether to emit enterprise delivery artifacts on the
+  installation page (`include_deployment_runbook`,
+  `include_compatibility_matrix`, `include_health_checks`). When a flag is
+  false, do not author that artifact (yield to the `delivery.audience` split
+  only where one is configured).
+
+These fields are LLM-consumed by contract (see
+`tests/contracts/test_config_consumption_contract.py`): Python never reads
+them, and they never enter the mechanical L0-L5 verification surface.

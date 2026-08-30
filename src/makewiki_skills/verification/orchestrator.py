@@ -109,13 +109,19 @@ class VerificationOrchestrator:
         }
 
         report = ComprehensiveVerificationReport(layers=layers)
+        # The Review Registry is computed on EVERY verify, bundle or not. The
+        # LLM Auditor's verdicts may only adjudicate items that exist here, and
+        # a first run without a bundle still needs to expose the pending L3/L4b/
+        # L5 items for a later audit. ``_build_review_items`` raises on a
+        # duplicate ``review_item_id`` (an invariant break) rather than silently
+        # collapsing two distinct semantic items into one.
+        report.review_items = self._build_review_items(report)
         if semantic_bundle is not None:
             # Staleness guard (governance): the document-digest half is enforced
             # at the call site (the CLI rejects a doc-mismatched bundle before
             # it ever reaches here). The semantic-model half is enforced here.
-            # Build the item-level registry FIRST so the merge only ever
-            # adjudicates items Python has actually computed.
-            report.review_items = self._build_review_items(report)
+            # The item-level registry is already computed above so the merge
+            # only ever adjudicates items Python has actually computed.
             if semantic_bundle.semantic_model_digest:
                 # The bundle binds to a semantic model snapshot but no current
                 # model digest is provable here -> the binding is UNPROVEN. Per
@@ -143,8 +149,15 @@ class VerificationOrchestrator:
         ``ReviewItem``. A pending semantic check without a ``review_item_id``
         still gets a deterministic fallback id (derived from its layer + target),
         never a random one, so it remains adjudicable.
+
+        The registry must hold UNIQUE ``review_item_id`` values: each stable
+        identity maps to exactly one pending semantic item. A duplicate is an
+        invariant break (two distinct checks silently collapsing into one — the
+        same silent-overwrite failure the merge would otherwise paper over), so
+        it raises ``ValueError`` instead of returning a corrupted registry.
         """
         items: list[ReviewItem] = []
+        seen_ids: set[str] = set()
         layer_meta = {
             "L3": "L3",
             "L5": "L5",
@@ -164,6 +177,13 @@ class VerificationOrchestrator:
                 rid = VerificationOrchestrator._effective_review_item_id(
                     layer_name, check
                 )
+                if rid in seen_ids:
+                    raise ValueError(
+                        f"duplicate review_item_id {rid!r} across pending semantic "
+                        f"checks in layer {layer_name!r}: the Review Registry must "
+                        "hold unique stable identities (no silent dict/set merge)"
+                    )
+                seen_ids.add(rid)
                 section = _section_from_review_item_id(rid)
                 items.append(
                     ReviewItem(
@@ -227,8 +247,9 @@ class VerificationOrchestrator:
         # The registry carries the exact set of adjudicable, pending semantic
         # items. Map each registered review_item_id to its underlying
         # VerificationCheck via the effective id; the registry is already
-        # deduplicated and L4b-only, so a registered item matches exactly one
-        # check.
+        # deduplicated and L4b-only (see ``_build_review_items``), so a registered
+        # item matches exactly one check. A second check claiming the same id
+        # would be a silent-overwrite conflict, so it is rejected explicitly.
         registry_ids = {item.review_item_id for item in report.review_items}
         check_by_rid: dict[str, VerificationCheck] = {}
         for layer_name in ("L3", "L4", "L5"):
@@ -240,6 +261,12 @@ class VerificationOrchestrator:
                     layer_name, check
                 )
                 if rid in registry_ids:
+                    if rid in check_by_rid:
+                        raise ValueError(
+                            f"duplicate review_item_id {rid!r} maps to more than "
+                            "one VerificationCheck in the Review Registry; refusing "
+                            "to silently merge one check over another"
+                        )
                     check_by_rid[rid] = check
 
         # ---- 2. unknown review_item_id -> reject whole bundle --------------
