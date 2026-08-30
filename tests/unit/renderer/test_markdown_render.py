@@ -82,6 +82,39 @@ def test_blockquote_renders():
     assert "<blockquote>" in _render("> quoted text\n")
 
 
+def test_callout_types_render_typed_and_labelled():
+    # Each of the four GFM-style callout markers becomes a typed blockquote with
+    # an accessible label span; the marker itself is dropped.
+    for kind, label in [("NOTE", "Note"), ("TIP", "Tip"),
+                        ("WARNING", "Warning"), ("DANGER", "Danger")]:
+        html = _render(f"> [!{kind}]\n> heed this\n")
+        assert f'<blockquote class="callout {kind.lower()}">' in html, kind
+        assert f'<span class="callout-label">{label}</span>' in html, kind
+        assert "callout-marker" not in html  # marker text is dropped, not kept
+
+
+def test_callout_marker_is_case_insensitive():
+    html = _render("> [!warning]\n> careful\n")
+    assert '<blockquote class="callout warning">' in html
+
+
+def test_plain_blockquote_never_styled_as_callout():
+    # A quote is never stylistically confused with an admonition.
+    html = _render("> just a quote\n")
+    assert "<blockquote>" in html
+    assert 'class="callout' not in html
+    assert "callout-label" not in html
+
+
+def test_callout_does_not_break_heading_ids_or_links():
+    # A callout next to headings and an internal link must not disturb the
+    # stable heading id or the route rewrite.
+    html = _render("# Install\n\n> [!TIP]\n> run `make build`\n\nSee [guide](guide.md).\n")
+    assert 'id="install"' in html
+    assert 'class="callout tip"' in html
+    assert 'class="wiki-link"' in html
+
+
 def test_fenced_code_preserves_language_class():
     html = _render("```python\nprint('hi')\n```\n")
     assert 'class="language-python"' in html

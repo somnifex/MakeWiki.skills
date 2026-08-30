@@ -1071,26 +1071,26 @@ _SPA_JS = """
       const sidebar = document.getElementById('sidebar');
       const overlay = document.getElementById('overlay');
       const burger = document.getElementById('hamburger');
-      drawerLastFocus = document.activeElement;
+      // The opener is always the hamburger; track it explicitly because the
+      // mousedown default (which would focus it) is prevented, so the live
+      // activeElement here is usually the inert body.
+      drawerLastFocus = burger;
       sidebar.classList.add('open');
       sidebar.setAttribute('aria-hidden', 'false');
       overlay.hidden = false;
       overlay.classList.add('open');
       burger.setAttribute('aria-expanded', 'true');
       // Inert everything outside the drawer so keyboard users cannot Tab into
-      // off-canvas links; move focus into the drawer's first nav link. The
-      // focus move is deferred a frame so the browser's default click-focus on
-      // the hamburger doesn't override it (the handler runs before the click's
-      // focus restoration).
+      // off-canvas links; move focus into the drawer's first nav link.
       document.getElementById('content') && (document.getElementById('content').inert = true);
       burger.inert = false;
-      // The hamburger's mousedown is prevented (see init) so nothing re-asserts
-      // focus on the button. Defer the move one frame: the drawer's visibility
-      // flips to visible on the next style recalc, and only then is the first
-      // link actually focusable (focusing while it still computes hidden is a
-      // silent no-op).
+      // Move focus into the drawer's first nav link. The hamburger's mousedown
+      // is prevented (see init) so nothing re-asserts focus on the button. The
+      // move is deferred past the drawer's visibility/transform transition
+      // (~250ms): focusing mid-transition is a silent no-op in Chromium, and
+      // only once the drawer is settled is the link reliably focusable.
       const firstLink = sidebar.querySelector('a');
-      if (firstLink) requestAnimationFrame(() => { firstLink.focus(); });
+      if (firstLink) setTimeout(() => { firstLink.focus(); }, 280);
     }
 
     function closeDrawer() {
