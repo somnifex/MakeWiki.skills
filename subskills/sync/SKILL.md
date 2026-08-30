@@ -19,7 +19,7 @@ step (planned as a future `--push` flag).
 
 - `$ARGUMENTS`: Path to makewiki documentation directory (default: `./makewiki`).
 - `--target all|confluence|notion`: Target platform (default: `all`).
-- `--lang <code>`: Target language to sync (default: `zh-CN` or detected primary).
+- `--lang <code>`: Target language to sync (default: `en`).
 
 ## Execution
 

@@ -263,8 +263,14 @@ def evaluate_quality_gate(
         if lr is not None:
             mechanical_total += lr.total_checks
             mechanical_passed_count += lr.passed_count
-    l4a_total = len(l4a_checks)
-    l4a_passed = sum(1 for c in l4a_checks if c.verified)
+    # ``not_applicable`` L4a checks (single-language parity) represent "nothing
+    # to verify here", never a miss — they must not drag the mechanical score
+    # below the threshold. This mirrors ``mechanical_passed`` and
+    # ``_subset_status``, which both already exempt ``not_applicable``. Genuine
+    # passed/failed L4a checks still count normally.
+    l4a_countable = [c for c in l4a_checks if c.status != "not_applicable"]
+    l4a_total = len(l4a_countable)
+    l4a_passed = sum(1 for c in l4a_countable if c.verified)
     mechanical_total += l4a_total
     mechanical_passed_count += l4a_passed
     mechanical_score = _score(mechanical_passed_count, mechanical_total)

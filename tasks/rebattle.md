@@ -54,10 +54,15 @@ self-critique:
    backed by a line in source code? If not, the claim's `provenance` must
    be `llm_claim` and the claim must carry an `uncertainty` note; never
    fabricate a value the evidence cannot prove.
-2. **Confidence Grading**:
-   - `CONFIRMED_AST`: 100% verified in source argument parser/handler.
-   - `DERIVED_CONFIG`: Inferred from `.env.example` or manifest settings.
-   - `HYPOTHESIS_HEDGED`: Provisional/uncertain capability requiring explicit caveat.
+2. **Confidence Grading** (use the canonical claim vocabulary — values must be
+   one of `high` / `medium` / `low` / `inferred`, which the pydantic claim
+   model enforces):
+   - `high`: 100% verified in source argument parser/handler (the ground truth
+     tier formerly labeled `CONFIRMED_AST`).
+   - `inferred`: Inferred from `.env.example` or manifest settings (formerly
+     `DERIVED_CONFIG`).
+   - `low`: Provisional/uncertain capability requiring explicit caveat (formerly
+     `HYPOTHESIS_HEDGED`).
 3. **Adversarial Self-Correction**: When countered with AST evidence, immediately concede and retract invalid claims without stubborn persistence.
 
 ---

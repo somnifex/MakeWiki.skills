@@ -92,7 +92,7 @@ MakeWiki v2 splits the system cleanly along a **Cognitive Authority Boundary**:
 **Unified L0–L5 verification + Quality Gate**
 - `VerificationOrchestrator` wires L0 syntax, L1 existence, L2 interface, L3 behavior, L4 cross-language, L5 epistemic into a single `verify-docs` run.
 - New `verification/quality_gate.py` aggregates layer reports into a `QualityGateResult` (`passed`, per-layer flags, `grounding_score`, `unresolved_critical/major/minor`, `revision_rounds`) and returns a CI exit code.
-- Configurable thresholds: `quality.fail_on_critical`, `quality.min_grounding_score`, `quality.allow_pending_llm_layers`.
+- Configurable thresholds: `quality.min_grounding_score`, `quality.allow_pending_llm_layers`.
 
 **Claim protocol with provenance**
 - `Claim` now carries `provenance` (`llm_claim` vs `python_fact`) so LLM-authored claims and Python-extracted facts are distinguishable downstream.
@@ -106,7 +106,7 @@ MakeWiki v2 splits the system cleanly along a **Cognitive Authority Boundary**:
 
 **Bootstrap version pinning**
 - `scripts/bootstrap_toolkit.py` resolves a pinned `v{version}` tag instead of moving `main`.
-- Honors `MAKEWIKI_TOOLKIT_VERSION` and `MAKEWIKI_TOOLKIT_SHA256`; skill `2.0.0` ↔ toolkit `2.0.0` bound by SHA256.
+- Honors `MAKEWIKI_TOOLKIT_VERSION` and `MAKEWIKI_TOOLKIT_ARCHIVE_SHA256`; skill `2.0.0` ↔ toolkit `2.0.0` bound by archive SHA256.
 
 **Contract tests**
 - `tests/contracts/test_cli_skill_contract.py` — every documented toolkit command resolves to a registered Typer command.

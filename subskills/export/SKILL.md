@@ -20,7 +20,7 @@ verified through the Quality Gate; the exporter only packages the result.
   - `html` produces a single-file printable HTML with cover page and `page-break-before` styles.
   - `epub` produces a standalone EPUB 2.0 archive with `toc.ncx` / `content.opf`.
   - `all` produces both.
-- `--lang <code>`: Target language to export (default: `zh-CN` or detected primary).
+- `--lang <code>`: Target language to export (default: `en`).
 
 > **PDF is not supported.** `--format pdf` returns an explicit error from the
 > toolkit. Use the printable HTML output and your browser's "Print to PDF"

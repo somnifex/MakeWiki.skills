@@ -56,7 +56,9 @@ The CLI surface is designed around authoritative names with backward-compatible 
 | Full Skill                      | `/makewiki`                            | —                   | Full pipeline: Sizing → Scout → ReBattle → Writer → Review → Compile |
 | Site                            | `/makewiki-site`                       | —                   | Compile Markdown into offline static Wiki                            |
 | Validation                      | `/makewiki-validate`                   | —                   | Markdown structure & link integrity                                  |
-| Quality Review                  | `/makewiki-review`                     | `semantic-review`   | Extract cross-language alignments + behavior evidence                |
+| Quality Review                  | `/makewiki-review`                     | —                   | Cross-language proofread: runs `verify-docs` + `parity` + `semantic-review` |
+| Export                          | `/makewiki-export`                     | —                   | Compile Markdown into printable HTML & EPUB (`--format html|epub|all`, rejects `pdf`) |
+| Sync bundles                    | `/makewiki-sync`                       | —                   | Prepare Confluence/Notion sync payloads (bundle prep only, no publishing) |
 | Project Sizing                  | `/makewiki-scan`                       | —                   | Tier assessment + fact extraction (calls `evidence`)                 |
 | Config Init                     | `/makewiki-init`                       | —                   | Generate default `makewiki.config.yaml`                              |
 | Toolkit: Sizing                 | `makewiki sizing <path>`               | —                   | Tier S/M/L classification                                            |
@@ -176,15 +178,17 @@ agent:                       # LLM-consumed
   max_audit_rounds: 3
   tier_override: auto
 
-site:                        # Python-consumed
+site:                        # Legacy-consumed (read only by the deprecated Pipeline)
   compile: true
   theme: auto
   include_search: true
+  output_subdir: site
 
 delivery:                    # LLM-consumed
   audience: dual
   include_deployment_runbook: true
   include_compatibility_matrix: true
+  include_health_checks: true
 
 quality:                     # Quality Gate thresholds
   min_grounding_score: 1.0

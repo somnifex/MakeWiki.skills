@@ -406,7 +406,7 @@ self_reflection_checklist:
     remedy: "Rewrite in direct, natural, active engineer prose."
   4_adversarial_defense_critique:
     question: "If an opposing agent challenges this assertion with AST evidence, will this claim withstand inspection?"
-    remedy: "Refine claim confidence: CONFIRMED_AST, DERIVED_CONFIG, HYPOTHESIS_HEDGED."
+    remedy: "Refine claim confidence using the canonical grade vocabulary (high / medium / low / inferred)."
 ```
 
 ---
@@ -440,7 +440,7 @@ You are Agent Red (Developer & User Experience).
 2. Extract primary CLI commands, required flags, and expected terminal outputs.
 3. Map common daily usage scenarios.
 Self-Reflection: Challenge your own tutorial — did you assume any implicit prerequisites or omit setup steps?
-Label each claim: CONFIRMED_AST, DERIVED_CONFIG, HYPOTHESIS_HEDGED.
+Label each claim's confidence with a canonical grade: high, medium, low, or inferred.
 ```
 
 #### 4. Agent Blue (Code AST & Ground-Truth) Prompt
@@ -756,14 +756,18 @@ dead or ambiguous:
   LLM-only field is actually referenced in the authoritative Skill layer
   (`SKILL.md` / `tasks/`), and its negative test asserts no LLM-only field has
   a Python read.
-- **Python-only**: `scan.*`, `review.*` (incl. the mechanical
-  `enable_review_pair_generation`, which only gates the `semantic-review`
-  preparation command — it never closes the authoritative LLM semantic audit),
-  `site.*`, `quality.*`, `output_dir`, `languages`, `default_language`,
-  `target_dir`. These are the fields the authoritative mechanical CLI actually
-  reads (`verify-docs`, `parity`, `review`, `build-site`).
+- **Python-only**: `scan.*`, `quality.*`, `output_dir`, `languages`,
+  `default_language`, `target_dir`, plus the mechanical subset of `review.*`
+  (`enable_review_pair_generation`, `min_page_alignment_ratio` —
+  `enable_review_pair_generation` only gates the `semantic-review` preparation
+  command; it never closes the authoritative LLM semantic audit). These are the
+  fields the authoritative mechanical CLI actually reads (`verify-docs`,
+  `parity`, `review`, `semantic-review`).
 - **Legacy-only**: `emit_uncertainty_notes`, `generate_*`, `strict_grounding`,
-  `overwrite`, `delete_stale_files`, and the whole `revision.*` block. The
+  `overwrite`, `delete_stale_files`, the `site.*` site-compile block, the three
+  legacy review toggles (`enable_cross_language_review`,
+  `enable_code_grounding_verification`, `enable_codebase_verification`), and the
+  whole `revision.*` block. The
   legacy revision round budget never bounds the authoritative `/makewiki`
   Auditor loop — that is `agent.max_audit_rounds`. These SEMANTIC scaffolding
   decisions (whether to emit faq/troubleshooting/env-vars
