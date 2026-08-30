@@ -22,6 +22,16 @@ from pydantic import BaseModel, Field
 
 from . import artifact
 
+# Gold files that live beside the trap repo and must NOT be treated as citable
+# source evidence (they are the evaluator's fixtures, not the repo under test).
+_GOLD_FILES = {
+    "verified_facts.json",
+    "required_claims.json",
+    "forbidden_claims.json",
+    "expected_unknowns.json",
+    "rubric.yaml",
+}
+
 # ---------------------------------------------------------------------------
 # Gold-file loaders (trap fixtures, kept dependency-free)
 # ---------------------------------------------------------------------------
@@ -226,6 +236,136 @@ def _asserts_value_for(view: _BundleView, semantic_key: str, value: str | None) 
 
 
 # ---------------------------------------------------------------------------
+# Evidence reference resolution (existence + line-range legality)
+# ---------------------------------------------------------------------------
+
+
+def _build_repo_tree(trap_dir: Path) -> tuple[set[str], dict[str, list[str]]]:
+    """Recover the trap repo's real file tree, excluding the gold files.
+
+    Returns ``(relative_paths, basename_index)`` where ``relative_paths`` holds
+    every source file's normalized forward-slash path (relative to ``trap_dir``)
+    and ``basename_index`` maps a bare basename to the relative paths sharing it
+    (so an *unambiguous* basename can still resolve a ``server.py`` ref).
+    """
+    relative_paths: set[str] = set()
+    basename_index: dict[str, list[str]] = {}
+    for path in sorted(trap_dir.rglob("*")):
+        if not path.is_file() or path.name in _GOLD_FILES:
+            continue
+        rel = path.relative_to(trap_dir).as_posix()
+        relative_paths.add(rel)
+        basename_index.setdefault(rel.rsplit("/", 1)[-1], []).append(rel)
+    return relative_paths, basename_index
+
+
+def _parse_line_range(suffix: str) -> tuple[int, int | None] | None:
+    """Parse a ``N`` or ``N-M`` line range into ``(start, end_or_None)``.
+
+    Returns ``None`` on any malformed suffix. Pure string ops only — no regex —
+    per the mechanical-scorer contract (the scorer never regex-matches prose).
+    """
+    body = suffix.strip()
+    if "-" in body:
+        parts = body.split("-")
+        if len(parts) != 2 or not parts[0].isdigit() or not parts[1].isdigit():
+            return None
+        return int(parts[0]), int(parts[1])
+    if body.isdigit():
+        return int(body), None
+    return None
+
+
+def _split_line_suffix(ref: str) -> tuple[str, str | None]:
+    """Return ``(path, line_suffix_or_None)``.
+
+    A ref is ``path``, ``path:N``, or ``path:N-M``. A trailing ``:``-prefixed
+    pure-digit (or ``N-M``) segment is a line range; anything else is left in
+    the path so a stray colon is judged on the path's existence, not a bad
+    range.
+    """
+    path, colon, suffix = ref.rpartition(":")
+    if not colon or not path or _parse_line_range(suffix) is None:
+        return ref, None  # the colon is part of the path, not a range
+    return path, suffix
+
+
+def _count_lines(file_path: Path) -> int:
+    with file_path.open(encoding="utf-8", errors="replace") as fh:
+        return sum(1 for _ in fh)
+
+
+def _line_range_in_bounds(file_path: Path, line_suffix: str) -> bool:
+    """Whether ``start`` (>= 1, <= EOF) and optional ``end`` (>= start, <= EOF)
+    are legal line numbers for the file physically on disk."""
+    parsed = _parse_line_range(line_suffix)
+    if parsed is None:
+        return False
+    start, end = parsed
+    try:
+        n_lines = _count_lines(file_path)
+    except OSError:
+        return False
+    if start < 1 or start > n_lines:
+        return False
+    if end is not None and (end < start or end > n_lines):
+        return False
+    return True
+
+
+def _resolve_ref_path(
+    path_part: str,
+    repo_paths: set[str],
+    basename_index: dict[str, list[str]],
+    trap_dir: Path,
+) -> Path | None:
+    """Resolve a ref's path component to an actual trap-repo file, or ``None``.
+
+    Resolution order: an exact relative path in the trap repo, then an
+    *unambiguous* repo basename (used only when the basename appears once).
+    Any step only succeeds for a file that genuinely exists in the tree.
+    ``../`` traversal cannot slip through: matches come from paths actually
+    discovered under ``trap_dir``.
+    """
+    norm = path_part.strip().replace("\\", "/").lstrip("./")
+    if not norm:
+        return None
+    if norm in repo_paths:
+        return trap_dir / norm
+    basename = norm.split("/")[-1]
+    candidates = basename_index.get(basename, [])
+    if len(candidates) == 1:
+        return trap_dir / candidates[0]
+    return None
+
+
+def _resolve_evidence_ref(
+    ref: str,
+    repo_paths: set[str],
+    basename_index: dict[str, list[str]],
+    doc_basenames: set[str],
+    trap_dir: Path,
+) -> bool:
+    """True when ``ref`` names a real, existing file with a legal line range."""
+    if not ref:
+        return True  # empty refs carry no evidence claim; harmless
+    path_part, line_part = _split_line_suffix(ref)
+    norm = path_part.strip().replace("\\", "/").lstrip("./")
+    if not norm:
+        return False
+    if norm in doc_basenames:
+        # A generated doc (``run_dir/docs/*.md``): a valid citable source whose
+        # existence is implied by the bundle, so no disk bounds check applies.
+        return True
+    file_path = _resolve_ref_path(path_part, repo_paths, basename_index, trap_dir)
+    if file_path is None:
+        return False
+    if line_part is not None and not _line_range_in_bounds(file_path, line_part):
+        return False
+    return True
+
+
+# ---------------------------------------------------------------------------
 # The scorer
 # ---------------------------------------------------------------------------
 
@@ -320,24 +460,24 @@ def score_run(run_dir: Path, trap_dir: Path) -> MechanicalScore:
     )
 
     # -- evidence reference validity ---------------------------------------
-    invalid_refs = 0
-    repo_files = {p.name for p in view.doc_paths}
-    # Evidence refs are relative to the trap repo; we validate conservatively:
-    # a non-empty, non-booleanal ref is "valid" when it names a plausible
-    # file (anything ending in a real extension or matching a repo artifact).
-    famous_ext = {".py", ".yaml", ".yml", ".toml", ".md", ".json", ".sh", ".cfg", ".ini"}
+    # A valid evidence ref names a file that genuinely exists in the trap repo
+    # (or is a generated doc), optionally carrying a legal ``:line`` / ``:N-M``
+    # range bounded by the real file's line count. This is an existence + bounds
+    # check over the real file tree — never a guess from a filename's suffix.
+    repo_paths, basename_index = _build_repo_tree(trap_dir)
+    doc_basenames = {p.name for p in view.doc_paths if p.is_file()}
+    invalid_refs: list[str] = []
     for r in view.adjudications.rulings:
         for ref in r.evidence_refs:
-            if not ref or ref in repo_files:
-                continue
-            if Path(ref).suffix not in famous_ext:
-                invalid_refs += 1
+            if not _resolve_evidence_ref(ref, repo_paths, basename_index, doc_basenames, trap_dir):
+                invalid_refs.append(ref)
     metrics.append(
         MetricResult(
             name="evidence_reference_validity",
-            passed=invalid_refs == 0,
-            detail=f"{invalid_refs} evidence ref(s) that name no real file type",
-            counts={"invalid": invalid_refs},
+            passed=not invalid_refs,
+            detail=f"{len(invalid_refs)} evidence ref(s) that name no existing file / legal line range",
+            counts={"invalid": len(invalid_refs)},
+            keys=invalid_refs,
         )
     )
 
@@ -404,14 +544,29 @@ def score_run(run_dir: Path, trap_dir: Path) -> MechanicalScore:
         )
     )
 
-    # -- Judge output presence ----------------------------------------------
-    judge_ok = len(view.adjudications.rulings) >= len(view.rebattle.discrepancies)
+    # -- Judge output presence (semantic-key coverage, not counts) ----------
+    # Every semantic topic that entered ReBattle must receive a Judge ruling on
+    # that same topic. Comparing raw counts would be gameable — an unrelated
+    # ruling on a different topic could mask a missing disputed-topic ruling —
+    # so coverage is keyed on the semantic topic itself. A ruling on a topic
+    # that was never disputed is harmless, but never substitutes for a missing
+    # disputed-topic ruling.
+    disputed_topics = {d.topic for d in view.rebattle.discrepancies}
+    ruled_topics = {r.topic for r in view.adjudications.rulings}
+    missing_ruled = sorted(disputed_topics - ruled_topics)
+    judge_ok = not missing_ruled
     metrics.append(
         MetricResult(
             name="judge_output_presence",
             passed=judge_ok,
-            detail=f"{len(view.adjudications.rulings)} ruling(s) for {len(view.rebattle.discrepancies)} dispute(s)",
-            counts={"rulings": len(view.adjudications.rulings), "disputes": len(view.rebattle.discrepancies)},
+            detail=f"{len(ruled_topics)} ruled topic(s) for {len(disputed_topics)} disputed topic(s)",
+            counts={
+                "rulings": len(view.adjudications.rulings),
+                "disputes": len(view.rebattle.discrepancies),
+                "covered": len(disputed_topics & ruled_topics),
+                "disputed": len(disputed_topics),
+            },
+            keys=missing_ruled,
         )
     )
 
@@ -456,5 +611,5 @@ def score_run(run_dir: Path, trap_dir: Path) -> MechanicalScore:
         uncorrected_forbidden=len(forbidden_violations),
         unsupported_claim_count=len(forbidden_violations),
         unknown_discipline_broken=len(unknown_broken),
-        evidence_invalid=invalid_refs,
+        evidence_invalid=len(invalid_refs),
     )

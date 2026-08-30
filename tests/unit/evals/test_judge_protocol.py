@@ -8,7 +8,11 @@ only verbatim from the judge's own JSON. These tests lock that boundary in.
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
+
+import pytest
+from pydantic import ValidationError
 
 from makewiki_skills.evals import judge
 
@@ -131,3 +135,160 @@ def test_score_values_come_only_from_judge_json(tmp_path: Path):
     # byte-for-byte, not a re-derived number.
     assert loaded.overall == 0.5
     assert loaded.score_for("semantic_parity") == 0.5
+
+
+# ---------------------------------------------------------------------------
+# Schema tightening: score 0..1, overall 0..1, no duplicate metrics
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize("bad", [1.5, -0.1, 1.0001, -0.0001])
+def test_area_score_out_of_range_raises(bad: float):
+    with pytest.raises(ValidationError):
+        judge.JudgeAreaVerdict(metric="workflow_correctness", score=bad)
+
+
+def test_area_score_boundaries_accepted():
+    assert judge.JudgeAreaVerdict(metric="workflow_correctness", score=1.0).score == 1.0
+    assert judge.JudgeAreaVerdict(metric="workflow_correctness", score=0.0).score == 0.0
+
+
+@pytest.mark.parametrize("bad", [1.2, -0.3, 2.0])
+def test_overall_out_of_range_raises(bad: float):
+    with pytest.raises(ValidationError):
+        judge.JudgeVerdict(
+            trap="synth",
+            each=[judge.JudgeAreaVerdict(metric="workflow_correctness", score=0.5)],
+            overall=bad,
+        )
+
+
+@pytest.mark.parametrize("ok", [1.0, 0.0, 0.85])
+def test_overall_boundaries_accepted(ok: float):
+    v = judge.JudgeVerdict(
+        trap="synth",
+        each=[judge.JudgeAreaVerdict(metric="workflow_correctness", score=0.5)],
+        overall=ok,
+    )
+    assert v.overall == ok
+
+
+def test_duplicate_metric_names_raise():
+    with pytest.raises(ValidationError):
+        judge.JudgeVerdict(
+            trap="synth",
+            each=[
+                judge.JudgeAreaVerdict(metric="workflow_correctness", score=0.9),
+                judge.JudgeAreaVerdict(metric="workflow_correctness", score=0.8),
+            ],
+            overall=0.8,
+        )
+
+
+def test_duplicate_metric_names_raise_on_json_load():
+    payload = {
+        "trap": "synth",
+        "each": [
+            {"metric": "workflow_correctness", "score": 0.9},
+            {"metric": "workflow_correctness", "score": 0.8},
+        ],
+        "overall": 0.8,
+    }
+    with pytest.raises(ValidationError):
+        judge.JudgeVerdict.model_validate_json(json.dumps(payload))
+
+
+def test_distinct_metric_list_is_allowed():
+    v = judge.JudgeVerdict(
+        trap="synth",
+        each=[
+            judge.JudgeAreaVerdict(metric="workflow_correctness", score=0.9),
+            judge.JudgeAreaVerdict(metric="semantic_parity", score=0.7),
+        ],
+        overall=0.8,
+    )
+    assert len(v.each) == 2
+
+
+def test_valid_verdict_round_trips_through_json():
+    v = judge.JudgeVerdict(
+        trap="synth",
+        judge_id="judge-1",
+        model="fake",
+        each=[
+            judge.JudgeAreaVerdict(metric="workflow_correctness", score=1.0, note="ok"),
+            judge.JudgeAreaVerdict(metric="epistemic_calibration", score=0.0, note=""),
+        ],
+        overall=1.0,
+    )
+    loaded = judge.JudgeVerdict.model_validate_json(json.dumps(v.model_dump()))
+    assert loaded.model_dump() == v.model_dump()
+
+
+# ---------------------------------------------------------------------------
+# Required rubric metrics must be present in a verdict
+# ---------------------------------------------------------------------------
+
+
+def _rubric_with(metrics: dict[str, bool]) -> judge.Rubric:
+    return judge.Rubric(
+        trap="synth",
+        metrics={
+            name: judge.RubricMetric(name=name, weight=0.2, required=req)
+            for name, req in metrics.items()
+        },
+    )
+
+
+def test_validate_required_metrics_reports_missing():
+    rubric = _rubric_with(
+        {
+            "workflow_correctness": True,
+            "documentation_usefulness": True,
+            "epistemic_calibration": False,
+        }
+    )
+    v = judge.JudgeVerdict(
+        trap="synth",
+        each=[
+            judge.JudgeAreaVerdict(metric="workflow_correctness", score=0.9),
+            judge.JudgeAreaVerdict(metric="epistemic_calibration", score=0.5),
+        ],
+        overall=0.8,
+    )
+    # documentation_usefulness is required but missing; epistemic_calibration is
+    # not required and present anyway.
+    assert judge.validate_required_metrics(v, rubric) == ["documentation_usefulness"]
+
+
+def test_validate_required_metrics_all_present():
+    rubric = _rubric_with(
+        {
+            "workflow_correctness": True,
+            "documentation_usefulness": True,
+        }
+    )
+    v = judge.JudgeVerdict(
+        trap="synth",
+        each=[
+            judge.JudgeAreaVerdict(metric="workflow_correctness", score=0.9),
+            judge.JudgeAreaVerdict(metric="documentation_usefulness", score=0.8),
+        ],
+        overall=0.85,
+    )
+    assert judge.validate_required_metrics(v, rubric) == []
+
+
+def test_validate_required_metrics_empty_required_set():
+    rubric = _rubric_with({"semantic_parity": False})
+    v = judge.JudgeVerdict(
+        trap="synth",
+        each=[judge.JudgeAreaVerdict(metric="semantic_parity", score=0.5)],
+        overall=0.5,
+    )
+    assert judge.validate_required_metrics(v, rubric) == []
+    # Even with an empty each, an all-optional rubric reports nothing missing.
+    assert judge.validate_required_metrics(
+        judge.JudgeVerdict(trap="synth", overall=0.5), rubric
+    ) == []
+

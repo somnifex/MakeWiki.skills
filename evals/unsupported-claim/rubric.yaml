@@ -1,6 +1,6 @@
 # Rubric: unsupported-claim
 trap: unsupported-claim
-description: the README asserts a powerful 'heavy' API and streaming that do not exist anywhere in source. Correct behavior: never assert them; hedge or omit.
+description: "the README asserts a powerful 'heavy' API and streaming that do not exist anywhere in source. Correct behavior: never assert them; hedge or omit."
 metrics:
   Unsupported Claim Rate: { weight: 0.40, required: true }
   Unknown Discipline: { weight: 0.30, required: true }

@@ -257,6 +257,107 @@ def test_invented_evidence_ref_fails(tmp_path: Path):
     assert m.counts["invalid"] >= 1
 
 
+def _write_evidence_trap(tmp_path: Path, lines: int = 10) -> Path:
+    """A minimal trap whose repo actually contains ``src/server.py`` so that
+    evidence-ref *existence* (not suffix) can be tested against a real file."""
+    trap_dir = tmp_path / "trap"
+    trap_dir.mkdir(parents=True, exist_ok=True)
+    (trap_dir / "src").mkdir(parents=True, exist_ok=True)
+    (trap_dir / "src" / "server.py").write_text(
+        "\n".join(f"# line {i}" for i in range(1, lines + 1)) + "\n",
+        encoding="utf-8",
+    )
+    for name in ("required_claims.json", "forbidden_claims.json", "expected_unknowns.json", "verified_facts.json"):
+        (trap_dir / name).write_text("[]", encoding="utf-8")
+    (trap_dir / "rubric.yaml").write_text("trap: evsynth\nscoring: {}\n", encoding="utf-8")
+    return trap_dir
+
+
+def _evidence_bundle(refs: list[str], docs: dict | None = None) -> dict:
+    """A clean run that passes every metric except the one under test, carrying
+    a single ruling with ``refs`` as its evidence."""
+    bundle = {
+        "trap": "evsynth",
+        "evidence": {"facts": [], "detected_packages": []},
+        "agent_claims": {"sets": []},
+        "rebattle": {"discrepancies": []},
+        "adjudications": {
+            "rulings": [
+                {"topic": "net.port", "ruling": "accepted", "final_assertion": "8080",
+                 "verified_via_codebase": True, "evidence_refs": refs, "adjudicator_reasoning": ""}
+            ]
+        },
+        "semantic_model": {
+            "dotenv": [], "user_tasks": [], "troubleshooting": [],
+            "provenance": {}, "claims": [],
+        },
+        "semantic_audit": {"auditor": "fake", "documents_digest": "x", "verdicts": [], "rejected": False, "rejection_reason": ""},
+        "mechanical_report": {"layers": [], "total_checks": 0},
+        "quality_gate": {"verdict": "passed", "ci_exit_code": 0, "semantic_complete": True,
+                         "pending_llm_layers": [], "mechanical_passed": True},
+    }
+    if docs:
+        bundle["docs"] = docs
+    return bundle
+
+
+def test_evidence_ref_existing_file_passes(tmp_path: Path):
+    trap_dir = _write_evidence_trap(tmp_path)
+    run_dir = _write_bundle(tmp_path / "runs", _evidence_bundle(["src/server.py"]))
+    score = scorer.score_run(run_dir, trap_dir)
+    m = score.metric("evidence_reference_validity")
+    assert m is not None and m.passed
+    assert m.counts["invalid"] == 0
+
+
+def test_evidence_ref_missing_path_fails_despite_real_extension(tmp_path: Path):
+    # A real-looking ``.py`` path that does NOT exist must fail — this is the
+    # point of the fix: existence, not suffix guessing.
+    trap_dir = _write_evidence_trap(tmp_path)
+    run_dir = _write_bundle(tmp_path / "runs", _evidence_bundle(["src/other.py"]))
+    score = scorer.score_run(run_dir, trap_dir)
+    m = score.metric("evidence_reference_validity")
+    assert m is not None and not m.passed
+    assert "src/other.py" in m.keys
+
+
+def test_evidence_ref_malformed_line_range_fails(tmp_path: Path):
+    trap_dir = _write_evidence_trap(tmp_path)
+    run_dir = _write_bundle(tmp_path / "runs", _evidence_bundle(["src/server.py:abc"]))
+    score = scorer.score_run(run_dir, trap_dir)
+    m = score.metric("evidence_reference_validity")
+    assert m is not None and not m.passed
+
+
+def test_evidence_ref_out_of_bounds_line_fails(tmp_path: Path):
+    trap_dir = _write_evidence_trap(tmp_path, lines=10)
+    # 999 > 10 lines, and 0 < 1 — both out of bounds.
+    for i, bad in enumerate(("src/server.py:999", "src/server.py:0", "src/server.py:5-20")):
+        run_dir = _write_bundle(tmp_path / f"runs{i}", _evidence_bundle([bad]))
+        score = scorer.score_run(run_dir, trap_dir)
+        m = score.metric("evidence_reference_validity")
+        assert m is not None and not m.passed, bad
+
+
+def test_evidence_ref_valid_line_range_passes(tmp_path: Path):
+    trap_dir = _write_evidence_trap(tmp_path, lines=10)
+    for i, ok in enumerate(("src/server.py:3", "src/server.py:1-10", "src/server.py")):
+        run_dir = _write_bundle(tmp_path / f"runs{i}", _evidence_bundle([ok]))
+        score = scorer.score_run(run_dir, trap_dir)
+        m = score.metric("evidence_reference_validity")
+        assert m is not None and m.passed, ok
+
+
+def test_evidence_ref_doc_resolves(tmp_path: Path):
+    # A generated doc (run_dir/docs/README.md) is a valid citable source, even
+    # though it is not inside the trap repo.
+    trap_dir = _write_evidence_trap(tmp_path)
+    run_dir = _write_bundle(tmp_path / "runs", _evidence_bundle(["README.md"], docs={"README.md": "# hi"}))
+    score = scorer.score_run(run_dir, trap_dir)
+    m = score.metric("evidence_reference_validity")
+    assert m is not None and m.passed
+
+
 # ---------------------------------------------------------------------------
 # Mechanical gate state: a malformed verdict fails
 # ---------------------------------------------------------------------------
@@ -314,6 +415,56 @@ def test_missing_judge_ruling_fails(tmp_path: Path):
     score = scorer.score_run(run_dir, TRAP_REPO)
     m = score.metric("judge_output_presence")
     assert m is not None and not m.passed
+
+
+def test_judge_ruling_on_different_topic_fails(tmp_path: Path):
+    """Anti-counting: the same *count* of rulings vs disputes must NOT satisfy
+    the metric when the ruling is on a different semantic topic than the one
+    actually disputed. Key coverage, not count, is what matters."""
+    base = _load_fixture("misleading-readme")
+    base["rebattle"] = {
+        "discrepancies": [
+            {"topic": "network.port.default", "participants": ["agent_red"], "source_values": {}}
+        ]
+    }
+    # One ruling — matches the dispute COUNT, but on an unrelated topic.
+    base["adjudications"] = {
+        "rulings": [
+            {"topic": "unrelated.topic", "ruling": "accepted", "final_assertion": "x",
+             "verified_via_codebase": True, "evidence_refs": [], "adjudicator_reasoning": ""}
+        ]
+    }
+    run_dir = _write_bundle(tmp_path, base)
+    score = scorer.score_run(run_dir, TRAP_REPO)
+    m = score.metric("judge_output_presence")
+    assert m is not None and not m.passed
+    assert "network.port.default" in m.keys
+    assert m.counts["disputes"] == 1 and m.counts["rulings"] == 1
+    assert m.counts["covered"] == 0
+
+
+def test_judge_rules_every_disputed_topic_passes(tmp_path: Path):
+    base = _load_fixture("misleading-readme")
+    base["rebattle"] = {
+        "discrepancies": [
+            {"topic": "network.port.default", "participants": ["agent_red"], "source_values": {}}
+        ]
+    }
+    # An extra ruling on an undisputed topic is harmless; the disputed one IS
+    # covered, so the metric passes.
+    base["adjudications"] = {
+        "rulings": [
+            {"topic": "network.port.default", "ruling": "accepted", "final_assertion": "8080",
+             "verified_via_codebase": True, "evidence_refs": ["app/server.py"],
+             "adjudicator_reasoning": ""},
+            {"topic": "extra.uncontested", "ruling": "accepted", "final_assertion": "y",
+             "verified_via_codebase": True, "evidence_refs": [], "adjudicator_reasoning": ""},
+        ]
+    }
+    run_dir = _write_bundle(tmp_path, base)
+    score = scorer.score_run(run_dir, TRAP_REPO)
+    m = score.metric("judge_output_presence")
+    assert m is not None and m.passed
 
 
 # ---------------------------------------------------------------------------

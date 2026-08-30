@@ -46,6 +46,10 @@ uv.lock
 # MakeWiki test targets (cloned repos for testing)
 _test_targets/
 
+# Generated eval run bundles (regenerated via evals/run_evals.py prepare / the
+# host-authored handoff; never committed)
+evals/runs/
+
 # Generated documentation output directories
 makewiki/
 */makewiki/

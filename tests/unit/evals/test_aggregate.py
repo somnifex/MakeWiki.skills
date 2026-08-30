@@ -7,7 +7,7 @@ from pathlib import Path
 import pytest
 
 from makewiki_skills.evals import aggregate as agg_mod
-from makewiki_skills.evals import runner
+from makewiki_skills.evals import judge, runner
 
 
 def _write_run(run_dir: Path, *, required_found: bool = True) -> Path:
@@ -65,6 +65,11 @@ def _write_gold(tmp_path: Path) -> Path:
     (trap_dir / "expected_unknowns.json").write_text("[]", encoding="utf-8")
     (trap_dir / "verified_facts.json").write_text("[]", encoding="utf-8")
     (trap_dir / "rubric.yaml").write_text("trap: synth\nscoring: {}\n", encoding="utf-8")
+    # The run bundles ground the pkg.dep claim in pyproject.toml; the synthetic
+    # trap repo must actually contain that file or the stricter evidence-ref
+    # validation (path must exist) rightly flags the ref as invalid and rolls
+    # mechanical_pass to False, breaking the pooling assertions.
+    (trap_dir / "pyproject.toml").write_text('[project]\nname = "synth"\n', encoding="utf-8")
     return trap_dir
 
 
@@ -145,3 +150,185 @@ def test_metric_aggregates_roll_up_per_run_per_metric(tmp_path: Path):
     assert recall_agg.total == 3
     assert recall_agg.passed == 2
     assert recall_agg.pass_rate == pytest.approx(2 / 3, abs=1e-3)
+
+
+def _write_judge_bundle(run_dir: Path, *, scores: dict[str, float], overall: float) -> Path:
+    """Persist an LLM judge verdict bundle into a run directory (judge's API)."""
+    run_dir.mkdir(parents=True, exist_ok=True)
+    verdict = judge.JudgeVerdict(
+        trap="synth",
+        judge_id="synthetic-judge",
+        each=[judge.JudgeAreaVerdict(metric=k, score=v) for k, v in scores.items()],
+        overall=overall,
+    )
+    return judge.save_judge_verdict(run_dir, verdict)
+
+
+def test_aggregate_mixed_judge_and_missing_runs(tmp_path: Path):
+    """Runs with a judge bundle are summarised; runs without are reported missing,
+    never fabricated a score."""
+    trap_dir = _write_gold(tmp_path)
+    runs = tmp_path / "runs" / "synth"
+    # Two runs WITH judge bundles, one WITHOUT.
+    _write_run(runs / "run-0")
+    _write_run(runs / "run-1")
+    _write_run(runs / "run-2")
+    _write_judge_bundle(
+        runs / "run-0",
+        scores={"workflow_correctness": 0.9, "documentation_usefulness": 0.7},
+        overall=0.85,
+    )
+    _write_judge_bundle(
+        runs / "run-1",
+        scores={"workflow_correctness": 0.7, "documentation_usefulness": 0.9},
+        overall=0.75,
+    )
+    run_dirs = [runs / name for name in ("run-0", "run-1", "run-2")]
+    j = agg_mod.aggregate_judge_scores(run_dirs, trap_dir)
+
+    assert j.present_runs == 2
+    assert j.missing_runs == 1
+    assert j.total_runs == 3
+
+    wf = next(m for m in j.per_metric if m.metric == "workflow_correctness")
+    assert wf.judged == 2
+    assert wf.missing == 1
+    assert wf.total == 3
+    assert wf.mean == pytest.approx((0.9 + 0.7) / 2)
+    assert wf.median == pytest.approx(0.8, abs=1e-3)
+    assert wf.min == 0.7
+    assert wf.max == 0.9
+    # both judged scores (0.9, 0.7) vs default 0.8 threshold: only 0.9 passes.
+    assert wf.pass_rate == pytest.approx(0.5, abs=1e-3)
+
+    doc = next(m for m in j.per_metric if m.metric == "documentation_usefulness")
+    assert doc.judged == 2
+    assert doc.missing == 1
+    assert doc.mean == pytest.approx(0.8, abs=1e-3)
+
+    # overall summary aggregates the judge-supplied overalls
+    assert j.overall is not None
+    assert j.overall.metric == "overall"
+    assert j.overall.judged == 2
+    assert j.overall.missing == 1
+    assert j.overall.mean == pytest.approx(0.8, abs=1e-3)  # (0.85 + 0.75) / 2
+
+    # the run WITHOUT a bundle must never be given a fabricated score
+    assert j.missing_runs == 1
+    for metric in ("workflow_correctness", "documentation_usefulness"):
+        m = next(x for x in j.per_metric if x.metric == metric)
+        assert m.missing == 1
+        assert m.judged + m.missing == m.total == 3
+    # metrics no bundle graded at all: judged 0, everything missing.
+    untouched = next(x for x in j.per_metric if x.metric == "semantic_parity")
+    assert untouched.judged == 0
+    assert untouched.missing == 3
+    assert untouched.mean == 0.0
+
+
+def test_aggregate_judge_metric_omitted_from_bundle_counts_as_missing(tmp_path: Path):
+    """A run with a judge bundle but missing a specific metric counts toward that
+    metric's missing, not judged."""
+    trap_dir = _write_gold(tmp_path)
+    runs = tmp_path / "runs" / "synth"
+    _write_run(runs / "run-0")
+    _write_run(runs / "run-1")
+    # Only one metric present in each bundle.
+    _write_judge_bundle(runs / "run-0", scores={"workflow_correctness": 0.9}, overall=0.9)
+    _write_judge_bundle(runs / "run-1", scores={"epistemic_calibration": 0.5}, overall=0.5)
+    j = agg_mod.aggregate_judge_scores([runs / "run-0", runs / "run-1"], trap_dir)
+
+    wf = next(m for m in j.per_metric if m.metric == "workflow_correctness")
+    assert wf.judged == 1
+    assert wf.missing == 1  # run-1 has a bundle but no workflow_correctness
+    assert wf.total == 2
+    assert wf.mean == pytest.approx(0.9)
+    assert wf.stddev == 0.0  # single judged run
+    assert wf.median == pytest.approx(0.9)
+
+    ec = next(m for m in j.per_metric if m.metric == "epistemic_calibration")
+    assert ec.judged == 1
+    assert ec.missing == 1
+
+
+def test_aggregate_no_judge_bundles_at_all(tmp_path: Path):
+    """With no judge bundles, nothing is fabricated: present_runs 0, all judged 0,
+    overall None."""
+    trap_dir = _write_gold(tmp_path)
+    runs = tmp_path / "runs" / "synth"
+    for name in ("run-0", "run-1", "run-2", "run-3"):
+        _write_run(runs / name)
+    j = agg_mod.aggregate_judge_scores(
+        [runs / name for name in ("run-0", "run-1", "run-2", "run-3")], trap_dir
+    )
+    assert j.present_runs == 0
+    assert j.missing_runs == 4
+    assert j.total_runs == 4
+    assert j.overall is None
+    for m in j.per_metric:
+        assert m.judged == 0
+        assert m.missing == 4
+        assert m.total == 4
+        assert m.mean == 0.0
+        assert m.median == 0.0
+        assert m.stddev == 0.0
+        assert m.min == 0.0
+        assert m.max == 0.0
+
+
+def test_aggregate_runs_wires_judge_aggregate(tmp_path: Path):
+    """aggregate_runs populates the new judge field from the same run_dirs."""
+    trap_dir = _write_gold(tmp_path)
+    runs = tmp_path / "runs" / "synth"
+    for name in ("run-0", "run-1", "run-2"):
+        _write_run(runs / name)
+    _write_judge_bundle(runs / "run-0", scores={"workflow_correctness": 0.6}, overall=0.6)
+    a = agg_mod.aggregate_runs([runs / name for name in ("run-0", "run-1", "run-2")], trap_dir)
+    assert a.judge.present_runs == 1
+    assert a.judge.missing_runs == 2
+    assert a.judge.total_runs == 3
+    wf = next(m for m in a.judge.per_metric if m.metric == "workflow_correctness")
+    assert wf.judged == 1
+    assert wf.mean == pytest.approx(0.6)
+    # pass_rate vs default threshold 0.8: 0.6 fails, so 0.
+    assert wf.pass_rate == 0.0
+
+
+def test_aggregate_runs_judge_defaults_to_empty_when_no_bundle(tmp_path: Path):
+    """Existing mechanical aggregate still works with no judge bundles: the judge
+    field defaults to an empty/zero aggregate."""
+    trap_dir = _write_gold(tmp_path)
+    runs = tmp_path / "runs" / "synth"
+    for name in ("run-0", "run-1", "run-2"):
+        _write_run(runs / name, required_found=True)
+    a = agg_mod.aggregate_runs([runs / name for name in ("run-0", "run-1", "run-2")], trap_dir)
+    assert a.judge.present_runs == 0
+    assert a.judge.missing_runs == 3
+    assert a.required_claim_recall == 1.0  # mechanical path unaffected
+
+
+def test_aggregate_judge_pass_rate_uses_rubric_threshold(tmp_path: Path):
+    """pass_rate is computed against the rubric's pass_threshold, not hardcoded."""
+    trap_dir = _write_gold(tmp_path)
+    # Write a rubric with a custom (low) pass threshold.
+    (trap_dir / "rubric.yaml").write_text(
+        "trap: synth\nscoring: {pass_threshold: 0.5}\n", encoding="utf-8"
+    )
+    runs = tmp_path / "runs" / "synth"
+    _write_run(runs / "run-0")
+    _write_run(runs / "run-1")
+    _write_run(runs / "run-2")
+    _write_judge_bundle(
+        runs / "run-0", scores={"workflow_correctness": 0.3}, overall=0.3
+    )
+    _write_judge_bundle(
+        runs / "run-1", scores={"workflow_correctness": 0.7}, overall=0.7
+    )
+    j = agg_mod.aggregate_judge_scores(
+        [runs / name for name in ("run-0", "run-1", "run-2")], trap_dir
+    )
+    wf = next(m for m in j.per_metric if m.metric == "workflow_correctness")
+    # threshold 0.5: 0.7 passes, 0.3 fails -> 1/2 judged pass.
+    assert wf.pass_rate == pytest.approx(0.5, abs=1e-3)
+    assert wf.judged == 2
+    assert wf.missing == 1

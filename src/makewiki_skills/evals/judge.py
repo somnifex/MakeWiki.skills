@@ -22,7 +22,7 @@ from pathlib import Path
 from typing import Any
 
 import yaml  # type: ignore[import-untyped]
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 # The §6 semantic metrics that require an LLM judge (never Python).
 SEMANTIC_METRICS = (
@@ -147,7 +147,10 @@ class JudgeAreaVerdict(BaseModel):
     """One per-metric verdict from the LLM judge."""
 
     metric: str
-    score: float  # 0..1; supplied by the judge, never computed here
+    score: float = Field(  # 0..1; supplied by the judge, never computed here
+        ge=0.0,
+        le=1.0,
+    )
     note: str = ""
 
 
@@ -163,13 +166,43 @@ class JudgeVerdict(BaseModel):
     judge_id: str = ""
     model: str = ""  # which host model judged (informational)
     each: list[JudgeAreaVerdict] = Field(default_factory=list)
-    overall: float = 0.0  # judge's own weighted overall (0..1)
+    overall: float = Field(  # judge's own weighted overall (0..1)
+        default=0.0,
+        ge=0.0,
+        le=1.0,
+    )
+
+    @model_validator(mode="after")
+    def _reject_duplicate_metrics(self) -> JudgeVerdict:
+        seen: set[str] = set()
+        for v in self.each:
+            if v.metric in seen:
+                raise ValueError(f"duplicate metric in judge verdict: {v.metric!r}")
+            seen.add(v.metric)
+        return self
 
     def score_for(self, metric: str) -> float | None:
         for v in self.each:
             if v.metric == metric:
                 return v.score
         return None
+
+
+def validate_required_metrics(verdict: JudgeVerdict, rubric: Rubric) -> list[str]:
+    """Return rubric metrics marked ``required=True`` that are MISSING from the
+    verdict's ``each`` list (empty list = all present).
+
+    This is a cross-object (rubric + verdict) check, so it lives here as a plain
+    function rather than in the pydantic model, which does not know the rubric.
+    Matching is exact metric-name equality against the rubric's required
+    metrics only — mechanical, never semantic.
+    """
+    present = {v.metric for v in verdict.each}
+    return [
+        name
+        for name, spec in rubric.metrics.items()
+        if spec.required and name not in present
+    ]
 
 
 def save_judge_verdict(run_dir: Path, verdict: JudgeVerdict) -> Path:

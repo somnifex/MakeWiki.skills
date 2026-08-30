@@ -114,6 +114,22 @@ def cmd_aggregate(args: argparse.Namespace) -> int:
         print(f"  common_failure_classes={', '.join(agg.common_failure_classes)}")
     for m in agg.metric_aggregates:
         print(f"  metric {m.name}: pass_rate={m.pass_rate} ({m.passed}/{m.total})")
+    # LLM Eval-Judge summaries (present only when runs carried judge bundles).
+    j = agg.judge
+    if j is not None:
+        print(f"  judge_present={j.present_runs} judge_missing={j.missing_runs}/{j.total_runs}")
+        for m in j.per_metric:
+            print(
+                f"  judge[{m.metric}] mean={m.mean} median={m.median} stddev={m.stddev} "
+                f"min={m.min} max={m.max} pass_rate={m.pass_rate} "
+                f"(judged={m.judged} missing={m.missing})"
+            )
+        if j.overall is not None:
+            o = j.overall
+            print(
+                f"  judge[overall] mean={o.mean} median={o.median} stddev={o.stddev} "
+                f"min={o.min} max={o.max} pass_rate={o.pass_rate} (judged={o.judged})"
+            )
     return 0
 
 
