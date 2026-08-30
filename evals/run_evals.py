@@ -52,7 +52,7 @@ def _check(trap_dir):
             with open(path, encoding="utf-8") as fh:
                 json.load(fh)
         except Exception as exc:  # noqa: BLE001 - report any parse failure
-            parse_errors.append("%s: %s" % (gold, exc))
+            parse_errors.append(f"{gold}: {exc}")
     return name, missing, parse_errors
 
 
@@ -68,7 +68,7 @@ def main(argv):
         traps = [t for t in traps if any(f in t for f in filters)]
 
     if not traps:
-        print("No traps matched the filter: %s" % " ".join(filters))
+        print(f"No traps matched the filter: {' '.join(filters)}")
         return 1
 
     bad = 0
@@ -76,15 +76,15 @@ def main(argv):
     for trap in traps:
         name, missing, parse_errors = _check(os.path.join(HERE, trap))
         status = "OK  " if not missing and not parse_errors else "FAIL"
-        print("[%s] %s" % (status, name))
+        print(f"[{status}] {name}")
         for f in missing:
-            print("        missing: %s" % f)
+            print(f"        missing: {f}")
         for err in parse_errors:
-            print("        invalid: %s" % err)
+            print(f"        invalid: {err}")
         if missing or parse_errors:
             bad += 1
 
-    print("\n%d trap(s) checked, %d incomplete." % (len(traps), bad))
+    print(f"\n{len(traps)} trap(s) checked, {bad} incomplete.")
     return 1 if bad else 0
 
 

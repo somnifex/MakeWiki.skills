@@ -102,13 +102,17 @@ NON_COMMAND_TOKENS: frozenset[str] = frozenset(
         "configuration",
         "description",
         "faq",
+        "failed",
         "identity",
         "installation",
         "name",
+        "passed",
+        "pending",
         "pdf",
         "perspective",
         "provenance",
         "troubleshooting",
+        "unknown",
         "version",
     }
 )

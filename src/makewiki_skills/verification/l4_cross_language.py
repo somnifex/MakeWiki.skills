@@ -330,7 +330,19 @@ class L4CrossLanguageVerifier:
                         status="not_applicable",
                         verification_source="not_executed",
                         detail="Single language generated; cross-language parity is not applicable",
-                    )
+                    ),
+                    VerificationCheck(
+                        layer="L4",
+                        target="all",
+                        language_code="all",
+                        claim_type="l4b_semantic",
+                        claim_text="Semantic prose parity",
+                        verified=False,
+                        status="not_applicable",
+                        verification_source="not_executed",
+                        detail="Single language generated; semantic prose parity is not applicable",
+                        review_item_id="L4b:all:not-applicable",
+                    ),
                 ],
             )
 
@@ -365,27 +377,94 @@ class L4CrossLanguageVerifier:
 
         # ---- L4b semantic: prose parity is reserved for the LLM Auditor ------
         # Python cannot judge whether translated prose carries the same meaning.
-        # Emit a single honest pending check so the layer never auto-passes on
-        # semantics alone.
-        checks.append(
-            VerificationCheck(
-                layer="L4",
-                target="all",
-                language_code="all",
-                claim_type="l4b_semantic",
-                claim_text="Semantic prose parity across languages",
-                verified=False,
-                status="pending",
-                verification_source="heuristic",
-                detail="Semantic prose parity is not mechanically provable; reserved for LLM Auditor review",
-            )
-        )
+        # Emit one honest pending check PER SECTION of each base document that
+        # exists in >=2 languages, so the LLM Auditor can adjudicate prose
+        # parity item-by-item. Each carries a stable, deterministic
+        # ``review_item_id`` = ``L4b:<base_name>:<section_id>``. Python never
+        # auto-passes on semantics alone.
+        checks.extend(self._l4b_semantic_section_checks(documents))
 
         return LayerReport(
             layer="L4",
             name="Cross-Language",
             checks=checks,
         )
+
+    @staticmethod
+    def _l4b_semantic_section_checks(
+        documents: dict[str, list[DocumentArtifact]],
+    ) -> list[VerificationCheck]:
+        """Emit per-section ``l4b_semantic`` pending checks for multi-language docs.
+
+        Each base document present in >=2 languages is split into sections
+        (reusing ``split_sections``); one pending l4b check is emitted per
+        section, its section content across languages being the prose-parity
+        passage. The section passage is keyed by a stable ``review_item_id`` of
+        form ``L4b:<base_name>:<section_id>``; when a section has no marker id
+        (or ids collide) a deterministic fallback keeps ids unique.
+
+        If no base document spans >=2 languages a single synthetic pending l4b
+        check is emitted so the multi-language L4 layer still carries at least
+        one ``claim_type == "l4b_semantic"`` check (the Quality Gate depends on
+        it) — mirroring the historical single-check behavior.
+        """
+        # base_name -> {language_code: content}
+        base_contents: dict[str, dict[str, str]] = {}
+        for lang, doc_list in documents.items():
+            for doc in doc_list:
+                base_contents.setdefault(doc.base_name, {})[lang] = doc.content
+
+        l4b_checks: list[VerificationCheck] = []
+        for base_name in sorted(base_contents):
+            lang_map = base_contents[base_name]
+            if len(lang_map) < 2:
+                continue  # single-language base doc: no prose-parity passage
+            lang_codes = ",".join(sorted(lang_map))
+            rep_lang = sorted(lang_map)[0]
+            sections = split_sections(lang_map[rep_lang])
+            seen: set[str] = set()
+            for idx, (section_id, _content) in enumerate(sections):
+                sid = section_id or f"section-{idx}"
+                if sid in seen:
+                    sid = f"{sid}-{idx}"
+                seen.add(sid)
+                l4b_checks.append(
+                    VerificationCheck(
+                        layer="L4",
+                        target=base_name,
+                        language_code=lang_codes,
+                        claim_type="l4b_semantic",
+                        claim_text=f"Semantic prose parity for section '{sid}'",
+                        verified=False,
+                        status="pending",
+                        verification_source="heuristic",
+                        detail=(
+                            "Semantic prose parity across languages is not "
+                            "mechanically provable; reserved for LLM Auditor review"
+                        ),
+                        review_item_id=f"L4b:{base_name}:{sid}",
+                    )
+                )
+
+        if not l4b_checks:
+            l4b_checks.append(
+                VerificationCheck(
+                    layer="L4",
+                    target="all",
+                    language_code="all",
+                    claim_type="l4b_semantic",
+                    claim_text="Semantic prose parity across languages",
+                    verified=False,
+                    status="pending",
+                    verification_source="heuristic",
+                    detail=(
+                        "Semantic prose parity is not mechanically provable; "
+                        "reserved for LLM Auditor review"
+                    ),
+                    review_item_id="L4b:all:semantic-prose-parity",
+                )
+            )
+        return l4b_checks
 
     @staticmethod
     def _concat_documents(

@@ -17,6 +17,7 @@ simply remains pending at the Quality Gate.
 from __future__ import annotations
 
 import hashlib
+import os
 from collections.abc import Iterable, Sequence
 from datetime import UTC, datetime
 from pathlib import Path
@@ -77,18 +78,68 @@ def compute_content_digest(text: str) -> str:
     return _sha256_of_bytes(text.encode("utf-8"))
 
 
-def compute_documents_digest(doc_paths: Iterable[Path] | Sequence[str]) -> str:
-    """sha256 over the concatenated, sorted-by-path raw bytes of each document.
+def _common_base(paths: list[Path]) -> Path:
+    """Return the nearest common parent directory shared by ``paths``.
 
-    Deterministic regardless of the order paths are supplied: paths are
-    normalized to ``str`` and sorted before the bytes are read and hashed.
+    Paths are converted to absolute form for the comparison so the result is
+    well defined even for a single path or a mix of relative/absolute inputs.
+    With a single path, its parent directory is the base. When the paths share
+    no common ancestor (e.g. different Windows drives), the current working
+    directory is used. The result exists only to derive *relative* document
+    paths, so it never leaks absolute filesystem paths into a digest.
+    """
+    if not paths:
+        return Path.cwd()
+
+    absolute = [Path(os.path.abspath(p)) for p in paths]
+    if len(absolute) == 1:
+        return absolute[0].parent
+
+    try:
+        return Path(os.path.commonpath(absolute))
+    except ValueError:  # e.g. paths on different Windows drives
+        return Path.cwd()
+
+
+def compute_documents_digest(doc_paths: Iterable[Path] | Sequence[str]) -> str:
+    """sha256 over each document's relative path, length, and bytes.
+
+    Document *identity* is bound into the hash as well as its content, so a
+    pure rename or a one-file-into-two split that preserves the concatenated
+    byte stream now changes the digest. Each entry is
+
+        ``rel_path + b"\\0" + str(len(file_bytes)) + b"\\0" + file_bytes + b"\\0"``
+
+    and entries are sorted by ``rel_path``. Paths are made relative to the
+    common base directory of the set (falling back to the current working
+    directory) and normalized to forward slashes, so the same document set
+    yields the same digest regardless of machine or OS path separator.
+
+    Deterministic regardless of the order paths are supplied: entries are
+    sorted by relative path before the bytes are hashed.
     """
     paths = [Path(p) for p in doc_paths]
-    keyed: list[tuple[str, bytes]] = []
+    base = _common_base(paths)
+
+    entries: list[tuple[str, bytes]] = []
     for path in paths:
-        keyed.append((str(path), path.read_bytes()))
-    keyed.sort(key=lambda item: item[0])
-    return _sha256_of_bytes(b"".join(raw for _, raw in keyed))
+        file_bytes = path.read_bytes()
+        try:
+            rel = os.path.relpath(str(path), str(base)).replace("\\", "/")
+        except ValueError:  # unrelated absolute paths (e.g. cross-drive)
+            rel = str(Path(os.path.abspath(path))).replace("\\", "/")
+        entry = (
+            rel.encode("utf-8")
+            + b"\0"
+            + str(len(file_bytes)).encode("utf-8")
+            + b"\0"
+            + file_bytes
+            + b"\0"
+        )
+        entries.append((rel, entry))
+
+    entries.sort(key=lambda item: item[0])
+    return _sha256_of_bytes(b"".join(entry for _, entry in entries))
 
 
 def load_audit_bundle(path: str | Path) -> SemanticAuditBundle:
@@ -111,11 +162,51 @@ def load_audit_bundle(path: str | Path) -> SemanticAuditBundle:
         raise ValueError(f"Audit bundle at {path!r} is not valid JSON: {exc}") from exc
 
     try:
-        return SemanticAuditBundle.model_validate(data)
+        bundle = SemanticAuditBundle.model_validate(data)
     except Exception as exc:  # pydantic ValidationError or others on invalid shape
         raise ValueError(
             f"Audit bundle at {path!r} does not match SemanticAuditBundle schema: {exc}"
         ) from exc
+
+    try:
+        validate_bundle_shape(bundle)
+    except ValueError as exc:
+        raise ValueError(f"Audit bundle at {path!r} is malformed: {exc}") from exc
+
+    return bundle
+
+
+def validate_bundle_shape(bundle: SemanticAuditBundle) -> None:
+    """Validate the cross-row structure of an audit bundle.
+
+    Verifies item-level integrity that pydantic alone cannot express:
+    no ``review_item_id`` appears twice, and each verdict's ``layer`` matches
+    the ``<layer>:`` prefix of its ``review_item_id``.
+
+    Raises:
+        ValueError: if a ``review_item_id`` is duplicated, or a verdict's
+            ``layer`` does not match its ``review_item_id`` layer prefix (a
+            ``review_item_id`` with no ``<layer>:`` prefix is also invalid).
+    """
+    seen_ids: set[str] = set()
+    for verdict in bundle.verdicts:
+        if verdict.review_item_id in seen_ids:
+            raise ValueError(
+                f"duplicate review_item_id {verdict.review_item_id!r} across verdicts"
+            )
+        seen_ids.add(verdict.review_item_id)
+
+        if ":" not in verdict.review_item_id:
+            raise ValueError(
+                f"layer mismatch: review_item_id {verdict.review_item_id!r} "
+                "has no '<layer>:' prefix"
+            )
+        item_layer, _ = verdict.review_item_id.split(":", 1)
+        if item_layer != verdict.layer:
+            raise ValueError(
+                f"layer mismatch: review_item_id {verdict.review_item_id!r} layer "
+                f"prefix {item_layer!r} does not match verdict.layer {verdict.layer!r}"
+            )
 
 
 def bundle_matches_documents(

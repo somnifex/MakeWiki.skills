@@ -55,7 +55,8 @@ def test_l4_cross_language_no_deltas_is_pending_not_passed():
 
 def test_l4_single_language_is_not_applicable_not_passed():
     # A single language means parity is genuinely not applicable; it must not be
-    # reported as passed.
+    # reported as passed. Both L4 sub-layers are represented — L4a (mechanical)
+    # and L4b (semantic) — and each is not_applicable, never verified/passed.
     docs = {
         "en": [
             GeneratedDocument(
@@ -70,9 +71,14 @@ def test_l4_single_language_is_not_applicable_not_passed():
     report = verifier.verify_documents(docs)
 
     assert report.layer == "L4"
-    assert len(report.checks) == 1
-    assert report.checks[0].status == "not_applicable"
-    assert report.checks[0].verified is False
+    # The L4a (mechanical) and L4b (semantic) sub-layers are both reported
+    # NOT APPLICABLE for a single generated language — parity is genuinely
+    # inapplicable, never a vacuous pass. Each is explicitly not verified.
+    assert len(report.checks) == 2
+    assert {c.claim_type for c in report.checks} == {"l4a_mechanical", "l4b_semantic"}
+    for check in report.checks:
+        assert check.status == "not_applicable"
+        assert check.verified is False
 
 
 def test_l4_cross_language_missing_command_detected():

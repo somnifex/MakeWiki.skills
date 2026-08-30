@@ -4,8 +4,9 @@
 
 MakeWiki provides **evidence-backed documentation with layered automated
 verification**. Every documented capability is anchored to one of the six
-verification layers (L0 - L5); the Quality Gate aggregates them into a single
-PASS / FAIL decision that maps to a CI exit code (0 / 1).
+verification layers (L0 - L5); the Quality Gate aggregates them into an
+honest four-state verdict — `passed`, `pending_semantic_review`,
+`pending_mechanical_verification`, `failed` — that maps to a CI exit policy.
 
 ### Cognitive Authority Boundary
 
@@ -36,9 +37,32 @@ remain `pending` when `quality.allow_pending_llm_layers` is true.
 
 ## 2. The Quality Gate
 
-The Quality Gate is the **single PASS / FAIL decision** over all verification
-layers. It lives at `src/makewiki_skills/verification/quality_gate.py` and is
-exposed via the `verify-docs` CLI command.
+The Quality Gate is the **honest four-state verdict** over all verification
+layers — it is not a single PASS / FAIL. It lives at
+`src/makewiki_skills/verification/quality_gate.py` and is exposed via the
+`verify-docs` CLI command.
+
+The four states:
+
+- `passed` — every layer adjudicated and non-blocking (`passed == (verdict ==
+
+  "passed")` strictly; a pending gate is never reported as passed).
+- `pending_semantic_review` — the LLM layer (L3 / L4b / L5) has pending items
+
+  (`semantic_complete=False`).
+- `pending_mechanical_verification` — a mechanical layer (L0 / L1 / L2 / L4a)
+
+  is still pending.
+- `failed` — any layer explicitly failed.
+
+CI exit policy (`ci_exit_code` is the single source of truth):
+
+| Verdict                           | CI exit code                                                |
+| --------------------------------- | ----------------------------------------------------------- |
+| `passed`                          | 0                                                           |
+| `failed`                          | 1                                                           |
+| `pending_semantic_review`         | 0 (when `quality.allow_pending_llm_layers` is true, else 2) |
+| `pending_mechanical_verification` | 3                                                           |
 
 ```yaml
 quality_gate:
@@ -46,6 +70,7 @@ quality_gate:
   result_type: "QualityGateResult"
   fields:
     passed: bool
+    verdict: "passed | pending_semantic_review | pending_mechanical_verification | failed"
     syntax_passed: bool               # L0
     existence_passed: bool            # L1
     interface_passed: bool            # L2
@@ -58,13 +83,18 @@ quality_gate:
     unresolved_minor: int
     revision_rounds: int
     details: dict
-  exit_code: "0 if passed else 1"
+  ci_exit_code: "0 passed | 1 failed | 0/2 pending_semantic_review (0 granted by quality.allow_pending_llm_layers, else 2) | 3 pending_mechanical_verification"
 
   config:
     quality.fail_on_critical: true    # bool, default true
     quality.min_grounding_score: 1.0  # float 0.0..1.0
     quality.allow_pending_llm_layers: true
 ```
+
+`allow_pending_llm_layers` is EXIT POLICY ONLY: when true (the default), a
+`pending_semantic_review` verdict exits 0 — the review is not a mechanical
+failure — while the verdict / UI still reads PENDING_SEMANTIC_REVIEW. Without
+it the exit code is the honest base `2`.
 
 ### Layer Status Semantics
 
@@ -83,11 +113,20 @@ layer_status:
 
 ```yaml
 decision_rules:
-  all_mechanical_passed: "syntax_passed AND existence_passed AND interface_passed"
-  score_meets_threshold: "grounding_score >= quality.min_grounding_score"
-  gate_passes_when:
-    fail_on_critical: "all_mechanical_passed AND score_meets_threshold"
-    not_fail_on_critical: "score_meets_threshold AND existence_passed"
+  all_mechanical_passed: "L0 passed AND L1 passed AND L2 passed AND L4a passed"
+  meets_score: "mechanical_score >= quality.min_grounding_score"
+  pending_llm: "any of L3 / L4b / L5 is pending or unknown"
+  pending_mechanical: "any of L0 / L1 / L2 / L4a is pending"
+  verdict:
+    failed: "any mechanical layer failed (or mechanical-score shortfall), OR any LLM-judged check explicitly failed"
+    pending_mechanical_verification: "no failures, but a mechanical layer (L0/L1/L2/L4a) is still pending"
+    pending_semantic_review: "no failures, mechanical layers resolved, but an LLM layer (L3/L4b/L5) is pending"
+    passed: "every layer adjudicated and non-blocking (strictly verdict == 'passed')"
+  exit_policy:
+    passed: 0
+    failed: 1
+    pending_semantic_review: "0 when quality.allow_pending_llm_layers is true, else 2"
+    pending_mechanical_verification: 3
 ```
 
 ---

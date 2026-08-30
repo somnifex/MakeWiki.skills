@@ -474,90 +474,203 @@ def _audit_bundle(verdicts):
     )
 
 
-def test_orchestrator_merges_semantic_bundle_verdicts():
-    """An LLM audit bundle makes L3/L4b/L5 authoritative instead of pending."""
+def _project_and_docs(tmp_path: Path):
+    """A tiny repo (real CLI) + EN/zh-CN writer docs so the mechanical layers
+    pass and only the LLM-judged L3/L4b/L5 layers stay pending."""
     from makewiki_skills.generator.language_generator import GeneratedDocument
+
+    proj = tmp_path / "project"
+    proj.mkdir(exist_ok=True)
+    (proj / "Makefile").write_text(
+        ".PHONY: build test\nbuild:\n\tgcc -o app main.c\ntest:\n\tmake -q\n"
+    )
+    (proj / "config.yaml").write_text("server:\n  port: 8080\n")
+    (proj / "pyproject.toml").write_text(
+        '[project]\nname="myapp"\nversion="1.0.0"\n'
+        '[project.scripts]\nmyapp="cli:main"\n'
+    )
+    (proj / "cli.py").write_text(
+        'import typer\napp=typer.Typer()\n'
+        '@app.command()\ndef run(port:int=8080, host:str="0.0.0.0"):\n    print(port)\n'
+        '@app.command()\ndef serve():\n    print("s")\n'
+        'def main():\n    app()\n'
+    )
+    (proj / "README.md").write_text("# myapp\n\nmyapp is a tiny app.\n")
+
+    en = """# myapp
+
+myapp is a tiny scaffold.
+
+## Build
+
+[[id:build]]
+```bash
+make build
+```
+
+## Test
+
+[[id:test]]
+```bash
+make test
+```
+
+## Run
+
+[[id:run]]
+```bash
+myapp run --port 8080
+```
+
+## Configure
+
+Set `server.port` in `./config.yaml`.
+"""
+    zh = en.replace("myapp is a tiny scaffold.", "myapp 是一个微型脚手架。")
+    docs: dict[str, list] = {
+        "en": [
+            GeneratedDocument(
+                filename="README.md", base_name="README", language_code="en", content=en
+            )
+        ],
+        "zh-CN": [
+            GeneratedDocument(
+                filename="README.zh-CN.md",
+                base_name="README",
+                language_code="zh-CN",
+                content=zh,
+            )
+        ],
+    }
+    return proj, docs
+
+
+def test_orchestrator_merges_semantic_bundle_verdicts(tmp_path: Path):
+    """An LLM audit bundle adjudicating EVERY pending semantic review item makes
+    L3/L4b/L5 authoritative instead of pending -> semantic_complete and no
+    pending LLM layers. Item-level: the bundle's ids are the REAL review_item_ids
+    Python computed."""
+    from makewiki_skills.verification.orchestrator import VerificationOrchestrator
     from makewiki_skills.verification.semantic_audit import (
         SemanticAuditBundle,
         SemanticAuditVerdict,
     )
 
-    project_dir = Path(__file__).resolve().parents[3]
-    documents: dict[str, list[GeneratedDocument]] = {
-        "en": [GeneratedDocument(
-            filename="README.md", base_name="README", language_code="en",
-            content=project_dir.joinpath("README.md").read_text(encoding="utf-8"),
-        )],
-        "zh-CN": [GeneratedDocument(
-            filename="README.zh-CN.md", base_name="README", language_code="zh-CN",
-            content=project_dir.joinpath("README.en.md").read_text(encoding="utf-8"),
-        )],
-    }
+    proj, docs = _project_and_docs(tmp_path)
+    orchestrator = VerificationOrchestrator(proj)
+
+    # Mechanical verify with an empty-verdict probe to compute the REAL registry.
+    probe = SemanticAuditBundle(documents_digest="sha256:unused", verdicts=[])
+    base = orchestrator.verify_documents(docs, wiki_dir=proj, semantic_bundle=probe)
+    assert base.review_items  # Python actually computed expected semantic items
+    assert base.layers["L3"].verdict == "pending"
+
+    # A COMPLETE bundle: every pending semantic item adjudicated as passed.
     bundle = SemanticAuditBundle(
         documents_digest="sha256:unused",
         verdicts=[
             SemanticAuditVerdict(
-                review_item_id="L3:1", layer="L3", status="passed",
+                review_item_id=item.review_item_id,
+                layer=item.layer,
+                status="passed",
                 rationale_summary="ok",
-            ),
-            SemanticAuditVerdict(
-                review_item_id="L4b:1", layer="L4b", status="passed",
-                rationale_summary="ok",
-            ),
-            SemanticAuditVerdict(
-                review_item_id="L5:1", layer="L5", status="passed",
-                rationale_summary="ok",
-            ),
+            )
+            for item in base.review_items
         ],
     )
-    orchestrator = VerificationOrchestrator(project_dir)
     report = orchestrator.verify_documents(
-        documents, wiki_dir=project_dir, semantic_bundle=bundle
+        docs, wiki_dir=proj, semantic_bundle=bundle
     )
     # The merged layers are adjudicated (passed), not pending.
     assert report.layers["L3"].passed is True
     assert report.layers["L5"].passed is True
-    l4b_checks = [c for c in report.layers["L4"].checks if c.claim_type == "l4b_semantic"]
+    l4b_checks = [
+        c for c in report.layers["L4"].checks if c.claim_type == "l4b_semantic"
+    ]
     assert l4b_checks and l4b_checks[0].status == "passed"
     gate = evaluate_quality_gate(report, MakeWikiConfig.default(Path(".")))
+    # EVERY pending semantic item was adjudicated -> semantically complete.
     assert gate.semantic_complete is True
     assert gate.pending_llm_layers == []
 
 
-def test_orchestrator_stale_or_absent_bundle_leaves_semantic_layers_pending():
-    """Absent bundle (no --semantic-audit) leaves L3/L4b/L5 pending and the gate
-    NOT passed. A bundle that mentions none of the semantic layers also leaves
-    them pending (layers untouched stay pending)."""
-    from makewiki_skills.generator.language_generator import GeneratedDocument
+def test_orchestrator_partial_semantic_bundle_keeps_gate_pending(tmp_path: Path):
+    """A PARTIAL bundle (only SOME review items adjudicated) keeps the gate at
+    pending_semantic_review: the remaining items stay pending and the layers that
+    still contain an unmentioned item are not passed."""
+    from makewiki_skills.verification.orchestrator import VerificationOrchestrator
+    from makewiki_skills.verification.semantic_audit import (
+        SemanticAuditBundle,
+        SemanticAuditVerdict,
+    )
 
-    project_dir = Path(__file__).resolve().parents[3]
-    documents: dict[str, list[GeneratedDocument]] = {
-        "en": [GeneratedDocument(
-            filename="README.md", base_name="README", language_code="en",
-            content=project_dir.joinpath("README.md").read_text(encoding="utf-8"),
-        )],
-        "zh-CN": [GeneratedDocument(
-            filename="README.zh-CN.md", base_name="README", language_code="zh-CN",
-            content=project_dir.joinpath("README.en.md").read_text(encoding="utf-8"),
-        )],
-    }
-    orchestrator = VerificationOrchestrator(project_dir)
+    proj, docs = _project_and_docs(tmp_path)
+    orchestrator = VerificationOrchestrator(proj)
+
+    probe = SemanticAuditBundle(documents_digest="sha256:unused", verdicts=[])
+    base = orchestrator.verify_documents(docs, wiki_dir=proj, semantic_bundle=probe)
+    l4b_item = next(i for i in base.review_items if i.layer == "L4b")
+
+    # Adjudicate ONLY the L4b item; leave L3 and L5 unmentioned.
+    partial = SemanticAuditBundle(
+        documents_digest="sha256:unused",
+        verdicts=[
+            SemanticAuditVerdict(
+                review_item_id=l4b_item.review_item_id,
+                layer="L4b",
+                status="passed",
+                rationale_summary="ok",
+            )
+        ],
+    )
+    report = orchestrator.verify_documents(
+        docs, wiki_dir=proj, semantic_bundle=partial
+    )
+    gate = evaluate_quality_gate(report, MakeWikiConfig.default(Path(".")))
+    assert gate.verdict == "pending_semantic_review"
+    assert gate.passed is False
+    assert gate.semantic_complete is False
+    # The unmentioned semantic layers remain pending, so they are not LLM-resolved.
+    assert set(gate.pending_llm_layers) >= {"L3", "L5"}
+    assert report.layers["L5"].verdict == "pending"
+
+
+def test_orchestrator_stale_or_absent_bundle_leaves_semantic_layers_pending(
+    tmp_path: Path,
+):
+    """Absent bundle (no --semantic-audit) leaves L3/L4b/L5 pending and the gate
+    NOT passed. A bundle that mentions only SOME of the semantic layers also
+    leaves the unmentioned layers pending (layers untouched stay pending)."""
+    from makewiki_skills.verification.orchestrator import VerificationOrchestrator
+
+    proj, docs = _project_and_docs(tmp_path)
+    orchestrator = VerificationOrchestrator(proj)
+
     # No bundle -> L3/L4b/L5 stay pending -> gate is NOT passed (honest).
-    report = orchestrator.verify_documents(documents, wiki_dir=project_dir)
+    report = orchestrator.verify_documents(docs, wiki_dir=proj)
     gate = evaluate_quality_gate(report, MakeWikiConfig.default(Path(".")))
     assert "L3" in gate.pending_llm_layers
     assert "L4b" in gate.pending_llm_layers
     assert "L5" in gate.pending_llm_layers
     assert gate.passed is False
 
-    # A bundle that does not mention a semantic layer leaves it pending.
+    # A bundle that adjudicates the real L3 item resolves L3, leaving L4b/L5
+    # (whose real pending items are unmentioned) pending.
+    probe = orchestrator.verify_documents(
+        docs,
+        wiki_dir=proj,
+        semantic_bundle=_audit_bundle([]),
+    )
+    l3_item = next(i for i in probe.review_items if i.layer == "L3")
     report2 = orchestrator.verify_documents(
-        documents,
-        wiki_dir=project_dir,
+        docs,
+        wiki_dir=proj,
         semantic_bundle=_audit_bundle(
             [
                 {
-                    "review_item_id": "L3:1", "layer": "L3", "status": "passed",
+                    "review_item_id": l3_item.review_item_id,
+                    "layer": "L3",
+                    "status": "passed",
                     "rationale_summary": "ok",
                 }
             ]

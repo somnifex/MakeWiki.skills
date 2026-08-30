@@ -246,6 +246,14 @@ def verify_docs(
         "verdicts from the bundle are merged into the report as authoritative; "
         "without it, L3/L4b/L5 are reported PENDING.",
     ),
+    semantic_model: Path | None = typer.Option(
+        None,
+        "--semantic-model",
+        help="Path to the current SemanticModel JSON. Used to prove the bundle's "
+        "semantic_model_digest binding. When the bundle declares a "
+        "semantic_model_digest but no --semantic-model is supplied, the model "
+        "binding is UNPROVEN and L3/L4b/L5 stay PENDING.",
+    ),
     output_format: str = typer.Option(
         "human", "--format", "-f", help="Output format: human | json"
     ),
@@ -310,11 +318,32 @@ def verify_docs(
 
     orchestrator = VerificationOrchestrator(target)
 
-    semantic_bundle = _load_semantic_audit(semantic_audit, resolved_wiki_dir)
+    from rich.console import Console as _StderrConsole
+
+    err = _StderrConsole(stderr=True, highlight=False)
+
+    # Change 1: if a current SemanticModel is supplied, validate it and compute
+    # its CANONICAL digest. On validation failure the audit bundle must NOT be
+    # merged (L3/L4b/L5 stay pending) per the honesty policy.
+    semantic_model_digest = None
+    if semantic_model is not None:
+        semantic_model_digest = _load_semantic_model_digest(semantic_model, err)
+
+    if semantic_model is not None and semantic_model_digest is None:
+        # Supplied but invalid -> do not merge any bundle.
+        semantic_bundle = None
+    else:
+        semantic_bundle = _load_semantic_audit(
+            semantic_audit,
+            resolved_wiki_dir,
+            semantic_model=semantic_model,
+        )
+
     report = orchestrator.verify_documents(
         documents,
         wiki_dir=resolved_wiki_dir,
         semantic_bundle=semantic_bundle,
+        semantic_model_digest=semantic_model_digest,
     )
     result = evaluate_quality_gate(
         report, cfg, fail_on_critical=cfg.quality.fail_on_critical
@@ -361,23 +390,22 @@ def verify_docs(
             f"  [yellow]Pending mechanical layers: {', '.join(result.pending_mechanical_layers)}[/yellow]"
         )
 
-    failures = [
-        check
-        for layer_report in report.layers.values()
-        for check in layer_report.failures()
-    ]
-    if failures:
-        table = Table(title="Failed Checks")
-        table.add_column("Layer")
-        table.add_column("Document")
-        table.add_column("Type")
-        table.add_column("Claim")
-        table.add_column("Detail")
-        for check in failures:
-            table.add_row(
-                check.layer, check.target, check.claim_type, check.claim_text[:50], check.detail
-            )
-        console.print(table)
+    # Change 3: separate sections per status so pending/unknown checks are
+    # NEVER labeled "Failed". `failures()` returns only status==failed.
+    layers = list(report.layers.values())
+    failed = [c for layer_report in layers for c in layer_report.failures()]
+    pending = [c for layer_report in layers for c in layer_report.pending()]
+    unknown = [c for layer_report in layers for c in layer_report.unknowns()]
+    warnings = [c for layer_report in layers for c in layer_report.warnings()]
+
+    if failed:
+        console.print(_render_check_table("Failed Checks", failed))
+    if pending:
+        console.print(_render_check_table("Pending Semantic Reviews", pending))
+    if unknown:
+        console.print(_render_check_table("Unknown / Insufficient Evidence", unknown))
+    if warnings:
+        console.print(_render_check_table("Warnings", warnings))
 
     raise typer.Exit(result.ci_exit_code)
 
@@ -395,6 +423,12 @@ def verify_alias(
         "--semantic-audit",
         help="Path to an LLM SemanticAuditBundle JSON. Without it, L3/L4b/L5 are PENDING.",
     ),
+    semantic_model: Path | None = typer.Option(
+        None,
+        "--semantic-model",
+        help="Path to the current SemanticModel JSON. Used to prove the bundle's "
+        "semantic_model_digest binding.",
+    ),
     output_format: str = typer.Option(
         "human", "--format", "-f", help="Output format: human | json"
     ),
@@ -404,7 +438,7 @@ def verify_alias(
     Retained for backward compatibility; runs the same unified L0-L5
     verification and Quality Gate.
     """
-    verify_docs(target, wiki_dir, langs, config_path, semantic_audit, output_format)
+    verify_docs(target, wiki_dir, langs, config_path, semantic_audit, semantic_model, output_format)
 
 
 @app.command(name="verify-claim")
@@ -956,14 +990,19 @@ def _render_gate_verdict(result: Any) -> str:
 
 
 def _load_semantic_audit(
-    semantic_audit: Path | None, resolved_wiki_dir: Path
+    semantic_audit: Path | None,
+    resolved_wiki_dir: Path,
+    semantic_model: Path | None = None,
 ) -> Any:
     """Load and validate an LLM SemanticAuditBundle, if requested.
 
     Returns the parsed bundle when it is present and still matches the verified
-    documents; returns ``None`` when no bundle was requested OR the bundle is
-    stale/absent so L3/L4b/L5 stay PENDING at the gate. Diagnostics are written
-    to stderr so the stdout (JSON payload or human table) stays clean.
+    documents and (if declared) can be bound to a supplied current semantic
+    model; returns ``None`` when no bundle was requested, the bundle is
+    stale/absent, OR the bundle declares a ``semantic_model_digest`` but no
+    ``--semantic-model`` was supplied (model binding UNPROVEN) — so L3/L4b/L5
+    stay PENDING at the gate. Diagnostics are written to stderr so the stdout
+    (JSON payload or human table) stays clean.
     """
     if semantic_audit is None:
         return None
@@ -999,7 +1038,62 @@ def _load_semantic_audit(
         )
         return None
 
+    # Change 2 (CRITICAL honesty): the bundle declares a semantic_model_digest,
+    # but no current semantic model was supplied -> the model binding is
+    # UNPROVEN. Do NOT treat it as valid / merge it.
+    if semantic_model is None and getattr(bundle, "semantic_model_digest", None):
+        err.print(
+            "[yellow]Semantic model binding UNPROVEN: the audit bundle declares "
+            "semantic_model_digest but no --semantic-model was supplied.[/yellow]"
+        )
+        err.print("[yellow]L3/L4b/L5 remain PENDING; the bundle is NOT merged.[/yellow]")
+        return None
+
     return bundle
+
+
+def _load_semantic_model_digest(semantic_model: Path, err: Any) -> str | None:
+    """Load + pydantic-validate a SemanticModel JSON and compute its canonical digest.
+
+    Returns the canonical digest on success; prints a clear stderr diagnostic
+    and returns ``None`` on validation failure so the caller keeps the relevant
+    semantic audits pending (the bundle is NOT merged).
+    """
+    from makewiki_skills.model.semantic_model import SemanticModel
+    from makewiki_skills.verification.semantic_audit import compute_content_digest
+
+    model_path = Path(semantic_model).resolve()
+    try:
+        data = json_lib.loads(model_path.read_text(encoding="utf-8"))
+        model = SemanticModel.model_validate(data)
+    except Exception as exc:  # pydantic.ValidationError / file errors
+        err.print(f"[yellow]Invalid semantic model: {exc}[/yellow]")
+        err.print(
+            "[yellow]L3/L4b/L5 remain PENDING; the audit bundle is NOT merged.[/yellow]"
+        )
+        return None
+
+    # Stable canonical form (sorted keys, compact separators) so the Auditor's
+    # semantic_model_digest can be compared deterministically.
+    canonical = json_lib.dumps(
+        model.model_dump(), sort_keys=True, separators=(",", ":"), ensure_ascii=False
+    )
+    return compute_content_digest(canonical)
+
+
+def _render_check_table(title: str, checks: list[Any]) -> Table:
+    """Render one status-section table with the standard L0-L5 columns."""
+    table = Table(title=title)
+    table.add_column("Layer")
+    table.add_column("Document")
+    table.add_column("Type")
+    table.add_column("Claim")
+    table.add_column("Detail")
+    for check in checks:
+        table.add_row(
+            check.layer, check.target, check.claim_type, check.claim_text[:50], check.detail
+        )
+    return table
 
 
 @app.command(name="build-site")

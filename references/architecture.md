@@ -9,8 +9,10 @@ MakeWiki runs on **two strict planes** separated by a hard boundary:
 
   proven.
 
-The Quality Gate is the single place where the two planes meet to produce a
-PASS / FAIL decision. Everything else is strict ownership.
+The Quality Gate is the single place where the two planes meet to produce an
+honest four-state decision (`passed` / `pending_semantic_review` /
+`pending_mechanical_verification` / `failed`). Everything else is strict
+ownership.
 
 ```yaml
 two_plane_architecture:
@@ -238,6 +240,6 @@ architecture_before:
 architecture_after:
   python_role: "Mechanical proof + scaffolding with UNKNOWN markers"
   skill_role: "Authoritative orchestrator over LLM cognitive plane"
-  bridge: "Quality Gate aggregates layer results into single PASS / FAIL"
+  bridge: "Quality Gate aggregates layer results into an honest four-state verdict (passed / pending_semantic_review / pending_mechanical_verification / failed)"
   rule: "Python proves what can be mechanically proven; LLM decides what the repository means"
 ```

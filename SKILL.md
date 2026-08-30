@@ -77,8 +77,10 @@ adjudication in the authoritative `/makewiki` path.
   existence, CLI flag names, env var keys, code-block parity across languages,
   schema validity). The LLM reads Python's evidence and trusts it; the LLM
   only adds semantic interpretation.
-- The Quality Gate is the one place where the two planes meet to produce a
-  single PASS / FAIL decision (CI exit code 0 / 1).
+- The Quality Gate is the one place where the two planes meet to produce an
+  honest four-state verdict — `passed`, `pending_semantic_review`,
+  `pending_mechanical_verification`, or `failed` — mapped to the CI exit
+  policy (see Section 3).
 
 ### Mechanical UNKNOWN, Never Guess
 
@@ -169,9 +171,25 @@ is not "MakeWiki cannot run" — it is "MakeWiki runs sequentially on one agent.
 
 ## 3. Quality Gate (统一质量门)
 
-The Quality Gate is the **single PASS / FAIL decision** over all verification
-layers. The Skill's audit step consults it before shipping; CI maps the
-verdict to an exit code.
+The Quality Gate is the **honest four-state verdict** over all verification
+layers — it is not a single PASS / FAIL. The verdict is one of:
+
+- `passed` — every layer adjudicated and non-blocking (`passed == (verdict ==
+  "passed")` strictly; a pending gate is never reported as passed).
+- `pending_semantic_review` — the LLM layer (L3 / L4b / L5) has pending items.
+- `pending_mechanical_verification` — a mechanical layer (L0 / L1 / L2 / L4a)
+  is still pending.
+- `failed` — any layer explicitly failed.
+
+The Skill's audit step consults it before shipping; CI maps the verdict to an
+exit code via the exit policy:
+
+| Verdict                          | CI exit code |
+| :------------------------------- | :----------- |
+| `passed`                         | 0            |
+| `failed`                         | 1            |
+| `pending_semantic_review`        | 0 (when `allow_pending_llm_layers`, else 2) |
+| `pending_mechanical_verification`| 3            |
 
 ```yaml
 quality_gate:
@@ -179,6 +197,7 @@ quality_gate:
   result_schema: "QualityGateResult"
   fields:
     passed: bool
+    verdict: passed | pending_semantic_review | pending_mechanical_verification | failed
     syntax_passed: bool               # L0
     existence_passed: bool            # L1
     interface_passed: bool            # L2
@@ -191,11 +210,11 @@ quality_gate:
     unresolved_minor: int
     revision_rounds: int
     details: dict
-  exit_code: "0 if passed, else 1"
+  ci_exit_code: "0 passed | 1 failed | 0/2 pending_semantic_review (0 granted by quality.allow_pending_llm_layers, else 2) | 3 pending_mechanical_verification"
   config:
     quality.fail_on_critical: true    # bool, default true
     quality.min_grounding_score: 1.0  # float 0.0..1.0
-    quality.allow_pending_llm_layers: true  # L3 / L4-prose / L5 left pending do not by themselves fail the gate
+    quality.allow_pending_llm_layers: true  # when true, pending_semantic_review exits 0; the verdict still reads PENDING
 ```
 
 Layer ownership:
@@ -231,6 +250,13 @@ standing — are decided by the LLM Auditor, not by mechanical code. The
 Auditor persists its verdicts into a **machine-readable `SemanticAuditBundle`**
 JSON that the toolkit consumes without re-judging the semantics.
 
+The bundle is **ITEM-LEVEL**: each `SemanticAuditVerdict` targets exactly one
+`review_item_id` (e.g. `L3:README.md:make build`, `L4b:README:build`,
+`L5:README.md:make build`). The merge maps each verdict to exactly one
+verification check; review items the Auditor does NOT mention REMAIN PENDING.
+A verdict for an unknown `review_item_id` (matching no expected review item)
+REJECTS the whole bundle — it is never silently ignored.
+
 ### The Auditor MUST emit the bundle
 
 In **Phase 4** and in the review subskill, after reasoning over L0 - L5, the
@@ -238,6 +264,15 @@ Auditor writes a `SemanticAuditBundle` JSON (see the Auditor prompt in Section
 6). Each semantic verdict is recorded per review item; a layer or item the
 Auditor does not mention simply remains `pending` at the Quality Gate *by
 absence* — never by an explicit value.
+
+### Review item registry
+
+After mechanical verification, the report exposes `review_items` — the
+expected semantic review items for L3 / L4b / L5 that need LLM adjudication.
+The registry is built from the pending semantic checks (each with a
+deterministic `review_item_id`). The bundle can only adjudicate items that
+exist in this registry; a verdict for any `review_item_id` not in the registry
+rejects the whole bundle.
 
 The bundle schema (`SemanticAuditBundle`, see
 `src/makewiki_skills/verification/semantic_audit.py`) is:
@@ -249,7 +284,7 @@ semantic_model_digest: "sha256:<hex>"   # optional; binds to the SemanticModel s
 auditor: "llm_auditor"                  # auditor identity
 audited_at: "<UTC ISO-8601>"            # when the audit was performed
 verdicts:                               # list of semantic verdicts
-  - review_item_id: "L3:workflow.start-server"   # specific review item (e.g. L3:<slug>)
+  - review_item_id: "L3:README.md:make build"   # exactly one review item per verdict
     layer: "L3"                         # one of L3 | L4b | L5
     status: "passed"                    # one of passed | failed
     rationale_summary: "..."            # why the Auditor judged this way
@@ -257,9 +292,17 @@ verdicts:                               # list of semantic verdicts
     confidence: "medium"                # one of high | medium | low
 ```
 
-`documents_digest` is a sha256 over the concatenated, path-sorted raw bytes of
-the audited markdown documents; it binds the audit to the exact document
-revision it was performed against.
+`documents_digest` includes document identity: it hashes each file as
+`relative_path + NUL + byte_length + NUL + file_bytes + NUL`, sorted by
+normalized relative path — so the digest changes on content edit, rename,
+delete, add, and file split, and is stable across machines (no absolute paths
+are hashed); it binds the audit to the exact document revision it was performed
+against.
+
+`semantic_model_digest` (optional) is the canonical SHA256 of the SEPARATE
+authoritative SemanticModel the bundle claims to have been audited against. It
+is proven by supplying the current model via `verify-docs --semantic-model
+<file>`; the digest uses sorted keys and compact separators so it is stable.
 
 ### Staleness rule
 
@@ -273,19 +316,26 @@ must therefore emit the bundle **last**, after all in-place edits, so its
 ### Consumption boundary
 
 Python validates the bundle's schema and digests and aggregates the verdicts
-into the Quality Gate, but it **never re-judges the semantic verdicts**: it does
-not decide whether a `passed`/`failed` verdict is reasonable, and it never
-overrides the Auditor's adjudication. A layer the Auditor did not mention stays
-`pending`.
+ITEM-LEVEL into the Quality Gate, but it **never re-judges the semantic
+verdicts**: it does not decide whether a `passed`/`failed` verdict is
+reasonable, and it never overrides the Auditor's adjudication. Each verdict
+maps to exactly one check by its `review_item_id`; a layer the Auditor did not
+mention, or a `review_item_id` it did not adjudicate, stays `pending`. Merged
+checks carry `verification_source = "semantic_audit_bundle"` as a formal
+source, plus the verdict's `review_item_id`, auditor, rationale, confidence,
+evidence refs, and `audited_at` as provenance.
 
-### `verify-docs --semantic-audit <file>`
+### `verify-docs --semantic-audit <file>` and `--semantic-model <file>`
 
 The Auditor's bundle is machine-consumed by `verify-docs` via the
-`--semantic-audit <file>` flag (a flag on the existing `verify-docs` command,
-not a separate command):
+`--semantic-audit <file>` flag, and the current SemanticModel is supplied via
+`--semantic-model <file>` (both flags on the existing `verify-docs` command,
+not separate commands):
 
 ```bash
-python run_toolkit.py verify-docs <target> --semantic-audit <output_dir>/semantic_audit.json
+python run_toolkit.py verify-docs <target> \
+  --semantic-audit <output_dir>/semantic_audit.json \
+  --semantic-model <output_dir>/semantic_model.json
 ```
 
 `verify-docs --semantic-audit <file>`:
@@ -294,11 +344,20 @@ python run_toolkit.py verify-docs <target> --semantic-audit <output_dir>/semanti
 2. verifies `documents_digest` against the current documents — a
    mismatched (stale) bundle is **rejected** and the affected layers remain
    `pending`, signaling that a re-audit is required;
-3. folds the Auditor's `passed`/`failed` semantic verdicts into the Quality
-   Gate, so the LLM-judged layers resolve from the bundle instead of sitting
-   `pending`;
+3. builds the review-item registry from the pending L3 / L4b / L5 checks, then
+   merges the Auditor's verdicts ITEM-LEVEL by `review_item_id` — each verdict
+   adjudicates exactly one check; unmentioned pending items stay `pending`; a
+   verdict for an unknown `review_item_id` REJECTS the whole bundle (never
+   silently ignored);
 4. never re-judges the semantics — it only validates schema/digests and
    aggregates.
+
+`--semantic-model <file>` supplies the current SemanticModel; its canonical
+SHA256 (sorted keys, compact separators) proves the bundle's
+`semantic_model_digest`. If the bundle declares a `semantic_model_digest` but
+no `--semantic-model` is given, the model binding is **UNPROVEN** and L3 / L4b
+/ L5 stay `pending` (the bundle is never silently trusted); a digest mismatch
+is **STALE** and the bundle is rejected.
 
 ---
 
@@ -580,15 +639,21 @@ over any deltas.
    - Resolves pending LLM-judged layers (L3 / L4b / L5) by reasoning
      over the evidence list Python provided, and **emits a machine-readable
      `SemanticAuditBundle`** JSON with each semantic verdict (see Section 3A).
-3. Re-run `verify-docs` — now with `--semantic-audit <file>` to consume the
-   Auditor's bundle — until the gate passes (CI exit code 0) or until
-   `revision.max_rounds` is exhausted:
+3. Re-run `verify-docs` — now with `--semantic-audit <file>` (and
+   `--semantic-model <file>` when the bundle declares a `semantic_model_digest`)
+   to consume the Auditor's bundle — until the gate is `passed` or `failed`
+   or until `revision.max_rounds` is exhausted. Pending LLM layers exit 0 when
+   `quality.allow_pending_llm_layers` is true:
    ```bash
-   python <makewiki_root>/scripts/run_toolkit.py verify-docs <target> --semantic-audit <output_dir>/semantic_audit.json
+   python <makewiki_root>/scripts/run_toolkit.py verify-docs <target> --semantic-audit <output_dir>/semantic_audit.json --semantic-model <output_dir>/semantic_model.json
    ```
    The bundle must be emitted after all in-place edits so its `documents_digest`
    matches the final markdown set; a stale bundle (digest mismatch) is rejected
    and the affected semantic layers stay `pending` until a fresh audit.
+   Human output renders the Quality Gate verdict as an honest four-state result
+   and breaks the checks into separate sections — **Failed Checks**, **Pending
+   Semantic Reviews**, **Unknown / Insufficient Evidence**, **Warnings** — so
+   pending / unknown items are never shown as "Failed".
 
 ### Phase 5: Offline Static Site Compilation (Mechanical)
 
@@ -615,7 +680,7 @@ disk; it does NOT publish.
 2. Present the completion report including:
    - Project Tier & subagents deployed (with host-fallback mode)
    - Generated pages per language
-   - Quality Gate verdict (PASS / FAIL, exit code, grounding score)
+   - Quality Gate verdict (four-state: passed / failed / pending_semantic_review / pending_mechanical_verification, CI exit code, grounding score)
    - L0 - L5 layer breakdown (passed / failed / pending counts)
    - Unresolved critical / major / minor items
    - Direct link to `makewiki/site/index.html`
@@ -633,7 +698,7 @@ returns `UNKNOWN`. None of them produce narrative content.
 | `evidence`               | `scan`       | Emit deterministic evidence facts (JSON / human)             |
 | `verify-claim <json>`    | —            | Verify one or many Claims against the codebase               |
 | `verify-model <json>`    | —            | Schema + evidence-ref validation for a SemanticModel         |
-| `verify-docs <target>`   | `verify`     | Unified L0 - L5 verification + Quality Gate + CI exit code   |
+| `verify-docs <target>`   | `verify`     | Unified L0 - L5 verification + four-state Quality Gate + CI exit code; `--semantic-audit <file>` merges an LLM bundle item-level, `--semantic-model <file>` proves its model binding |
 | `parity <target>`        | —            | L4 exact-block parity + aligned passages for LLM prose audit |
 | `review <wiki_dir>`      | —            | Standalone cross-language review (runs `CrossLanguageReviewer`) |
 | `semantic-review <dir>`  | —            | Prepare aligned passages for LLM cross-language review       |

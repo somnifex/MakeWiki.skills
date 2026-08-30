@@ -18,8 +18,11 @@ MakeWiki runs on **two planes** separated by a Cognitive Authority Boundary:
   Quality Gate. Forbidden from inventing narrative content; returns `UNKNOWN`
   when it cannot prove a slot.
 
-The **Quality Gate** is the single PASS / FAIL decision over L0 - L5 (CI exit
-code 0 / 1). It is the only place where the two planes meet.
+The **Quality Gate** is the single decision point over L0 - L5. It reports an
+honest four-state verdict — `passed`, `pending_semantic_review`,
+`pending_mechanical_verification`, or `failed` — mapped to a CI exit policy
+(0 / 1 / 0-or-2 / 3). `passed` requires every layer adjudicated and
+non-blocking. It is the only place where the two planes meet.
 
 ### Cognitive Authority Boundary
 

@@ -75,6 +75,13 @@ def test_verify_docs_semantic_audit_flag_is_documented_in_help(tmp_path: Path):
 
 
 def test_verify_docs_merges_semantic_audit_when_flag_given(tmp_path: Path):
+    """verify-docs --semantic-audit merges a REAL bundle item-level.
+
+    The bundle's review_item_ids are the ones Python actually computed: first run
+    verify-docs with an empty-verdict probe so the JSON report exposes its
+    ``review_items`` registry, then build a bundle that adjudicates EXACTLY those
+    ids as passed and re-run. The merged layers reflect the audit: the semantic
+    layers are no longer pending."""
     project = _make_wiki(tmp_path)
     wiki = project / "makewiki"
     doc_paths = sorted(wiki.rglob("*.md"))
@@ -84,21 +91,77 @@ def test_verify_docs_merges_semantic_audit_when_flag_given(tmp_path: Path):
         compute_documents_digest,
     )
 
+    runner = CliRunner()
+
+    def run_with(bundle) -> dict:
+        audit_file = tmp_path / "audit.json"
+        audit_file.write_text(json.dumps(bundle.model_dump()), encoding="utf-8")
+        result = runner.invoke(
+            app,
+            [
+                "verify-docs", str(project), "--semantic-audit", str(audit_file),
+                "--format", "json",
+            ],
+        )
+        assert result.exit_code == 3, result.output  # bare wiki mechanical pending
+        return json.loads(result.stdout)
+
+    # 1) Probe: valid digest + empty verdicts -> Python computes the registry of
+    # pending semantic review items and exposes it in the JSON report.
+    probe = SemanticAuditBundle(
+        documents_digest=compute_documents_digest(doc_paths), verdicts=[]
+    )
+    probe_payload = run_with(probe)
+    review_items = probe_payload["report"]["review_items"]
+    assert review_items, "expected a computed review_items registry"
+    assert all(ri["status"] == "pending" for ri in review_items)
+
+    # 2) Build a COMPLETE bundle adjudicating every real review item as passed.
+    full = SemanticAuditBundle(
+        documents_digest=compute_documents_digest(doc_paths),
+        verdicts=[
+            SemanticAuditVerdict(
+                review_item_id=ri["review_item_id"],
+                layer=ri["layer"],
+                status="passed",
+                rationale_summary="ok",
+            )
+            for ri in review_items
+        ],
+    )
+    payload = run_with(full)
+    gate = payload["quality_gate"]
+    # The bare wiki's mechanical L1/L2 are pending -> honest ci_exit_code 3.
+    # The semantic layers, however, WERE merged: none are pending any more.
+    assert gate["ci_exit_code"] == 3
+    assert gate["l3_status"] == "passed"
+    assert gate["l4b_status"] == "passed"
+    assert gate["l5_status"] == "passed"
+    assert gate["pending_llm_layers"] == []
+    assert gate["semantic_complete"] is True
+
+
+def test_verify_docs_unknown_review_item_id_not_merged(tmp_path: Path):
+    """A bundle whose verdict references an UNKNOWN review_item_id (matching no
+    real pending semantic check) is REJECTED wholesale: L3 stays pending and the
+    gate is not passed."""
+    project = _make_wiki(tmp_path)
+    wiki = project / "makewiki"
+    doc_paths = sorted(wiki.rglob("*.md"))
+
+    from makewiki_skills.verification.semantic_audit import (
+        SemanticAuditVerdict,
+        compute_documents_digest,
+    )
+
+    # A VALID, fresh documents_digest, but an unknown/fake review_item_id.
     bundle = SemanticAuditBundle(
         documents_digest=compute_documents_digest(doc_paths),
         verdicts=[
             SemanticAuditVerdict(
                 review_item_id="L3:1", layer="L3", status="passed",
                 rationale_summary="ok",
-            ),
-            SemanticAuditVerdict(
-                review_item_id="L4b:1", layer="L4b", status="passed",
-                rationale_summary="ok",
-            ),
-            SemanticAuditVerdict(
-                review_item_id="L5:1", layer="L5", status="passed",
-                rationale_summary="ok",
-            ),
+            )
         ],
     )
     audit_file = tmp_path / "audit.json"
@@ -107,19 +170,19 @@ def test_verify_docs_merges_semantic_audit_when_flag_given(tmp_path: Path):
     runner = CliRunner()
     result = runner.invoke(
         app,
-        ["verify-docs", str(project), "--semantic-audit", str(audit_file), "--format", "json"],
+        [
+            "verify-docs", str(project), "--semantic-audit", str(audit_file),
+            "--format", "json",
+        ],
     )
-    # The bare wiki's mechanical L1/L2 are pending -> honest ci_exit_code 3.
-    # The semantic layers, however, WERE merged: none are pending any more.
-    assert result.exit_code == 3, result.output
     payload = json.loads(result.stdout)
     gate = payload["quality_gate"]
-    assert gate["ci_exit_code"] == 3
-    assert gate["l3_status"] == "passed"
-    assert gate["l4b_status"] == "passed"
-    assert gate["l5_status"] == "passed"
-    assert gate["pending_llm_layers"] == []
-    assert gate["semantic_complete"] is True
+    # The unknown-id verdict cannot adjudicate anything -> L3 stays pending and
+    # the whole bundle is not silently trusted.
+    assert gate["passed"] is False
+    assert gate["l3_status"] == "pending"
+    assert "L3" in gate["pending_llm_layers"]
+    assert gate["semantic_complete"] is False
 
 
 def test_verify_docs_stale_semantic_audit_leaves_layers_pending(tmp_path: Path):

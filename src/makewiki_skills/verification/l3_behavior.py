@@ -23,6 +23,16 @@ from makewiki_skills.verification.report import LayerReport, VerificationCheck
 _COMMON_EXIT_CODES = frozenset({0, 1, 2, 127, 130})
 
 
+def _stable_slug(text: str) -> str:
+    """Deterministic whitespace-collapsed identity slug for a semantic item.
+
+    Collapses all runs of whitespace (including newlines) to a single space so
+    the same underlying claim always yields the same ``review_item_id`` across
+    re-runs.
+    """
+    return " ".join(text.split())
+
+
 class L3BehaviorVerifier:
     """Validate documented exit codes, error conditions, and handlers against source code."""
 
@@ -77,6 +87,9 @@ class L3BehaviorVerifier:
                                 status="passed" if matched else "pending",
                                 verification_source=dest,
                                 detail=detail,
+                                review_item_id=(
+                                    f"L3:{doc.filename}:{_stable_slug(err_text[:60])}"
+                                ),
                             )
                         )
 
@@ -95,6 +108,7 @@ class L3BehaviorVerifier:
                     status="pending",
                     verification_source="not_executed",
                     detail="No L3 checks were performed; layer is pending LLM judgment",
+                    review_item_id="L3:all:no-behavioral-claims",
                 )
             )
 
@@ -128,6 +142,7 @@ class L3BehaviorVerifier:
                 status="passed",
                 verification_source="verified_from_repository",
                 detail=f"Documented exit code {code} traced to a real call site in repository source",
+                review_item_id=f"L3:{doc.filename}:exitcode-{code}",
             )
         return VerificationCheck(
             layer="L3",
@@ -139,6 +154,7 @@ class L3BehaviorVerifier:
             status="pending",
             verification_source="heuristic",
             detail=f"Behavior for exit code {code} not traced in source; pending LLM Auditor review",
+            review_item_id=f"L3:{doc.filename}:exitcode-{code}",
         )
 
     def _find_exit_code_evidence(self, code: int) -> bool:

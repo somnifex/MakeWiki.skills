@@ -234,3 +234,90 @@ class _FixedDateTime:
 
     def now(self, tz=None) -> datetime:  # noqa: ARG002
         return self._fixed
+
+
+# ---------------------------------------------------------------------------
+# Item-level bundle integrity / document-digest stability (§11)
+# ---------------------------------------------------------------------------
+
+
+def test_duplicate_review_item_id_is_rejected(tmp_path):
+    """A verdict id appearing twice across verdicts is malformed and must be
+    rejected by load_audit_bundle (pydantic cannot express this cross-row rule)."""
+    data = {
+        "documents_digest": compute_content_digest("x"),
+        "verdicts": [
+            {
+                "review_item_id": "L3:workflow.start-server",
+                "layer": "L3",
+                "status": "passed",
+                "rationale_summary": "ok",
+            },
+            {
+                "review_item_id": "L3:workflow.start-server",  # duplicate id
+                "layer": "L3",
+                "status": "failed",
+                "rationale_summary": "contradicted",
+            },
+        ],
+    }
+    bundle_path = tmp_path / "dup.json"
+    bundle_path.write_text(json.dumps(data), encoding="utf-8")
+
+    with pytest.raises(ValueError) as exc:
+        load_audit_bundle(bundle_path)
+    assert "duplicate review_item_id" in str(exc.value)
+
+
+def test_layer_mismatch_is_rejected(tmp_path):
+    """A verdict whose layer does not match the <layer>: prefix of its
+    review_item_id is malformed and must be rejected."""
+    data = {
+        "documents_digest": compute_content_digest("x"),
+        "verdicts": [
+            {
+                "review_item_id": "L5:xy",  # L5 prefix...
+                "layer": "L3",  # ...but the verdict claims L3
+                "status": "passed",
+                "rationale_summary": "ok",
+            }
+        ],
+    }
+    bundle_path = tmp_path / "mismatch.json"
+    bundle_path.write_text(json.dumps(data), encoding="utf-8")
+
+    with pytest.raises(ValueError) as exc:
+        load_audit_bundle(bundle_path)
+    assert "layer mismatch" in str(exc.value)
+
+
+def test_document_digest_changes_on_rename(tmp_path):
+    """A pure rename (identical bytes, different path) changes the digest: path
+    identity is bound into the hash, so a renamed document cannot masquerade as
+    the audited one."""
+    original = tmp_path / "a.md"
+    original.write_text("identical content", encoding="utf-8")
+    digest_before = compute_documents_digest([original])
+
+    renamed = tmp_path / "b.md"
+    renamed.write_text("identical content", encoding="utf-8")  # same bytes
+    digest_after = compute_documents_digest([renamed])
+
+    assert digest_before != digest_after
+
+
+def test_document_digest_changes_on_split(tmp_path):
+    """Splitting one 'AB' file into two files 'A' and 'B' changes the digest even
+    though the concatenated byte stream is preserved: each document's path and
+    length are part of the digest."""
+    single = tmp_path / "single.md"
+    single.write_text("AB", encoding="utf-8")
+    digest_single = compute_documents_digest([single])
+
+    left = tmp_path / "part-a.md"
+    right = tmp_path / "part-b.md"
+    left.write_text("A", encoding="utf-8")
+    right.write_text("B", encoding="utf-8")
+    digest_split = compute_documents_digest([left, right])
+
+    assert digest_single != digest_split

@@ -35,6 +35,7 @@ VerificationSource = Literal[
     "cross_language_analyzer",
     "heuristic",
     "not_executed",
+    "semantic_audit_bundle",
 ]
 
 
@@ -52,6 +53,29 @@ class VerificationCheck(BaseModel):
     verification_source: str = "verified_from_repository"
     detail: str
     suggested_fix: str | None = None
+    #: Stable, deterministic semantic identity (e.g. ``L3:README.md:make build``,
+    #: ``L4b:README:build``, ``L5:README.md:make build``) used to bind an LLM
+    #: audit verdict to one specific check. It is deterministic and stable across
+    #: re-runs when the underlying semantic item is unchanged — it is NEVER a
+    #: random UUID (unlike ``check_id``).
+    review_item_id: str | None = None
+
+
+class ReviewItem(BaseModel):
+    """A registry entry of an expected semantic review item computed by Python.
+
+    Computed after mechanical verification (before any bundle merge), this is the
+    authoritative list of LLM-adjudicable review items for L3/L4b/L5. A bundle
+    verdict may only adjudicate an item that exists here (matched by
+    ``review_item_id``).
+    """
+
+    review_item_id: str
+    layer: str  # "L3" | "L4b" | "L5"
+    document: str  # filename / base name the item belongs to
+    section: str  # section id or claim/section identity (may be "")
+    evidence: list[str] = Field(default_factory=list)  # candidate evidence refs
+    status: str = "pending"  # "pending" normally
 
 
 class LayerReport(BaseModel):
@@ -117,7 +141,24 @@ class LayerReport(BaseModel):
         return self.verdict == "passed"
 
     def failures(self) -> list[VerificationCheck]:
-        return [c for c in self.checks if not c.verified]
+        """Checks that explicitly FAILED (``status == "failed"``).
+
+        Pending and unknown checks are NOT failures: they have not proven a
+        contradiction, they are simply unadjudicated.
+        """
+        return [c for c in self.checks if c.status == "failed"]
+
+    def pending(self) -> list[VerificationCheck]:
+        return [c for c in self.checks if c.status == "pending"]
+
+    def unknowns(self) -> list[VerificationCheck]:
+        return [c for c in self.checks if c.status == "unknown"]
+
+    def warnings(self) -> list[VerificationCheck]:
+        return [c for c in self.checks if c.status == "warning"]
+
+    def not_applicable(self) -> list[VerificationCheck]:
+        return [c for c in self.checks if c.status == "not_applicable"]
 
 
 class ComprehensiveVerificationReport(BaseModel):
@@ -126,6 +167,12 @@ class ComprehensiveVerificationReport(BaseModel):
     report_id: str = Field(default_factory=lambda: uuid.uuid4().hex[:12])
     verified_at: str = Field(default_factory=lambda: datetime.now(UTC).isoformat())
     layers: dict[str, LayerReport] = Field(default_factory=dict)
+    #: Registry of expected semantic review items Python computes after
+    #: mechanical verification. A bundle may only adjudicate items that exist
+    #: here.
+    review_items: list[ReviewItem] = Field(default_factory=list)
+    #: Diagnostic / provenance metadata (e.g. a rejected bundle's unknown ids).
+    details: dict[str, object] = Field(default_factory=dict)
 
     @computed_field  # type: ignore[prop-decorator]
     @property

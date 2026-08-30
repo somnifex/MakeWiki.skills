@@ -165,12 +165,16 @@ of `parity`.
 
 ## Quality Gate
 
-The single PASS / FAIL decision over all verification layers. Owned by
-`verify-docs`; consumed by the Skill's audit step and CI.
+The single decision over all verification layers, reported as an honest
+four-state verdict (`passed` / `pending_semantic_review` /
+`pending_mechanical_verification` / `failed`) mapped to a CI exit policy.
+Owned by `verify-docs`; consumed by the Skill's audit step and CI.
 
 ```yaml
 quality_gate:
-  verdict: "passed | failed"   # -> exit_code 0 | 1
+  verdict: "passed | pending_semantic_review | pending_mechanical_verification | failed"
+  # ci_exit_code: passed -> 0, failed -> 1, pending_semantic_review -> 0 (allow_pending_llm_layers) or 2,
+  #               pending_mechanical_verification -> 3
   layers:
     - L0 syntax (mechanical)
     - L1 existence (mechanical)

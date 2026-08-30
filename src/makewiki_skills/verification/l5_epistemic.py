@@ -132,6 +132,9 @@ class L5EpistemicVerifier:
                             status="pending",
                             verification_source=source,
                             detail=text,
+                            review_item_id=(
+                                f"L5:{doc.filename}:{' '.join(stripped.split())}"
+                            ),
                         )
                     )
 
@@ -149,6 +152,7 @@ class L5EpistemicVerifier:
                     status="pending",
                     verification_source="not_executed",
                     detail="No L5 epistemic checks were performed; layer is pending LLM judgment",
+                    review_item_id="L5:all:no-epistemic-checks",
                 )
             )
 

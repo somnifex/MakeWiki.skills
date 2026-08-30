@@ -37,8 +37,8 @@ def sync(cfg):
         raise RuntimeError("missing 'endpoint' in config")
     if region not in SUPPORTED_REGIONS:
         raise UnsupportedRegionError(
-            "region %r is not supported by syncsvc "
-            "(supported: %s)" % (region, ", ".join(sorted(SUPPORTED_REGIONS)))
+            f"region {region!r} is not supported by syncsvc "
+            f"(supported: {', '.join(sorted(SUPPORTED_REGIONS))})"
         )
     return "synced"
 
@@ -53,7 +53,7 @@ def main(argv):
     try:
         print(sync(cfg))
     except UnsupportedRegionError as exc:
-        print("ERROR: %s" % exc, file=sys.stderr)
+        print(f"ERROR: {exc}", file=sys.stderr)
         return 1
     return 0
 
