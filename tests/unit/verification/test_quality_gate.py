@@ -755,3 +755,105 @@ def test_reverify_does_not_reset_valid_llm_verdict_to_pending():
     assert result.l5_status == "passed"
     assert result.verdict == "passed"
     assert result.ci_exit_code == 0
+
+
+def test_l4a_pending_means_mechanical_passed_false():
+    """REQUIREMENT: a PENDING L4a (mechanical parity) must NOT count as
+    ``mechanical_passed`` — only passed or not_applicable L4a does.
+
+    This is the honest split from the gate verdict: the verdict is
+    ``pending_mechanical_verification`` (exit 3) AND ``mechanical_passed`` is
+    False, because the mechanical plane is genuinely unproven rather than
+    merely un-failed.
+    """
+    from makewiki_skills.verification.report import VerificationCheck
+
+    report = _review_report(llm_pending=False)
+    report.layers["L4"] = LayerReport(
+        layer="L4",
+        name="Cross-language",
+        checks=[
+            # L4a mechanical parity is computed but NOT yet proven (pending).
+            VerificationCheck(
+                layer="L4", target="d.md", claim_type="l4a_mechanical",
+                claim_text="block parity", verified=False, status="pending",
+                detail="mechanical parity not yet proven",
+            ),
+            VerificationCheck(
+                layer="L4", target="d.md", claim_type="l4b_semantic",
+                claim_text="prose parity", verified=True, status="passed",
+                detail="adjudicated",
+            ),
+        ],
+    )
+    result = evaluate_quality_gate(report, MakeWikiConfig.default(Path(".")))
+    assert result.l4a_status == "pending"
+    # Pending L4a withholds mechanical_passed: only passed/not_applicable counts.
+    assert result.mechanical_passed is False
+    assert result.verdict == "pending_mechanical_verification"
+
+
+def test_mechanical_passed_requires_meeting_grounding_threshold():
+    """REQUIREMENT: ``mechanical_passed`` must be False when the mechanical
+    grounding threshold is NOT met, even if no layer explicitly failed.
+
+    The threshold is a hard gate on the mechanical plane: dipping below it while
+    L4a is not_applicable (empty) and L0/L1/L2 pass means the mechanical plane is
+    NOT genuinely passed, so ``mechanical_passed`` must be False.
+    """
+    from makewiki_skills.verification.report import VerificationCheck
+
+    layers: dict[str, LayerReport] = {}
+    for name in ("L0", "L1", "L2"):
+        layers[name] = LayerReport(
+            layer=name, name=name,
+            checks=[VerificationCheck(
+                layer=name, target="d.md", claim_type="structure",
+                claim_text="x", verified=True, status="passed", detail="ok",
+            )],
+        )
+    # Explicit failures drive the mechanical score below the 1.0 threshold even
+    # though L4a and L4b are clean/not_applicable.
+    layers["L1"] = LayerReport(
+        layer="L1", name="Existence",
+        checks=[
+            VerificationCheck(
+                layer="L1", target="missing.md", claim_type="path",
+                claim_text="missing.md", verified=False, status="failed",
+                detail="not on disk",
+            ),
+            VerificationCheck(
+                layer="L1", target="ok.md", claim_type="path",
+                claim_text="ok.md", verified=True, status="passed", detail="ok",
+            ),
+        ],
+    )
+    layers["L3"] = LayerReport(
+        layer="L3", name="Behavior",
+        checks=[VerificationCheck(
+            layer="L3", target="d.md", claim_type="behavior",
+            claim_text="b", verified=True, status="passed", detail="ok",
+        )],
+    )
+    layers["L4"] = LayerReport(
+        layer="L4", name="Cross-language",
+        checks=[VerificationCheck(
+            layer="L4", target="d.md", claim_type="l4b_semantic",
+            claim_text="prose", verified=True, status="passed", detail="ok",
+        )],
+    )
+    layers["L5"] = LayerReport(
+        layer="L5", name="Epistemic",
+        checks=[VerificationCheck(
+            layer="L5", target="d.md", claim_type="epistemic",
+            claim_text="e", verified=True, status="passed", detail="ok",
+        )],
+    )
+    report = ComprehensiveVerificationReport(layers=layers)
+    result = evaluate_quality_gate(report, MakeWikiConfig.default(Path(".")))
+    # Mechanical score dips below the default 1.0 threshold -> NOT mechanically
+    # passed, even though L0/L1/L2-branch flags are True and L4a is n/a.
+    assert result.mechanical_score < 1.0
+    assert result.mechanical_passed is False
+    assert result.verdict == "failed"  # score shortfall drives failure
+

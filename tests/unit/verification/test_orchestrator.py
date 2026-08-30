@@ -2,8 +2,11 @@
 
 from pathlib import Path
 
+import pytest
+
 from makewiki_skills.generator.language_generator import GeneratedDocument
 from makewiki_skills.verification.orchestrator import VerificationOrchestrator
+from makewiki_skills.verification.report import LayerReport
 
 
 def _make_project(tmp_path: Path) -> Path:
@@ -305,3 +308,145 @@ def test_orchestrator_rejects_model_stale_audit_bundle(tmp_path: Path):
         docs, semantic_bundle=fresh, semantic_model_digest="sha256:current-model"
     )
     assert report_fresh.layers["L3"].passed is True
+
+
+def test_initial_verify_without_bundle_produces_review_items(tmp_path: Path):
+    """REQUIREMENT: a FIRST verify with NO SemanticAuditBundle still computes the
+    Review Registry (``report.review_items``) so the pending L3/L4b/L5 semantics
+    are exposed for a later audit — the registry is not gated on a bundle."""
+    proj = _make_project(tmp_path)
+    docs = _docs()
+    orchestrator = VerificationOrchestrator(proj)
+
+    report = orchestrator.verify_documents(docs)  # no bundle at all
+
+    assert report.review_items, "first verify must expose review_items"
+    layers_present = {ri.layer for ri in report.review_items}
+    assert layers_present == {"L3", "L4b", "L5"}
+    assert all(ri.status == "pending" for ri in report.review_items)
+    # Registry ids are unique and stable (no duplicate, no silent collapse).
+    ids = [ri.review_item_id for ri in report.review_items]
+    assert len(ids) == len(set(ids))
+
+
+def test_duplicate_review_item_id_in_registry_is_rejected(tmp_path: Path):
+    """REQUIREMENT: a duplicate ``review_item_id`` across pending semantic checks
+    must FAIL EXPLICITLY (raise), never silently merge one check over another.
+
+    Two distinct pending checks that resolve to the SAME stable identity would
+    otherwise be collapsed by the registry's set/dict lookup — the exact silent
+    overwrite the honesty contract forbids."""
+    from makewiki_skills.verification.report import VerificationCheck
+
+    proj = _make_project(tmp_path)
+    docs = _docs()
+    orchestrator = VerificationOrchestrator(proj)
+
+    report = orchestrator.verify_documents(docs)
+    # Corrupt the report: two pending L3 checks claiming the same review_item_id.
+    report.layers["L3"] = LayerReport(
+        layer="L3",
+        name="Behavior",
+        checks=[
+            VerificationCheck(
+                layer="L3", target="d.md", claim_type="behavior",
+                claim_text="make build", verified=False, status="pending",
+                detail="a", review_item_id="L3:d.md:build",
+            ),
+            VerificationCheck(
+                layer="L3", target="d.md", claim_type="behavior",
+                claim_text="different claim", verified=False, status="pending",
+                detail="b", review_item_id="L3:d.md:build",
+            ),
+        ],
+    )
+    report.layers["L5"] = LayerReport(layer="L5", name="Epistemic", checks=[])
+    report.layers["L4"] = LayerReport(layer="L4", name="Cross-language", checks=[])
+
+    with pytest.raises(ValueError, match="duplicate review_item_id"):
+        orchestrator._build_review_items(report)
+
+
+def test_partial_audit_keeps_unmentioned_items_pending(tmp_path: Path):
+    """REQUIREMENT: items the Auditor did NOT adjudicate STAY pending — a partial
+    bundle resolves only what it names, never wholesale-flipping a layer."""
+    from makewiki_skills.verification.semantic_audit import (
+        SemanticAuditBundle,
+        SemanticAuditVerdict,
+    )
+
+    proj = _make_project(tmp_path)
+    docs = _docs()
+    orchestrator = VerificationOrchestrator(proj)
+
+    base = orchestrator.verify_documents(
+        docs, semantic_bundle=SemanticAuditBundle(documents_digest="x", verdicts=[])
+    )
+    l3_item = next(i for i in base.review_items if i.layer == "L3")
+
+    # Adjudicate ONLY the L3 item; L4b and L5 stay unmentioned.
+    partial = SemanticAuditBundle(
+        documents_digest="x",
+        verdicts=[
+            SemanticAuditVerdict(
+                review_item_id=l3_item.review_item_id, layer="L3",
+                status="passed", rationale_summary="ok",
+            )
+        ],
+    )
+    report = orchestrator.verify_documents(docs, semantic_bundle=partial)
+
+    # The unmentioned items keep status pending (not flipped to passed).
+    for item in base.review_items:
+        if item.review_item_id == l3_item.review_item_id:
+            continue
+        check = next(
+            c for c in report.layers["L4" if item.layer == "L4b" else item.layer].checks
+            if c.review_item_id == item.review_item_id
+        )
+        assert check.status == "pending"
+    # The registry represents the full pending set; the gate stays pending.
+    from makewiki_skills.verification.quality_gate import evaluate_quality_gate
+
+    gate = evaluate_quality_gate(report)
+    assert gate.verdict == "pending_semantic_review"
+    assert gate.passed is False
+    assert gate.semantic_complete is False
+
+
+def test_full_audit_transitions_pending_to_passed(tmp_path: Path):
+    """REQUIREMENT: a COMPLETE audit (every pending semantic item adjudicated
+    passed) transitions the gate from pending to passed: semantic_complete,
+    no pending LLM layers, ci_exit_code 0."""
+    from makewiki_skills.verification.quality_gate import evaluate_quality_gate
+    from makewiki_skills.verification.semantic_audit import (
+        SemanticAuditBundle,
+        SemanticAuditVerdict,
+    )
+
+    proj = _make_project(tmp_path)
+    docs = _docs()
+    orchestrator = VerificationOrchestrator(proj)
+
+    base = orchestrator.verify_documents(
+        docs, semantic_bundle=SemanticAuditBundle(documents_digest="x", verdicts=[])
+    )
+    full = SemanticAuditBundle(
+        documents_digest="x",
+        verdicts=[
+            SemanticAuditVerdict(
+                review_item_id=item.review_item_id, layer=item.layer,
+                status="passed", rationale_summary="ok",
+            )
+            for item in base.review_items
+        ],
+    )
+    report = orchestrator.verify_documents(docs, semantic_bundle=full)
+    gate = evaluate_quality_gate(report)
+    # Pending -> passed transition is complete and honest.
+    assert gate.semantic_complete is True
+    assert gate.pending_llm_layers == []
+    assert gate.verdict == "passed"
+    assert gate.passed is True
+    assert gate.ci_exit_code == 0
+
