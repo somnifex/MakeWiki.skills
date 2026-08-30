@@ -1,0 +1,6 @@
+[project]
+name = "svc"
+requires-python = ">=3.11"
+
+[project.scripts]
+svc = "app:main"

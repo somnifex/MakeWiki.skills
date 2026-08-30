@@ -1,0 +1,23 @@
+[
+  {
+    "id": "rc_scope_svc_a",
+    "claim_type": "command",
+    "semantic_key": "packages.svc_a.cli",
+    "assertion": "svc-a exposes the 'serve' command (--port default 9000), scoped to packages/svc-a",
+    "must_state": "the command belongs to packages/svc-a, not the repo root or packages/lib-b"
+  },
+  {
+    "id": "rc_scope_lib_b",
+    "claim_type": "command",
+    "semantic_key": "packages.lib_b.entry",
+    "assertion": "lib-b exposes a lib-b entrypoint via packages/lib-b/pyproject.toml",
+    "must_state": "the entrypoint belongs to packages/lib-b, not svc-a"
+  },
+  {
+    "id": "rc_nested_manifests",
+    "claim_type": "manifest",
+    "semantic_key": "monorepo.manifests",
+    "assertion": "Both packages/svc-a and packages/lib-b have their own pyproject.toml manifests",
+    "must_state": "nested per-package manifests are surfaced, not missed by root-only config discovery"
+  }
+]

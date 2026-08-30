@@ -1,0 +1,23 @@
+[
+  {
+    "id": "base_port",
+    "fact_type": "config",
+    "value": "5000",
+    "source": "config.yaml:port",
+    "note": "The base config.yaml sets port 5000, but this is OVERRIDDEN."
+  },
+  {
+    "id": "compose_port_override",
+    "fact_type": "config",
+    "value": "8080",
+    "source": "docker-compose.yml:PORT",
+    "note": "docker-compose.yml sets PORT=8080 which overrides the base 5000."
+  },
+  {
+    "id": "compose_cache_override",
+    "fact_type": "config",
+    "value": "true",
+    "source": "docker-compose.yml:CACHE_ENABLED",
+    "note": "CACHE_ENABLED=true overrides the base features.cache=false."
+  }
+]

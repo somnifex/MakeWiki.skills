@@ -1,0 +1,6 @@
+features:
+  telemetry: true
+  rate_limit: false
+server:
+  workers: 4
+  timeout: 30

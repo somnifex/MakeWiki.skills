@@ -164,10 +164,14 @@ def evidence(
                 if ctx.claim_set
                 else []
             )
+            coverage_data: dict[str, Any] = {}
+            if ctx.collected_evidence:
+                coverage_data = ctx.collected_evidence.coverage.model_dump()
             bundle = ctx.evidence_registry.to_evidence_bundle(
                 detection=ctx.detection,
                 files_read=files_read,
                 claims=claims_data,
+                coverage=coverage_data,
             )
             typer.echo(json_lib.dumps(bundle.model_dump(), indent=2, ensure_ascii=False))
         else:
@@ -204,6 +208,66 @@ def scan_alias(
 ) -> None:
     """Deprecated alias for `evidence`. Retained for backward compatibility."""
     evidence(target, config_path, output_format)
+
+
+@app.command(name="coverage")
+def coverage(
+    target: Path = typer.Argument(..., help="Target project directory"),
+    output_format: str = typer.Option(
+        "human", "--format", "-f", help="Output format: human | json"
+    ),
+) -> None:
+    """Report deterministic mechanical coverage of a discovery pass.
+
+    Pure bookkeeping: what was discovered, inspected, skipped (with reason),
+    and ignored by the mechanical walk, plus which categories the walk did not
+    touch (``uncovered_categories``) and low-confidence facts. No semantic
+    judgment — the LLM Scout layer owns resolving the gaps this reports.
+    """
+    from makewiki_skills.pipeline.pipeline import Pipeline
+
+    target = Path(target).resolve()
+    if not target.is_dir():
+        console.print(f"[red]Error:[/red] Not a directory: {target}")
+        raise typer.Exit(1)
+
+    cfg = _load_config(None, target)
+    pipeline = Pipeline(cfg)
+    ctx = pipeline.run_until("verify_claims")
+
+    if ctx.collected_evidence is None:
+        console.print(f"[red]Error:[/red] No coverage collected for {target}")
+        raise typer.Exit(1)
+
+    report = ctx.collected_evidence.coverage
+
+    if output_format == "json":
+        typer.echo(json_lib.dumps(report.model_dump(), indent=2, ensure_ascii=False))
+        return
+
+    console.print(f"[bold]Coverage:[/bold] {target}")
+    console.print(f"[bold]Files discovered:[/bold] {report.files_discovered}")
+    console.print(f"[bold]Inspected by tool:[/bold] {len(report.files_inspected_by_tool)}")
+    console.print(
+        f"[bold]Skipped:[/bold] {len(report.files_skipped)} "
+        f"(skipped_due_to_max_files: {report.skipped_due_to_max_files})"
+    )
+    console.print(f"[bold]Ignored:[/bold] {len(report.ignored_files)}")
+
+    if report.files_by_category:
+        table = Table(title="Files by Category")
+        table.add_column("Category")
+        table.add_column("Count", justify="right")
+        for cat, count in sorted(report.files_by_category.items()):
+            table.add_row(cat, str(count))
+        console.print(table)
+
+    if report.uncovered_categories:
+        console.print("[bold]Uncovered categories (LLM must scout manually):[/bold]")
+        for cat in report.uncovered_categories:
+            console.print(f"  - {cat}")
+    else:
+        console.print("[green]All mechanical categories covered by the walk.[/green]")
 
 
 @app.command()

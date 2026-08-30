@@ -1,0 +1,23 @@
+[
+  {
+    "id": "rc_env_required_keys",
+    "claim_type": "config",
+    "semantic_key": "config.env.required",
+    "assertion": "The service requires API_TOKEN, DB_URL, and LOG_LEVEL env keys (from .env)",
+    "must_state": ".env and its required keys are surfaced, not swept under ignore"
+  },
+  {
+    "id": "rc_app_toml_surface",
+    "claim_type": "config",
+    "semantic_key": "config.app.settings",
+    "assertion": ".config/app.yml declares features.telemetry and server.workers",
+    "must_state": "the nested .config/app.yml config is surfaced as a config entrypoint"
+  },
+  {
+    "id": "rc_ci_entrypoint",
+    "claim_type": "command",
+    "semantic_key": "ci.entrypoint",
+    "assertion": "The repo has a CI workflow at .github/workflows/ci.yml",
+    "must_state": "the hidden/deploy entrypoint (.github) is surfaced"
+  }
+]

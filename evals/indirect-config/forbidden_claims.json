@@ -1,0 +1,16 @@
+[
+  {
+    "id": "fc_stale_base_port",
+    "claim_type": "config",
+    "semantic_key": "config.port.effective",
+    "forbidden_assertion": "State the default port is 5000 with no reference to the compose override",
+    "reason": "config.yaml is overridden by docker-compose PORT=8080; asserting 5000 as the running value ignores the override"
+  },
+  {
+    "id": "fc_stale_base_cache",
+    "claim_type": "config",
+    "semantic_key": "config.cache.effective",
+    "forbidden_assertion": "State caching is disabled with no reference to CACHE_ENABLED=true",
+    "reason": "the override turns cache on; asserting base false misses the composed config"
+  }
+]

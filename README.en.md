@@ -63,6 +63,7 @@ The CLI surface is designed around authoritative names with backward-compatible 
 | Config Init                     | `/makewiki-init`                       | —                   | Generate default `makewiki.config.yaml`                              |
 | Toolkit: Sizing                 | `makewiki sizing <path>`               | —                   | Tier S/M/L classification                                            |
 | Toolkit: Evidence               | `makewiki evidence <path>`             | `makewiki scan`     | Fact JSON (no interpretation)                                        |
+| Toolkit: Coverage               | `makewiki coverage <path>`             | —                   | Mechanical coverage report: discovered vs scanned vs skipped vs ignored, uncovered categories, low-confidence facts |
 | Toolkit: Verify                 | `makewiki verify-docs <path>`          | `makewiki verify`   | L0–L5 + QualityGate → four-state verdict (`passed` / `pending_semantic_review` / `pending_mechanical_verification` / `failed`) + CI exit code |
 | Toolkit: Claim verify           | `makewiki verify-claim <claim.json>`   | —                   | Per-claim L-status                                                   |
 | Toolkit: Model verify           | `makewiki verify-model <model.json>`   | —                   | SemanticModel schema + evidence-ref validation                       |

@@ -149,6 +149,10 @@ def _fixture_bundle(trap: str, run_dir: Path, *, seed: int, host: str) -> dict[s
     return {
         "misleading-readme": fixtures_bundles.MISLEADING_README,
         "ambiguous-install": fixtures_bundles.AMBIGUOUS_INSTALL,
+        "hidden-entrypoints": fixtures_bundles.HIDDEN_ENTRYPOINTS,
+        "indirect-config": fixtures_bundles.INDIRECT_CONFIG,
+        "stale-readme": fixtures_bundles.STALE_README,
+        "monorepo-discovery": fixtures_bundles.MONOREPO_DISCOVERY,
     }.get(trap)
 
 

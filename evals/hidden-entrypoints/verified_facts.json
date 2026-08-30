@@ -1,0 +1,37 @@
+[
+  {
+    "id": "env_token_key",
+    "fact_type": "config",
+    "value": "API_TOKEN",
+    "source": ".env",
+    "note": "The docs MUST state API_TOKEN as a required env key read from .env."
+  },
+  {
+    "id": "env_db_key",
+    "fact_type": "config",
+    "value": "DB_URL",
+    "source": ".env",
+    "note": "DB_URL is read from .env."
+  },
+  {
+    "id": "yml_telemetry",
+    "fact_type": "config",
+    "value": "telemetry",
+    "source": ".config/app.yml",
+    "note": "The nested .config/app.yml keys (features.telemetry, server.workers) must be surfaced, not ignored."
+  },
+  {
+    "id": "yml_workers",
+    "fact_type": "config",
+    "value": "workers",
+    "source": ".config/app.yml",
+    "note": "server.workers default is 4."
+  },
+  {
+    "id": "ci_workflow",
+    "fact_type": "command",
+    "value": "ci workflow",
+    "source": ".github/workflows/ci.yml",
+    "note": "The CI/deploy entrypoint (.github/workflows) must be surfaced as an entrypoint."
+  }
+]

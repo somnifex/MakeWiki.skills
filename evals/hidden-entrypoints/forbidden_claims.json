@@ -1,0 +1,16 @@
+[
+  {
+    "id": "fc_ignore_env",
+    "claim_type": "config",
+    "semantic_key": "config.env.required",
+    "forbidden_assertion": "State that the service has no configuration entries",
+    "reason": "the hidden .env / .config/app.yml entries exist and MUST be surfaced"
+  },
+  {
+    "id": "fc_no_ci",
+    "claim_type": "command",
+    "semantic_key": "ci.entrypoint",
+    "forbidden_assertion": "State there is no CI or deployment configuration",
+    "reason": "the .github/workflows/ci.yml entrypoint must not be ignored"
+  }
+]

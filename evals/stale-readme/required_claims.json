@@ -1,0 +1,9 @@
+[
+  {
+    "id": "rc_default_port",
+    "claim_type": "config",
+    "semantic_key": "network.port.default",
+    "assertion": "The CLI serve --port default is 8080 (per app/echo_cli/main.py)",
+    "must_state": "8080 as the real default, grounded in the source parser"
+  }
+]

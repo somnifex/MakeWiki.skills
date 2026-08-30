@@ -40,6 +40,7 @@ class EvidenceBundle(BaseModel):
     total_facts: int = 0
     files_read: list[str] = Field(default_factory=list)
     commands_discovered: list[str] = Field(default_factory=list)
+    coverage: dict[str, Any] = Field(default_factory=dict)
 
     @classmethod
     def from_registry(
@@ -48,6 +49,7 @@ class EvidenceBundle(BaseModel):
         facts: list[EvidenceFact],
         files_read: list[str] | None = None,
         claims: list[dict[str, Any]] | None = None,
+        coverage: dict[str, Any] | None = None,
     ) -> EvidenceBundle:
         grouped: dict[str, list[EvidenceBundleFact]] = {}
         summary: dict[str, int] = {}
@@ -94,4 +96,5 @@ class EvidenceBundle(BaseModel):
             total_facts=len(facts),
             files_read=files_read or [],
             commands_discovered=commands,
+            coverage=coverage or {},
         )

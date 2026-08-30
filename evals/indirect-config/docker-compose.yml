@@ -1,0 +1,6 @@
+services:
+  svc:
+    build: .
+    environment:
+      - PORT=8080
+      - CACHE_ENABLED=true
