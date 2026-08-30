@@ -123,11 +123,12 @@ authoritative_pipeline:
     output: "adjudicated SemanticModel + LLM-authored ClaimSet"
 
   phase_3_writers_and_ia:
-    cognitive: "Main Agent designs bespoke Information Architecture (IA); dispatches Per-Language Native Writers"
+    cognitive: "Main Agent designs bespoke Information Architecture (IA) and authors the SitePresentationPlan; dispatches Per-Language Native Writers"
     mechanical: "python run_toolkit.py parity <target> --lang ...  # exact block parity"
     constraints:
       - "100% code-block (stable IDs) and section marker parity across languages"
       - "Independent generation from SemanticModel — never machine-translated"
+      - "SitePresentationPlan (site IA + visual direction) is LLM-authored and persisted; Python never infers it from filenames"
 
   phase_4_audit_and_revise:
     cognitive_subagents: "Auditor (LLM) — L3 behavior review, L4 prose parity, L5 over-assertion, emits SemanticAuditBundle"
@@ -135,9 +136,9 @@ authoritative_pipeline:
     revision_loop: "Auditor edits Markdown in place until Quality Gate passes"
 
   phase_5_site_and_delivery:
-    cognitive: "Main Agent decides final delivery condition based on audit, coverage, and user goal"
+    cognitive: "Main Agent decides final delivery condition based on audit, coverage, and user goal; it has already authored the SitePresentationPlan (site IA) in Phase 3"
     mechanical:
-      - "python run_toolkit.py build-site <wiki_dir>"
+      - "python run_toolkit.py build-site <wiki_dir>  # consumes SitePresentationPlan; pending/unavailable without it — never fabricated IA"
       - "python run_toolkit.py export <wiki_dir> --format html|epub|all  # pdf rejected"
       - "python run_toolkit.py sync-bundle <wiki_dir> --target confluence|notion  # bundle-prep only, no publish"
 ```
@@ -546,6 +547,7 @@ dynamic_search_loop:
 The Main Agent owns the **Information Architecture (IA)**. Diátaxis serves strictly as a **cognitive rubric** (Tutorials, How-To, Reference, Explanation), rather than a rigid list of mandatory filenames.
 
 - **Bespoke Document Set**: The Main Agent designs the document hierarchy, page names, and nesting based on repository shape and user intent (no mandatory FAQ/Troubleshooting templates).
+- **SitePresentationPlan (persisted)**: The Main Agent records the site's IA and visual direction as an LLM-authored `SitePresentationPlan` (written to `<wiki_dir>/site_presentation.json` or `.yaml`), covering project title/description, navigation (per-page `document_id`, `route`, localized `title`(s), `nav_group`, `ordering`, hierarchy), languages, and visual preferences. The static-site compiler consumes ONLY this plan — Python never derives navigation, page roles, ordering, or hierarchy from filenames or keywords. A Site Designer subagent may be dispatched by the Main Agent to author it.
 - **Quality Standards**: Help developers understand the system quickly while providing comprehensive operational, configuration, and deployment runbooks where appropriate.
 - **Stable Parity Keying**:
   - Technical fenced code blocks must carry `[[id:<slug>]]` (or `[[parity:ignore reason="..."]]`).
@@ -603,6 +605,13 @@ Parse `$ARGUMENTS` for:
    ```
 
 ### Phase 5: Offline Static Site Compilation (Mechanical)
+
+The **Main Agent (or a dispatched Site Designer subagent)** authored
+`SitePresentationPlan` to `site_presentation.json` during Phase 3. The site
+compiler consumes that plan and renders its navigation, ordering, hierarchy,
+routes, and localized titles verbatim — it never derives an Information
+Architecture from filenames. Without a plan the build reports
+pending/unavailable (never fabricated IA, never blocks cognition).
 
 ```bash
 python <makewiki_root>/scripts/run_toolkit.py build-site <output_dir> --theme auto

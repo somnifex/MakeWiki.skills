@@ -1032,10 +1032,27 @@ def build_site(
         "-o",
         help="Output directory for static site (defaults to <makewiki_dir>/site)",
     ),
-    theme: str = typer.Option("auto", "--theme", help="Theme mode: auto, light, dark"),
-    title: str = typer.Option("Project Documentation", "--title", help="Site title"),
+    plan: Path | None = typer.Option(
+        None,
+        "--plan",
+        "-p",
+        help="Path to the LLM-authored SitePresentationPlan "
+        "(defaults to <makewiki_dir>/site_presentation.json or .yaml)",
+    ),
+    theme: str = typer.Option(
+        None, "--theme", help="Theme mode override: auto, light, dark (plan visual preferred)"
+    ),
 ) -> None:
-    """Compile generated Markdown documentation into an offline static website."""
+    """Compile generated Markdown into an offline static website (plan-driven).
+
+    The site's Information Architecture (navigation, groups, ordering, page
+    roles, hierarchy) comes solely from an LLM-authored SitePresentationPlan —
+    the Main Agent / Site Designer is the only Site planning authority. The
+    compiler renders that plan mechanically; it never derives IA from
+    filenames. When no plan exists, the build is left unavailable/pending and
+    exits cleanly rather than fabricating an Information Architecture.
+    """
+    from makewiki_skills.model.site_presentation import load_site_presentation
     from makewiki_skills.renderer.site_compiler import SiteCompiler
 
     makewiki_dir = Path(makewiki_dir).resolve()
@@ -1043,7 +1060,43 @@ def build_site(
         console.print(f"[red]Error:[/red] Documentation directory does not exist: {makewiki_dir}")
         raise typer.Exit(1)
 
-    compiler = SiteCompiler(theme=theme, title=title)
+    # Locate the LLM-authored plan: explicit --plan, else the conventional name
+    # in the wiki directory. A missing plan is an "unavailable/pending" outcome,
+    # never a fabricated IA — exit 0 so the Main Agent's cognitive work proceeds.
+    plan_path = plan
+    if plan_path is None:
+        for candidate in ("site_presentation.json", "site_presentation.yaml", "site_presentation.yml"):
+            probe = makewiki_dir / candidate
+            if probe.is_file():
+                plan_path = probe
+                break
+    if plan_path is None or not Path(plan_path).is_file():
+        console.print(
+            "[yellow]No SitePresentationPlan found — site build is pending.[/yellow] "
+            "The Main Agent must author a SitePresentationPlan (e.g. "
+            "<wiki_dir>/site_presentation.json) that declares project title, "
+            "navigation, ordering, and visual direction. Build remains "
+            "unavailable until then; cognitive work is not blocked."
+        )
+        raise typer.Exit(0)
+
+    try:
+        site_plan = load_site_presentation(plan_path)
+    except Exception as exc:
+        console.print(f"[red]Error:[/red] Invalid SitePresentationPlan at {plan_path}: {exc}")
+        raise typer.Exit(1)
+
+    if theme:
+        if theme not in ("auto", "light", "dark"):
+            console.print(
+                f"[red]Error:[/red] Invalid --theme {theme!r}; expected auto, light or dark."
+            )
+            raise typer.Exit(1)
+        # A CLI --theme is an explicit mechanical override of the plan's visual
+        # direction; the plan remains the authority for IA.
+        site_plan.visual.theme = theme  # type: ignore[assignment]
+
+    compiler = SiteCompiler(plan=site_plan)
     written = compiler.compile(makewiki_dir, output)
     console.print("[green]Static site compiled successfully![/green]")
     for path in written:

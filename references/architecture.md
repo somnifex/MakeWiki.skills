@@ -120,9 +120,9 @@ authoritative_pipeline:
     anti_cliche: "Anti-cliché prose rewriting is the LLM Auditor's job, never a mechanical rewrite"
 
   phase_5_site:
-    cognitive: "none"
+    cognitive_main_agent: "Main Agent (or Site Designer subagent) authored SitePresentationPlan (site IA + visual direction) in Phase 3"
     mechanical:
-      - "run_toolkit.py build-site <wiki_dir>"
+      - "build-site consumes SitePresentationPlan and renders nav/order/hierarchy/routes verbatim; no plan -> pending/unavailable, never fabricated IA"
       - "run_toolkit.py export <wiki_dir> --format html|epub|all  # pdf rejected"
       - "run_toolkit.py sync-bundle <wiki_dir> --target confluence|notion  # bundle-prep only"
 ```

@@ -32,6 +32,12 @@ from makewiki_skills.model.search_ledger import (
     SearchLedger,
     parse_search_ledger_markdown,
 )
+from makewiki_skills.model.site_presentation import (
+    SiteNavItem,
+    SitePresentationPlan,
+    SiteVisualPreferences,
+    load_site_presentation,
+)
 
 __all__ = [
     "AdjudicatedClaim",
@@ -50,10 +56,14 @@ __all__ = [
     "OrchestrationState",
     "ScoutClaim",
     "SearchLedger",
+    "SiteNavItem",
+    "SitePresentationPlan",
+    "SiteVisualPreferences",
     "ToolFailureRecord",
     "VerificationState",
     "VerificationStatus",
     "build_claims_from_evidence",
+    "load_site_presentation",
     "parse_search_ledger_markdown",
     "verify_claims_against_codebase",
 ]

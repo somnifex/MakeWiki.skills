@@ -1,7 +1,25 @@
-"""Static Wiki Website Compiler.
+"""Static Wiki Website Compiler (plan-driven, mechanical renderer).
 
 Compiles generated Markdown wiki documentation into an offline, zero-dependency,
-responsive static website with multilingual switcher, dark/light theme, and search.
+responsive static website with multilingual switcher, dark/light theme, and
+search.
+
+The compiler is a PURE MECHANICAL renderer. It consumes an LLM-authored
+:class:`~makewiki_skills.model.site_presentation.SitePresentationPlan` that
+declares the site's Information Architecture (navigation groups, page order,
+routes, hierarchy, localized titles) and visual direction, and renders exactly
+that plan. It performs NO semantic page classification:
+
+* It never infers a page role (Overview / Getting Started / FAQ / Deployment /
+  etc.), navigation group, ordering, or hierarchy from a filename or keyword.
+* It locates each document purely by the plan's stable ``document_id`` and
+  resolves the localized Markdown content mechanically.
+* Without a plan it refuses to compile — it does NOT fabricate an IA — so a
+  missing plan leaves site build in an ``unavailable``/``pending`` state that
+  never blocks the Main Agent's cognitive work.
+
+This is the Cognitive Authority Boundary for the site: the Main Agent / Site
+Designer LLM authorises the plan; Python only packages it.
 """
 
 from __future__ import annotations
@@ -12,22 +30,51 @@ import re
 from pathlib import Path
 from typing import Any
 
+from makewiki_skills.model.site_presentation import (
+    SiteNavItem,
+    SitePresentationPlan,
+)
+
+
+class SitePlanRequiredError(RuntimeError):
+    """Raised when the compiler is asked to build without a presentation plan.
+
+    The compiler refuses to invent an Information Architecture. A missing plan
+    is an ``unavailable`` outcome, not a license to classify filenames.
+    """
+
 
 class SiteCompiler:
-    """Compiles a directory of makewiki Markdown files into a standalone static site."""
+    """Compiles a plan + a directory of makewiki Markdown files into a site.
 
-    def __init__(
+    ``plan`` may be supplied at construction or per-``compile`` call. A compile
+    without a plan raises :class:`SitePlanRequiredError`.
+    """
+
+    def __init__(self, plan: SitePresentationPlan | None = None) -> None:
+        self.plan = plan
+
+    def compile(
         self,
-        theme: str = "auto",
-        title: str = "Project Documentation",
-        include_search: bool = True,
-    ) -> None:
-        self.theme = theme
-        self.title = title
-        self.include_search = include_search
+        makewiki_dir: Path,
+        output_dir: Path | None = None,
+        plan: SitePresentationPlan | None = None,
+    ) -> list[str]:
+        """Compile plan-driven site into output_dir/site."""
+        resolved_plan = plan or self.plan
+        if resolved_plan is None:
+            raise SitePlanRequiredError(
+                "No SitePresentationPlan provided. The Main Agent must author "
+                "a SitePresentationPlan (the single IA authority) before a site "
+                "can be compiled; a build without a plan never fabricates an "
+                "Information Architecture from filenames."
+            )
+        if not resolved_plan.navigation:
+            raise SitePlanRequiredError(
+                "SitePresentationPlan has an empty navigation. The Main Agent "
+                "must declare at least the page structure the site renders."
+            )
 
-    def compile(self, makewiki_dir: Path, output_dir: Path | None = None) -> list[str]:
-        """Compile Markdown files in makewiki_dir into output_dir/site."""
         makewiki_dir = Path(makewiki_dir).resolve()
         if not makewiki_dir.is_dir():
             raise ValueError(f"MakeWiki directory does not exist: {makewiki_dir}")
@@ -39,99 +86,143 @@ class SiteCompiler:
 
         site_dir.mkdir(parents=True, exist_ok=True)
 
-        docs = self._collect_documents(makewiki_dir)
-        html_content = self._render_spa_html(docs, self.title, self.theme)
+        content_by_lang = self._discover_content(makewiki_dir, resolved_plan)
+        html_content = self._render_spa_html(content_by_lang, resolved_plan)
 
         index_file = site_dir / "index.html"
         index_file.write_text(html_content, encoding="utf-8")
 
         return [str(index_file)]
 
-    def _collect_documents(self, root_dir: Path) -> dict[str, dict[str, dict[str, Any]]]:
-        """Group documents by language and doc slug."""
-        # result: { "en": { "readme": { "title": "...", "content": "...", "category": "..." } } }
-        docs_by_lang: dict[str, dict[str, dict[str, Any]]] = {}
+    @staticmethod
+    def _lang_document_path(makewiki_dir: Path, document_id: str, lang: str) -> Path:
+        """Mechanical path resolution for a plan document_id + language.
 
-        # Look for all .md files in root_dir and subdirs (like usage/)
-        for md_file in sorted(root_dir.rglob("*.md")):
-            # Skip site/ directory if inside makewiki_dir
-            if "site" in md_file.parts:
-                continue
-
-            rel_path = md_file.relative_to(root_dir)
-            rel_str = str(rel_path).replace("\\", "/")
-
-            lang = "en"
-            base_slug = rel_str[:-3]  # strip .md
-
-            # Check language suffix e.g. README.zh-CN.md, usage/overview.ja.md
-            match = re.search(r"\.([a-z]{2}(?:-[A-Z]{2,4})?)$", base_slug, re.IGNORECASE)
-            if match:
-                lang = match.group(1)
-                base_slug = base_slug[: match.start()]
-
-            # Determine category and sort priority
-            category, title, priority = self._categorize_doc(base_slug, md_file)
-            content_md = md_file.read_text(encoding="utf-8")
-
-            # Extract H1 title if available
-            h1_match = re.search(r"^#\s+(.+)$", content_md, re.MULTILINE)
-            if h1_match:
-                title = h1_match.group(1).strip()
-
-            docs_by_lang.setdefault(lang, {})[base_slug] = {
-                "slug": base_slug,
-                "title": title,
-                "category": category,
-                "priority": priority,
-                "markdown": content_md,
-                "rel_path": rel_str,
-            }
-
-        return docs_by_lang
+        Follows the markdown naming convention: the ``en`` content is the plain
+        ``<document_id>.md`` while every other language is ``<document_id>.<lang>
+        .md``. ``document_id`` IS the relative path from the wiki root (e.g.
+        ``"usage/deploy"`` resolves to ``usage/deploy.md``). No filename/keyword
+        semantics are interpreted here — the id names the file verbatim.
+        """
+        suffix = "" if lang == "en" else f".{lang}"
+        return makewiki_dir / f"{document_id}{suffix}.md"
 
     @staticmethod
-    def _categorize_doc(slug: str, file_path: Path) -> tuple[str, str, int]:
-        slug_lower = slug.lower()
-        if slug_lower in ("readme", "index"):
-            return "Overview", "Project Overview", 10
-        elif slug_lower.startswith("getting-started"):
-            return "Getting Started", "Quick Start", 20
-        elif slug_lower.startswith("installation") or slug_lower.startswith("deployment"):
-            return "Installation & Deployment", "Installation & Runbook", 30
-        elif slug_lower.startswith("configuration") or slug_lower.startswith(
-            "environment-variables"
-        ):
-            return "Configuration", "Configuration Reference", 40
-        elif slug_lower.startswith("usage"):
-            subname = slug_lower.replace("usage/", "").replace("usage\\", "").capitalize()
-            return "Usage & Workflows", f"Usage - {subname}", 50
-        elif slug_lower.startswith("troubleshooting"):
-            return "Operations & Support", "Troubleshooting & Incident Runbook", 60
-        elif slug_lower.startswith("faq"):
-            return "FAQ", "Frequently Asked Questions", 70
-        else:
-            return "Reference", slug.replace("-", " ").title(), 80
+    def _extract_h1(content_md: str) -> str | None:
+        """Mechanically pull the first ``# H1`` from a document, if any."""
+        match = re.search(r"^#\s+(.+)$", content_md, re.MULTILINE)
+        return match.group(1).strip() if match else None
+
+    @staticmethod
+    def _flatten_nav_items(items: list[SiteNavItem]) -> list[SiteNavItem]:
+        """Flatten root + child nav items into one list (site nav never nests
+        beyond two levels)."""
+        flat: list[SiteNavItem] = []
+        for item in items:
+            flat.append(item)
+            flat.extend(item.children)
+        return flat
+
+    def _discover_content(
+        self, makewiki_dir: Path, plan: SitePresentationPlan
+    ) -> dict[str, dict[str, dict[str, str]]]:
+        """Mechanically resolve each plan-referenced document's Markdown.
+
+        Returns ``{ lang: { document_id: {"markdown": ..., "title": ...} } }``.
+        The document set is EXACTLY the plan's navigation — Python never adds
+        documents, groups, or ordering of its own. A document missing for a
+        given language is omitted from that language (mechanical absence); a
+        plan reference with no file at all is a plan error the renderer surfaces.
+        """
+        content_by_lang: dict[str, dict[str, dict[str, str]]] = {
+            lang: {} for lang in plan.languages
+        }
+        missing: list[str] = []
+
+        # Resolve root + child nav items; ordering/grouping come from the plan.
+        nav_items = self._flatten_nav_items(plan.navigation)
+
+        for lang in plan.languages:
+            for item in nav_items:
+                path = self._lang_document_path(makewiki_dir, item.document_id, lang)
+                if not path.is_file():
+                    # Recorded so effective languages can be computed; not an
+                    # error the renderer should fail on (a doc may be absent for
+                    # one language while present for another).
+                    missing.append(f"{item.document_id}.{lang}")
+                    continue
+                content_md = path.read_text(encoding="utf-8", errors="replace")
+                content_by_lang[lang][item.document_id] = {
+                    "markdown": content_md,
+                    "title": self._extract_h1(content_md) or item.title,
+                }
+
+        return content_by_lang
 
     def _render_spa_html(
-        self, docs_by_lang: dict[str, dict[str, dict[str, Any]]], title: str, theme: str
+        self,
+        content_by_lang: dict[str, dict[str, dict[str, str]]],
+        plan: SitePresentationPlan,
     ) -> str:
-        docs_json = json.dumps(docs_by_lang, ensure_ascii=False)
+        """Render the single-file SPA from the plan's IA + resolved content."""
+
+        def _nav_item_dict(item: SiteNavItem) -> dict[str, Any]:
+            return {
+                "id": item.document_id,
+                "route": item.route,
+                "title": item.title,
+                "titles": item.titles,
+                "group": item.nav_group,
+                "order": item.ordering,
+                "children": [_nav_item_dict(child) for child in item.children],
+            }
+
+        # Only languages that actually resolved at least one document are listed
+        # in the switcher (a language with zero content cannot render).
+        languages = [
+            lang for lang in plan.languages if content_by_lang.get(lang)
+        ] or [plan.default_language]
+
+        site_config: dict[str, Any] = {
+            "projectTitle": plan.project_title,
+            "projectDescription": plan.project_description,
+            "defaultLang": plan.default_language if plan.default_language in languages else languages[0],
+            "languages": languages,
+            "visual": {
+                "theme": plan.visual.theme,
+                "include_search": plan.visual.include_search,
+                "accentColor": plan.visual.accent_color,
+                "brandLabel": plan.visual.brand_label,
+            },
+        }
+        site_nav: list[dict[str, Any]] = [_nav_item_dict(item) for item in plan.navigation]
+
+        # Content keyed by lang -> document_id -> markdown, for the JS viewer.
+        docs_json_obj: dict[str, dict[str, str]] = {}
+        for lang, docs in content_by_lang.items():
+            docs_json_obj[lang] = {
+                doc_id: entry["markdown"] for doc_id, entry in docs.items()
+            }
+
+        config_json = json.dumps(site_config, ensure_ascii=False)
+        nav_json = json.dumps(site_nav, ensure_ascii=False)
+        docs_json = json.dumps(docs_json_obj, ensure_ascii=False)
+
         search_box_html = (
             """<div class="search-box">
         <span class="search-icon">🔍</span>
         <input type="text" id="searchInput" class="search-input" placeholder="Search docs..." />
       </div>"""
-            if self.include_search
+            if plan.visual.include_search
             else ""
         )
 
         return f"""<!DOCTYPE html>
-<html lang="en" data-theme="{theme}">
+<html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>{html.escape(title)} - MakeWiki</title>
+  <title>{html.escape(plan.project_title)} - MakeWiki</title>
   <style>
     :root {{
       --bg-primary: #ffffff;
@@ -141,7 +232,7 @@ class SiteCompiler:
       --text-primary: #0f172a;
       --text-secondary: #475569;
       --text-muted: #94a3b8;
-      --accent: #2563eb;
+      --accent: {plan.visual.accent_color or '#2563eb'};
       --accent-hover: #1d4ed8;
       --code-bg: #1e293b;
       --code-text: #f8fafc;
@@ -159,7 +250,7 @@ class SiteCompiler:
       --text-primary: #f8fafc;
       --text-secondary: #cbd5e1;
       --text-muted: #64748b;
-      --accent: #38bdf8;
+      --accent: {plan.visual.accent_color or '#38bdf8'};
       --accent-hover: #0ea5e9;
       --code-bg: #0b1120;
       --code-text: #e2e8f0;
@@ -282,6 +373,10 @@ class SiteCompiler:
       margin-bottom: 2px;
       transition: background 0.15s, color 0.15s;
       cursor: pointer;
+    }}
+    .nav-item.child {{
+      padding-left: 1.5rem;
+      font-size: 0.85rem;
     }}
     .nav-item:hover {{
       background: var(--border-color);
@@ -415,8 +510,8 @@ class SiteCompiler:
 </head>
 <body>
   <header>
-    <a href="#" onclick="navigateTo('README'); return false;" class="brand">
-      <span>📚 MakeWiki</span>
+    <a href="#" onclick="navigateTo(siteConfig.defaultLang, null, true); return false;" class="brand">
+      <span>📚 {html.escape(plan.visual.brand_label)}</span>
       <span class="badge">Offline Docs</span>
     </a>
     <div class="nav-actions">
@@ -438,49 +533,51 @@ class SiteCompiler:
   </div>
 
   <script>
-    const docsData = {docs_json};
-    let currentLang = Object.keys(docsData)[0] || 'en';
-    let currentSlug = 'README';
+    const siteConfig = {config_json};
+    const siteNav = {nav_json};
+    const docsContent = {docs_json};
 
-    function init() {{
-      const langSelect = document.getElementById('langSelect');
-      langSelect.innerHTML = '';
-      Object.keys(docsData).forEach(lang => {{
-        const opt = document.createElement('option');
-        opt.value = lang;
-        opt.textContent = getLangLabel(lang);
-        langSelect.appendChild(opt);
+    let currentLang = siteConfig.defaultLang;
+    let currentRoute = null;
+
+    // --- navigation helpers (nav structure comes ONLY from the plan) ---
+
+    function allNavItems() {{
+      const out = [];
+      siteNav.forEach(group => {{
+        out.push(group);
+        (group.children || []).forEach(c => out.push(c));
       }});
-
-      // Pick starting slug from URL hash if given
-      if (window.location.hash && window.location.hash.length > 1) {{
-        currentSlug = decodeURIComponent(window.location.hash.slice(1));
-      }} else if (docsData[currentLang] && !findDoc(currentSlug)) {{
-        currentSlug = Object.keys(docsData[currentLang])[0] || 'README';
-      }}
-
-      langSelect.value = currentLang;
-      langSelect.addEventListener('change', (e) => {{
-        currentLang = e.target.value;
-        renderSidebar();
-        renderDoc(currentSlug);
-      }});
-
-      window.addEventListener('hashchange', () => {{
-        if (window.location.hash && window.location.hash.length > 1) {{
-          const targetSlug = decodeURIComponent(window.location.hash.slice(1));
-          if (targetSlug !== currentSlug) {{
-            navigateTo(targetSlug, false);
-          }}
-        }}
-      }});
-
-      document.getElementById('themeToggle').addEventListener('click', toggleTheme);
-      document.getElementById('searchInput').addEventListener('input', handleSearch);
-
-      renderSidebar();
-      renderDoc(currentSlug);
+      return out;
     }}
+
+    function navItemByRoute(route) {{
+      return allNavItems().find(i => i.route === route) || null;
+    }}
+
+    function navItemByHome() {{ return siteNav.length ? siteNav[0] : null; }}
+
+    function activeNavItem() {{
+      if (currentRoute) {{
+        const byRoute = navItemByRoute(currentRoute);
+        if (byRoute) return byRoute;
+      }}
+      return navItemByHome();
+    }}
+
+    function itemTitle(item, lang) {{
+      return (item.titles && item.titles[lang]) || item.title;
+    }}
+
+    function hasContent(item, lang) {{
+      return !!(docsContent[lang] && docsContent[lang][item.id]);
+    }}
+
+    function firstRoutableItem(lang) {{
+      return allNavItems().find(i => hasContent(i, lang)) || null;
+    }}
+
+    // --- language + theme ---
 
     function getLangLabel(code) {{
       const map = {{ 'en': 'English', 'zh-CN': '简体中文', 'ja': '日本語', 'de': 'Deutsch', 'fr': 'Français' }};
@@ -494,103 +591,153 @@ class SiteCompiler:
       root.setAttribute('data-theme', next);
     }}
 
-    function navigateTo(slug, updateHash = true) {{
-      if (!slug) return;
-      currentSlug = slug;
-      if (updateHash) {{
-        window.location.hash = '#' + slug;
+    // --- navigation ---
+
+    function navigateTo(lang, route, updateHash) {{
+      if (lang) currentLang = lang;
+      if (route !== undefined && route !== null) currentRoute = route;
+      else {{
+        const item = activeNavItem();
+        currentRoute = item ? item.route : (firstRoutableItem(currentLang) || {{route: '#'}}).route;
       }}
-      document.querySelectorAll('.nav-item').forEach(el => {{
-        const itemSlug = el.getAttribute('data-slug');
-        const isActive = itemSlug === slug || (itemSlug && itemSlug.toLowerCase() === slug.toLowerCase());
-        el.classList.toggle('active', !!isActive);
-      }});
-      renderDoc(slug);
+      if (siteConfig.languages.indexOf(currentLang) === -1) {{
+        currentLang = siteConfig.defaultLang;
+      }}
+      if (updateHash && window.location.hash !== ('#' + currentRoute)) {{
+        window.location.hash = '#' + currentRoute;
+      }}
+      renderSidebar();
+      renderDoc();
       window.scrollTo({{ top: 0, behavior: 'smooth' }});
     }}
 
-    function renderSidebar(filteredSlugs = null) {{
+    // --- sidebar rendering (painting the plan's IA, verbatim) ---
+
+    function renderSidebar(filteredIds = null) {{
       const sidebar = document.getElementById('sidebar');
       sidebar.innerHTML = '';
+      const active = activeNavItem();
 
-      const langDocs = docsData[currentLang] || {{}};
-      const categories = {{}};
-
-      Object.values(langDocs).forEach(doc => {{
-        if (filteredSlugs && !filteredSlugs.includes(doc.slug)) return;
-        if (!categories[doc.category]) categories[doc.category] = [];
-        categories[doc.category].push(doc);
+      // Group plan items by nav_group, preserving plan order.
+      const groups = [];
+      const groupIndex = {{}};
+      siteNav.forEach(item => {{
+        const items = [item].concat(item.children || []);
+        items.forEach(ni => {{
+          if (filteredIds && filteredIds.indexOf(ni.id) === -1) return;
+          let g = groupIndex[ni.group];
+          if (g === undefined) {{
+            g = {{ name: ni.group, items: [] }};
+            groupIndex[ni.group] = groups.length;
+            groups.push(g);
+          }}
+          g.items.push(ni);
+        }});
       }});
 
-      Object.entries(categories).forEach(([catName, docs]) => {{
-        docs.sort((a, b) => a.priority - b.priority);
+      groups.forEach(g => {{
+        g.items.sort((a, b) => a.order - b.order);
         const grp = document.createElement('div');
         grp.className = 'nav-group';
-
         const title = document.createElement('div');
         title.className = 'nav-group-title';
-        title.textContent = catName;
+        title.textContent = g.name;
         grp.appendChild(title);
-
-        docs.forEach(doc => {{
-          const item = document.createElement('a');
-          const isActive = doc.slug === currentSlug || doc.slug.toLowerCase() === currentSlug.toLowerCase();
-          item.className = 'nav-item' + (isActive ? ' active' : '');
-          item.textContent = doc.title;
-          item.href = '#' + doc.slug;
-          item.setAttribute('data-slug', doc.slug);
-          item.onclick = (e) => {{
-            e.preventDefault();
-            navigateTo(doc.slug);
-          }};
-          grp.appendChild(item);
+        g.items.forEach(ni => {{
+          const a = document.createElement('a');
+          const isActive = active && ni.route === active.route;
+          a.className = 'nav-item' + (ni.parent ? ' child' : '') + (isActive ? ' active' : '');
+          a.textContent = itemTitle(ni, currentLang);
+          a.href = '#' + ni.route;
+          a.setAttribute('data-route', ni.route);
+          a.onclick = (e) => {{ e.preventDefault(); navigateTo(currentLang, ni.route, true); }};
+          grp.appendChild(a);
         }});
-
         sidebar.appendChild(grp);
       }});
     }}
 
+    // --- search ---
+
     function handleSearch(e) {{
       const query = e.target.value.toLowerCase().trim();
-      if (!query) {{
-        renderSidebar();
-        return;
-      }}
-
-      const langDocs = docsData[currentLang] || {{}};
-      const matched = Object.values(langDocs).filter(d =>
-        d.title.toLowerCase().includes(query) || d.markdown.toLowerCase().includes(query)
-      ).map(d => d.slug);
-
+      if (!query) {{ renderSidebar(); return; }}
+      const items = allNavItems();
+      const matched = items.filter(ni => {{
+        const md = docsContent[currentLang] && docsContent[currentLang][ni.id];
+        const hay = itemTitle(ni, currentLang).toLowerCase() + '\\n' + (md ? md.toLowerCase() : '');
+        return hay.includes(query);
+      }}).map(ni => ni.id);
       renderSidebar(matched);
     }}
 
-    function findDoc(slug) {{
-      if (!slug) return null;
-      const langDocs = docsData[currentLang] || {{}};
-      if (langDocs[slug]) return langDocs[slug];
-      const lower = slug.toLowerCase();
-      for (const k in langDocs) {{
-        if (k.toLowerCase() === lower) return langDocs[k];
-      }}
-      if (docsData['en']) {{
-        if (docsData['en'][slug]) return docsData['en'][slug];
-        for (const k in docsData['en']) {{
-          if (k.toLowerCase() === lower) return docsData['en'][k];
-        }}
+    // --- document rendering ---
+
+    function currentDocMarkdown() {{
+      const item = activeNavItem();
+      if (!item) return null;
+      const md = docsContent[currentLang] && docsContent[currentLang][item.id];
+      if (md) return md;
+      // Cross-language fallback: render the default-language content if this
+      // language has no file, so a partially-localized site still reads.
+      if (currentLang !== siteConfig.defaultLang && docsContent[siteConfig.defaultLang]) {{
+        const fallback = docsContent[siteConfig.defaultLang][item.id];
+        if (fallback) return fallback;
       }}
       return null;
     }}
 
-    function renderDoc(slug) {{
-      const doc = findDoc(slug);
+    function renderDoc() {{
       const viewer = document.getElementById('docViewer');
-      if (!doc) {{
-        viewer.innerHTML = `<h1>Document Not Found</h1><p>The requested page <code>${{escapeHtml(slug)}}</code> does not exist in this language.</p><p><a href="#README" onclick="navigateTo('README'); return false;" class="wiki-link">← Return to Overview</a></p>`;
+      const item = activeNavItem();
+      const md = currentDocMarkdown();
+      if (!item || md === null) {{
+        const home = navItemByHome();
+        const homeRoute = home ? home.route : '#';
+        viewer.innerHTML = `<h1>Document Not Found</h1><p>The requested page could not be found.</p><p><a href="#${{homeRoute}}" onclick="navigateTo(null, '${{homeRoute}}', true); return false;" class="wiki-link">← Return to Overview</a></p>`;
         return;
       }}
+      viewer.innerHTML = parseMarkdownToHtml(md);
+    }}
 
-      viewer.innerHTML = parseMarkdownToHtml(doc.markdown);
+    // --- init ---
+
+    function init() {{
+      const theme = siteConfig.visual.theme;
+      if (theme === 'dark' || theme === 'light') {{
+        document.documentElement.setAttribute('data-theme', theme);
+      }}
+      const langSelect = document.getElementById('langSelect');
+      langSelect.innerHTML = '';
+      siteConfig.languages.forEach(lang => {{
+        const opt = document.createElement('option');
+        opt.value = lang;
+        opt.textContent = getLangLabel(lang);
+        langSelect.appendChild(opt);
+      }});
+      langSelect.value = currentLang;
+      langSelect.addEventListener('change', (e) => {{ navigateTo(e.target.value, null, true); }});
+
+      window.addEventListener('hashchange', () => {{
+        if (window.location.hash && window.location.hash.length > 1) {{
+          const route = decodeURIComponent(window.location.hash.slice(1));
+          if (route !== currentRoute) navigateTo(currentLang, route, false);
+        }}
+      }});
+
+      document.getElementById('themeToggle').addEventListener('click', toggleTheme);
+      const searchInput = document.getElementById('searchInput');
+      if (searchInput) searchInput.addEventListener('input', handleSearch);
+
+      // Start at the URL hash route, else the first routable item.
+      if (window.location.hash && window.location.hash.length > 1) {{
+        currentRoute = decodeURIComponent(window.location.hash.slice(1));
+      }} else {{
+        const first = firstRoutableItem(currentLang);
+        currentRoute = first ? first.route : (navItemByHome() || {{route: '#'}}).route;
+      }}
+      renderSidebar();
+      renderDoc();
     }}
 
     function resolveInternalSlug(target) {{
@@ -655,7 +802,9 @@ class SiteCompiler:
           return `<a href="${{cleanUrl}}" class="anchor-link">${{text}}</a>`;
         }}
         const targetSlug = resolveInternalSlug(cleanUrl);
-        return `<a href="#${{targetSlug}}" class="wiki-link" onclick="navigateTo('${{targetSlug}}'); return false;">${{text}}</a>`;
+        const target = allNavItems().find(ni => ni.id === targetSlug || ni.id.toLowerCase() === targetSlug.toLowerCase());
+        const route = target ? target.route : targetSlug;
+        return `<a href="#${{route}}" class="wiki-link" onclick="navigateTo(null, '${{route}}', true); return false;">${{text}}</a>`;
       }});
 
       // 8. Bold, italic

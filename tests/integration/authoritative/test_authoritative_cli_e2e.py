@@ -129,10 +129,43 @@ def test_review_cli_passes(sample_setup: tuple[Path, Path]):
 
 def test_build_site_cli(sample_setup: tuple[Path, Path], tmp_path: Path):
     _, wiki = sample_setup
+    # The Main Agent authors a SitePresentationPlan; build-site consumes it.
+    # Without a plan the build stays pending (exit 0, no fabricated IA).
+    plan = {
+        "project_title": "myapp",
+        "project_description": "myapp docs",
+        "navigation": [
+            {
+                "document_id": "README",
+                "route": "/",
+                "title": "myapp",
+                "titles": {"zh-CN": "myapp"},
+                "nav_group": "Overview",
+                "ordering": 10,
+            }
+        ],
+        "languages": ["en", "zh-CN"],
+        "default_language": "en",
+        "visual": {"theme": "auto", "include_search": True},
+    }
+    (wiki / "site_presentation.json").write_text(
+        json.dumps(plan, ensure_ascii=False), encoding="utf-8"
+    )
     site_out = tmp_path / "site_out"
     res = runner.invoke(app, ["build-site", str(wiki), "--output", str(site_out)])
     assert res.exit_code == 0
     assert (site_out / "index.html").exists()
+
+
+def test_build_site_cli_requires_plan(sample_setup: tuple[Path, Path], tmp_path: Path):
+    """build-site with no plan is pending/unavailable — never a filename guess."""
+    _, wiki = sample_setup
+    site_out = tmp_path / "site_out"
+    res = runner.invoke(app, ["build-site", str(wiki), "--output", str(site_out)])
+    assert res.exit_code == 0
+    # No plan -> no fabricated site; the Main Agent's authority to author the
+    # plan is preserved rather than Python inventing an Information Architecture.
+    assert not (site_out / "index.html").exists()
 
 
 def test_export_cli_html_and_epub(sample_setup: tuple[Path, Path]):
