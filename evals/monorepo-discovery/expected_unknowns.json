@@ -1,0 +1,8 @@
+[
+  {
+    "id": "eu_none",
+    "topic": "per-package commands",
+    "field": "packages.svc_a.cli",
+    "expected_treatment": "The svc-a and lib-b commands and manifests ARE resolvable from the nested packages; nothing here should be left UNKNOWN."
+  }
+]

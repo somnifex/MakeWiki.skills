@@ -413,25 +413,34 @@ self_reflection_checklist:
 
 ## 6. Subagent Dispatch Prompts with Embedded Reflection
 
-#### 1. Scout-Structure Prompt
+#### 1. Role-Scoped Scout Prompts
+
+Choose the scouts below per the tier allocation in `tasks/scan.md`
+(Tier S: 1~2 consolidated; Tier M: 3; Tier L: up to 8 in parallel). Each scout
+**directly inspects the repository** with `Glob` / `Grep` / `Read` /
+`Bash` (`ls` / `find` / `git ls-files`) — never only the Python bundle. Run
+**two-phase retrieval**: Round 1 Broad Scan (entrypoints, modules, key dirs,
+configs, tests, deploy, docs leads), then Round 2 Targeted Deep Dive (trace
+symbol definitions, callers, implementations, overrides, defaults, test
+evidence, conflicting docs). Seek **two independent evidence sources** per key
+fact (e.g. README + the real parser; manifest + the source that reads it).
+
 ```markdown
-You are Scout-Structure for project '{project_name}'.
-1. Identify all package manifests (pyproject.toml, package.json, go.mod, Cargo.toml, pom.xml).
-2. Inspect build and deployment configurations (Makefile, Dockerfile, docker-compose.yml, CI workflows).
-3. Map top-level directory structure and module boundaries.
-Self-Reflection: Verify that all reported file paths actually exist on disk before reporting.
-Output a structured summary with project_type, dependencies, build commands, and verified file paths with line citations.
+You are the {role} Scout for project '{project_name}'.
+Search scope: {role_specific_scope}
+Checklist: source, tests, examples, README/docs, manifests, CLI entrypoints,
+API/routes, config/env files, Docker/Compose, Makefile/scripts, CI/CD,
+deployment, migrations, plugins/extensions, monorepo packages,
+generated-code boundaries — report which of these you covered vs. did not.
+1. Round 1 Broad Scan: entrypoints, modules, key dirs, configs, tests, deploy, docs leads.
+2. Round 2 Targeted Deep Dive: trace each lead to concrete definitions/callers/defaults/overrides.
+3. For each key fact, seek at least TWO independent evidence sources and cite both.
+Self-Reflection: verify every reported file path actually exists on disk;
+surface (do not hide) any conflict between sources (e.g. stale README vs code).
+End by listing UNEXPLORED / UNRESOLVED areas (dirs and topics you did not inspect).
+Output a structured summary with verified file paths and line citations.
 ```
 
-#### 2. Scout-Surface Prompt
-```markdown
-You are Scout-Surface for project '{project_name}'.
-1. Scan main CLI entrypoints and extract help texts, flags, and parameter options.
-2. Scan Web/API route definitions and extract HTTP methods and endpoint paths.
-3. Read .env.example, config templates, and existing READMEs for declared configuration keys.
-Self-Reflection: Confirm each parameter and route against actual source declarations.
-Output a verified list of commands, parameters, and environment variables with source file citations.
-```
 
 #### 3. Agent Red (User & DX Perspective) Prompt
 ```markdown
@@ -593,15 +602,35 @@ Parse `$ARGUMENTS` for:
 
 ### Phase 1: Autonomous Codebase Reconnaissance
 
-Launch Scout Subagents:
-- **Scout-Structure** uses `Glob`, `Grep`, `Read` to inspect package
-  manifests, build scripts, CI workflows, Dockerfiles.
-- **Scout-Surface** uses `Grep`, `Read` to inspect README, CLI entrypoints,
-  help flags, `.env.example`.
+Launch the tier-scaled set of role-scoped Scouts (see `tasks/scan.md` §2):
+- **Tier S**: 1~2 consolidated scouts (Structure + Surface).
+- **Tier M**: 3 scouts (Structure; Runtime/Entrypoint + CLI/API + Config
+  consolidated; Tests/Behavior).
+- **Tier L**: up to 8 in parallel — Structure, Runtime/Entrypoint,
+  CLI/API, Config, Tests/Behavior, Deployment/CI, Docs/Examples,
+  Dependency/Monorepo.
 
-After scouts return, run `python <makewiki_root>/scripts/run_toolkit.py evidence .`
-to obtain the deterministic fact bundle. Scouts augment facts with semantic
-observations; Python never invents them.
+Each scout **directly inspects the repository** with `Glob` / `Grep` /
+`Read` / `Bash` (`ls` / `find` / `git ls-files`) — never only the Python
+bundle — using two-phase retrieval (Round 1 Broad Scan, Round 2 Targeted
+Deep Dive) and seeking two independent evidence sources per key fact.
+
+After scouts return, run:
+`python <makewiki_root>/scripts/run_toolkit.py evidence .` (deterministic
+fact bundle) and `python <makewiki_root>/scripts/run_toolkit.py coverage .`
+(mechanical coverage: discovered vs inspected vs skipped vs ignored,
+uncovered categories, low-confidence facts). Scouts augment facts with
+semantic observations; Python never invents them.
+
+### Phase 1.5: Coverage Gate (before Judge)
+
+1. Reconcile every scout's `unexplored` / `unresolved` areas against the
+   `coverage` report's `uncovered_categories` and `low_confidence_facts`.
+2. For each entry, **resolve it** (dispatch a targeted deep-dive) or
+   **explicitly accept it** with a written reason.
+3. **If still-unchecked important directories or categories remain, do NOT
+   enter the Judge stage** — the gaps must be closed or consciously accepted
+   first.
 
 ### Phase 2: ReBattle Adversarial Cross-Examination & Adjudication
 

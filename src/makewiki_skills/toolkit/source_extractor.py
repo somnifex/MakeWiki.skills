@@ -98,6 +98,41 @@ class MultiLanguageSourceExtractor:
         ),
     ]
 
+    # 4. JavaScript / TypeScript Patterns
+    _JS_ROUTE_PATTERNS = [
+        re.compile(
+            r"(?:app|router|api|server|kernel|this\.app)\.(get|post|put|delete|patch|all)\s*\(\s*[\"'`]([^\"'`]+)[\"'`]",
+            re.IGNORECASE,
+        ),
+        re.compile(
+            r"@(Get|Post|Put|Delete|Patch)\([\"'`]([^\"'`]+)[\"'`]\)",
+            re.IGNORECASE,
+        ),
+    ]
+    _JS_CLI_PATTERNS = [
+        re.compile(
+            r"\.option\([\"'`]--?([\w-]+)[\"'`](?:\s*,\s*[\"'`]([^\"'`]*)[\"'`])?",
+            re.DOTALL,
+        ),
+        re.compile(
+            r"\bprogram\s*\.\s*command\([\"'`]([\w-]+)[\"'`]",
+            re.DOTALL,
+        ),
+        re.compile(
+            r"\b(?:command|cmd)\([\"'`]([\w-]+)[\"'`]",
+            re.DOTALL,
+        ),
+    ]
+    _JS_EXPORT_PATTERNS = [
+        re.compile(
+            r"export\s+(?:default\s+|async\s+)?(?:class|function|const)\s+(\w+)",
+        ),
+        re.compile(
+            r"module\.exports\s*=\s*\{?([^}]*)\}?",
+            re.DOTALL,
+        ),
+    ]
+
     def extract_from_file(self, path: Path) -> list[SourceSymbolFact]:
         """Extract facts from a Go or Rust source file."""
         try:
@@ -112,6 +147,10 @@ class MultiLanguageSourceExtractor:
             return self._extract_go(content, rel_path)
         elif ext == ".rs":
             return self._extract_rust(content, rel_path)
+        elif ext in (".js", ".jsx"):
+            return self._extract_javascript(content, rel_path, "javascript")
+        elif ext in (".ts", ".tsx"):
+            return self._extract_javascript(content, rel_path, "typescript")
         return []
 
     def _extract_go(self, content: str, rel_path: str) -> list[SourceSymbolFact]:
@@ -274,6 +313,94 @@ class MultiLanguageSourceExtractor:
                             language="rust",
                         )
                     )
+
+        return facts
+
+    def _extract_javascript(
+        self, content: str, rel_path: str, language: Literal["javascript", "typescript"]
+    ) -> list[SourceSymbolFact]:
+        """Extract CLI flags, commands, and routes from JS/TS source.
+
+        Deterministic, framework-shaped patterns only (Express/route
+        registrations, commander/yargs options, and export declarations). The
+        doc-comment heuristic used for Go/Rust is deliberately NOT applied —
+        a stray comment above a function in JS is far noisier, so nothing is
+        inferred from prose.
+        """
+        facts: list[SourceSymbolFact] = []
+
+        for pattern in self._JS_ROUTE_PATTERNS:
+            for match in pattern.finditer(content):
+                if match.lastindex is None or match.lastindex < 2:
+                    continue
+                method, route_path = match.group(1).upper(), match.group(2)
+                line_no = content[: match.start()].count("\n") + 1
+                facts.append(
+                    SourceSymbolFact(
+                        name=f"{method} {route_path}",
+                        symbol_type="api_route",
+                        description=f"REST endpoint {method} {route_path}",
+                        source_path=rel_path,
+                        line_number=line_no,
+                        language=language,
+                        framework="express/http",
+                    )
+                )
+
+        # CLI flags (commander-style `.option('-p, --port <n>', desc)`)
+        for match in self._JS_CLI_PATTERNS[0].finditer(content):
+            flag_name = match.group(1)
+            desc = (match.group(2) or "").strip()
+            line_no = content[: match.start()].count("\n") + 1
+            facts.append(
+                SourceSymbolFact(
+                    name=f"--{flag_name}",
+                    symbol_type="cli_flag",
+                    description=desc,
+                    source_path=rel_path,
+                    line_number=line_no,
+                    language=language,
+                    framework="commander/yargs",
+                )
+            )
+
+        # CLI commands (commander `.command('serve')`, generic `command("x")`)
+        for pattern in self._JS_CLI_PATTERNS[1:]:
+            for match in pattern.finditer(content):
+                cmd_name = match.group(1)
+                line_no = content[: match.start()].count("\n") + 1
+                facts.append(
+                    SourceSymbolFact(
+                        name=cmd_name,
+                        symbol_type="cli_command",
+                        description="CLI subcommand",
+                        source_path=rel_path,
+                        line_number=line_no,
+                        language=language,
+                        framework="commander/yargs",
+                    )
+                )
+
+        # Exports (ESM named/default and CommonJS keys)
+        exported: set[str] = set()
+        for match in self._JS_EXPORT_PATTERNS[0].finditer(content):
+            exported.add(match.group(1))
+        for match in self._JS_EXPORT_PATTERNS[1].finditer(content):
+            body = match.group(1)
+            for key in re.findall(r"\b(\w+)\s*:", body):
+                exported.add(key)
+        for name in sorted(exported):
+            line_no = content.find(name) + 1
+            facts.append(
+                SourceSymbolFact(
+                    name=name,
+                    symbol_type="exported_func",
+                    description="Exported symbol",
+                    source_path=rel_path,
+                    line_number=line_no,
+                    language=language,
+                )
+            )
 
         return facts
 

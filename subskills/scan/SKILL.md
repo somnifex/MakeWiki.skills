@@ -33,7 +33,13 @@ sizing and evidence tools (the toolkit authoritatively renames `scan` to
 ```bash
 python <makewiki_root>/scripts/run_toolkit.py sizing .
 python <makewiki_root>/scripts/run_toolkit.py evidence . --format json
+python <makewiki_root>/scripts/run_toolkit.py coverage . --format json
 ```
+
+`coverage` reports deterministic mechanical coverage — files discovered vs
+inspected vs skipped (with reason) vs ignored, entrypoints/configs/tests/
+manifests found, `uncovered_categories`, and `low_confidence_facts`. It is
+pure bookkeeping: the LLM owns acting on the gaps it surfaces.
 
 ### Step 2: Supplement with LLM Multi-Perspective Analysis
 
@@ -44,6 +50,12 @@ the `evidence` JSON and adds:
 1. **Developer Perspective**: CLI commands, entrypoints, 5-minute quickstart requirements.
 2. **Implementation Perspective**: Functions, AST arguments, unreleased features.
 3. **Deployment & Enterprise Perspective**: Compatibility requirements, environment variables, health check commands, error logs.
+
+The multi-perspective analysis must **directly inspect the tree** (Glob /
+Grep / Read / `ls` / `find` / `git ls-files`), not only read the Python
+bundle, and must annotate the `coverage` report's `uncovered_categories` and
+`low_confidence_facts` — resolving each gap or explicitly accepting it with a
+written reason before continuing.
 
 Where the LLM cannot ground a claim in evidence, it leaves the field empty
 and the corresponding Markdown slot renders `UNKNOWN` — never invent

@@ -1,0 +1,16 @@
+[
+  {
+    "id": "rc_resolved_port",
+    "claim_type": "config",
+    "semantic_key": "config.port.effective",
+    "assertion": "The effective port the service binds is 8080 (docker-compose PORT overrides config.yaml 5000)",
+    "must_state": "the final value via the compose override, never the stale base 5000 as the running default"
+  },
+  {
+    "id": "rc_resolved_cache",
+    "claim_type": "config",
+    "semantic_key": "config.cache.effective",
+    "assertion": "The effective cache setting is enabled (CACHE_ENABLED=true overrides features.cache)",
+    "must_state": "cache resolves to true via the override, not the base false"
+  }
+]

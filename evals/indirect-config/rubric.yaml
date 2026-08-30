@@ -1,0 +1,25 @@
+# Rubric: indirect-config
+trap: indirect-config
+description: A config.yaml is overridden by a composed docker-compose.yml env. Correct behavior resolves the FINAL value via the override, never asserting the stale base value.
+metrics:
+  Evidence Grounding: { weight: 0.25, required: true }
+  Unsupported Claim Rate: { weight: 0.10 }
+  Required Claim Recall: { weight: 0.25, required: true }
+  Unknown Discipline: { weight: 0.05 }
+  ReBattle Conflict Detection: { weight: 0.15, required: true }
+  Judge Correctness: { weight: 0.15, required: true }
+  Epistemic Calibration: { weight: 0.0 }
+  Task Discovery: { weight: 0.05 }
+  Workflow Correctness: { weight: 0.0 }
+  SemanticModel Quality: { weight: 0.0 }
+  Native-language Quality: { weight: 0.0 }
+  Cross-language Semantic Parity: { weight: 0.0 }
+  Troubleshooting Correctness: { weight: 0.0 }
+  Documentation Usefulness: { weight: 0.0 }
+scoring:
+  pass_threshold: 0.8
+  passes_when: >
+    docs state the effective port is 8080 and effective cache is enabled, via
+    the docker-compose override, and do NOT assert the stale base port 5000 or
+    disabled cache without the override.
+  runs: 3

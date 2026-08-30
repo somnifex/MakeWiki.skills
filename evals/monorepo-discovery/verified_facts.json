@@ -1,0 +1,30 @@
+[
+  {
+    "id": "svc_a_manifest",
+    "fact_type": "manifest",
+    "value": "svc-a",
+    "source": "packages/svc-a/pyproject.toml",
+    "note": "packages/svc-a has its own pyproject.toml declaring the svc-a script."
+  },
+  {
+    "id": "lib_b_manifest",
+    "fact_type": "manifest",
+    "value": "lib-b",
+    "source": "packages/lib-b/pyproject.toml",
+    "note": "packages/lib-b has its own pyproject.toml declaring the lib-b script."
+  },
+  {
+    "id": "svc_a_server",
+    "fact_type": "command",
+    "value": "serve",
+    "source": "packages/svc-a/svc_a/main.py",
+    "note": "svc-a exposes a 'serve' command (--port default 9000), scoped to packages/svc-a."
+  },
+  {
+    "id": "svc_a_port",
+    "fact_type": "config",
+    "value": "9000",
+    "source": "packages/svc-a/svc_a/main.py:serve --port",
+    "note": "svc-a's serve default port is 9000."
+  }
+]

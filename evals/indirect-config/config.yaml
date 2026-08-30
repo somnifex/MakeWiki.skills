@@ -1,0 +1,7 @@
+port: 5000
+host: 0.0.0.0
+database:
+  name: dev
+  pool_size: 4
+features:
+  cache: false

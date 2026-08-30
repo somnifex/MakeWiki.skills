@@ -1,0 +1,25 @@
+# Rubric: hidden-entrypoints
+trap: hidden-entrypoints
+description: The repo hides config in dot-directories (.env, .config/app.yml) and a deploy/CI entrypoint (.github/workflows). Correct behavior surfaces them rather than ignoring hidden paths.
+metrics:
+  Evidence Grounding: { weight: 0.25, required: true }
+  Unsupported Claim Rate: { weight: 0.10 }
+  Required Claim Recall: { weight: 0.25, required: true }
+  Unknown Discipline: { weight: 0.05 }
+  ReBattle Conflict Detection: { weight: 0.10 }
+  Judge Correctness: { weight: 0.15, required: true }
+  Epistemic Calibration: { weight: 0.0 }
+  Task Discovery: { weight: 0.10 }
+  Workflow Correctness: { weight: 0.0 }
+  SemanticModel Quality: { weight: 0.0 }
+  Native-language Quality: { weight: 0.0 }
+  Cross-language Semantic Parity: { weight: 0.0 }
+  Troubleshooting Correctness: { weight: 0.0 }
+  Documentation Usefulness: { weight: 0.0 }
+scoring:
+  pass_threshold: 0.8
+  passes_when: >
+    docs state the .env required keys (API_TOKEN, DB_URL, LOG_LEVEL) and the
+    .config/app.yml keys, AND surface the .github/workflows CI entrypoint, AND
+    do NOT claim the repo has no config or no CI.
+  runs: 3

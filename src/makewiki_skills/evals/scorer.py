@@ -327,7 +327,7 @@ def _resolve_ref_path(
     ``../`` traversal cannot slip through: matches come from paths actually
     discovered under ``trap_dir``.
     """
-    norm = path_part.strip().replace("\\", "/").lstrip("./")
+    norm = _strip_ref_prefix(path_part)
     if not norm:
         return None
     if norm in repo_paths:
@@ -350,7 +350,7 @@ def _resolve_evidence_ref(
     if not ref:
         return True  # empty refs carry no evidence claim; harmless
     path_part, line_part = _split_line_suffix(ref)
-    norm = path_part.strip().replace("\\", "/").lstrip("./")
+    norm = _strip_ref_prefix(path_part)
     if not norm:
         return False
     if norm in doc_basenames:
@@ -363,6 +363,17 @@ def _resolve_evidence_ref(
     if line_part is not None and not _line_range_in_bounds(file_path, line_part):
         return False
     return True
+
+
+def _strip_ref_prefix(path_part: str) -> str:
+    """Normalise a ref path: backslashes to slashes, optional leading ``./``
+    removed. Unlike a character-class ``lstrip("./")``, a leading dot that is a
+    *real filename* (e.g. ``.env``, ``.config/app.yml``) is preserved so hidden
+    files resolve exactly."""
+    norm = path_part.strip().replace("\\", "/")
+    if norm.startswith("./"):
+        norm = norm[2:]
+    return norm
 
 
 # ---------------------------------------------------------------------------

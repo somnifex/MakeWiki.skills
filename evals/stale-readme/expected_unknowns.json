@@ -1,0 +1,8 @@
+[
+  {
+    "id": "eu_none",
+    "topic": "default port",
+    "field": "network.port.default",
+    "expected_treatment": "The port IS resolvable from the source CLI to 8080; nothing here should be left UNKNOWN."
+  }
+]

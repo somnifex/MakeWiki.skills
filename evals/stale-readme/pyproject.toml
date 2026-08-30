@@ -1,0 +1,6 @@
+[project]
+name = "echo-cli"
+requires-python = ">=3.11"
+
+[project.scripts]
+echo-cli = "echo_cli.main:app"

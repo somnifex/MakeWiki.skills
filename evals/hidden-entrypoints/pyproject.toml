@@ -1,0 +1,6 @@
+[project]
+name = "service"
+requires-python = ">=3.11"
+
+[project.scripts]
+service = "service.app:main"

@@ -58,6 +58,7 @@ class EvidenceRegistry:
         detection: ProjectDetectionResult,
         files_read: list[str] | None = None,
         claims: list[dict[str, Any]] | None = None,
+        coverage: dict[str, Any] | None = None,
     ) -> EvidenceBundle:
         """Build the JSON-ready evidence bundle."""
         return EvidenceBundle.from_registry(
@@ -65,4 +66,5 @@ class EvidenceRegistry:
             facts=self.all_facts(),
             files_read=files_read,
             claims=claims,
+            coverage=coverage,
         )

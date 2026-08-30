@@ -1,0 +1,9 @@
+[project]
+name = "svc-a"
+requires-python = ">=3.11"
+
+[project.scripts]
+svc-a = "svc_a.main:app"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

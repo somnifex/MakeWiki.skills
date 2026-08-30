@@ -1,0 +1,25 @@
+# Rubric: monorepo-discovery
+trap: monorepo-discovery
+description: A two-package monorepo where per-package scoping matters. Correct behavior surfaces each package's own manifest and entrypoint and never misattributes a command across packages.
+metrics:
+  Evidence Grounding: { weight: 0.25, required: true }
+  Unsupported Claim Rate: { weight: 0.10 }
+  Required Claim Recall: { weight: 0.25, required: true }
+  Unknown Discipline: { weight: 0.05 }
+  ReBattle Conflict Detection: { weight: 0.10 }
+  Judge Correctness: { weight: 0.15, required: true }
+  Epistemic Calibration: { weight: 0.0 }
+  Task Discovery: { weight: 0.10 }
+  Workflow Correctness: { weight: 0.0 }
+  SemanticModel Quality: { weight: 0.0 }
+  Native-language Quality: { weight: 0.0 }
+  Cross-language Semantic Parity: { weight: 0.0 }
+  Troubleshooting Correctness: { weight: 0.0 }
+  Documentation Usefulness: { weight: 0.0 }
+scoring:
+  pass_threshold: 0.8
+  passes_when: >
+    docs state svc-a's serve command (default 9000) as belonging to
+    packages/svc-a, lib-b's entrypoint to packages/lib-b, and surface both
+    nested pyproject.toml manifests, with no cross-package misattribution.
+  runs: 3

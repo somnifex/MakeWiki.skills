@@ -1,0 +1,9 @@
+[
+  {
+    "id": "fc_cross_attribution_serve",
+    "claim_type": "command",
+    "semantic_key": "packages.lib_b.entry",
+    "forbidden_assertion": "Attribute svc-a's 'serve' command to lib-b or to the monorepo root",
+    "reason": "the serve command exists only in packages/svc-a; cross-package misattribution is forbidden"
+  }
+]

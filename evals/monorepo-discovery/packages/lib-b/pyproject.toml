@@ -1,0 +1,6 @@
+[project]
+name = "lib-b"
+requires-python = ">=3.11"
+
+[project.scripts]
+lib-b = "lib_b.main:main"

@@ -310,6 +310,23 @@ def test_evidence_ref_existing_file_passes(tmp_path: Path):
     assert m.counts["invalid"] == 0
 
 
+def test_evidence_ref_hidden_dotfile_passes(tmp_path: Path):
+    # A hidden file (``.env``) must resolve — its leading dot is part of the
+    # filename, not a path prefix to be stripped (regression for the
+    # hidden-entrypoints trap: ``lstrip("./")`` used to mangle it to ``env``).
+    trap_dir = tmp_path / "trap"
+    trap_dir.mkdir(parents=True, exist_ok=True)
+    (trap_dir / ".env").write_text("API_TOKEN=x\n", encoding="utf-8")
+    for name in ("required_claims.json", "forbidden_claims.json", "expected_unknowns.json", "verified_facts.json"):
+        (trap_dir / name).write_text("[]", encoding="utf-8")
+    (trap_dir / "rubric.yaml").write_text("trap: evsynth\nscoring: {}\n", encoding="utf-8")
+    run_dir = _write_bundle(tmp_path / "runs", _evidence_bundle([".env"]))
+    score = scorer.score_run(run_dir, trap_dir)
+    m = score.metric("evidence_reference_validity")
+    assert m is not None and m.passed
+    assert m.counts["invalid"] == 0
+
+
 def test_evidence_ref_missing_path_fails_despite_real_extension(tmp_path: Path):
     # A real-looking ``.py`` path that does NOT exist must fail — this is the
     # point of the fix: existence, not suffix guessing.
