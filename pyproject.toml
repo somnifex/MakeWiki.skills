@@ -38,6 +38,7 @@ dependencies = [
     "jinja2>=3.1",
     "pyyaml>=6.0",
     "rich>=13.0",
+    "markdown-it-py>=4.0",
 ]
 
 [project.optional-dependencies]
@@ -45,6 +46,7 @@ dev = [
     "pytest>=8.0",
     "ruff>=0.4",
     "mypy>=1.10",
+    "playwright>=1.40",
 ]
 
 [project.scripts]
