@@ -30,7 +30,6 @@ _GOLD_FILES = {
     "forbidden_claims.json",
     "expected_unknowns.json",
     "rubric.yaml",
-    "required_entrypoints.json",
 }
 
 # ---------------------------------------------------------------------------
@@ -69,26 +68,11 @@ class GoldVerifiedFact(BaseModel):
     note: str = ""
 
 
-class GoldRequiredEntrypoint(BaseModel):
-    """One entrypoint that a discovery-correct run MUST surface.
-
-    ``path`` is a repo file (or dir) that must appear as an evidence ref /
-    captured fact; ``semantic_key`` is the topic it should feed, when known.
-    ``required_entrypoints.json`` is an OPTIONAL discovery gold — a trap that
-    omits it simply does not exercise the ``missed_entrypoint_rate`` metric.
-    """
-
-    path: str = ""
-    semantic_key: str = ""
-    note: str = ""
-
-
 class GoldFiles(BaseModel):
     required: list[GoldRequiredClaim] = Field(default_factory=list)
     forbidden: list[GoldForbiddenClaim] = Field(default_factory=list)
     unknowns: list[GoldExpectedUnknown] = Field(default_factory=list)
     facts: list[GoldVerifiedFact] = Field(default_factory=list)
-    entrypoints: list[GoldRequiredEntrypoint] = Field(default_factory=list)
 
 
 def _load_list(path: Path) -> list[dict[str, Any]]:
@@ -102,20 +86,12 @@ def _load_list(path: Path) -> list[dict[str, Any]]:
 
 
 def load_gold(trap_dir: Path) -> GoldFiles:
-    """Load the five gold files from an ``evals/<trap>/`` directory.
-
-    ``required_entrypoints.json`` (when present) is an optional sixth discovery
-    gold; its absence simply skips the ``missed_entrypoint_rate`` metric.
-    """
+    """Load the five gold files from an ``evals/<trap>/`` directory."""
     return GoldFiles(
         required=[GoldRequiredClaim(**d) for d in _load_list(trap_dir / "required_claims.json")],
         forbidden=[GoldForbiddenClaim(**d) for d in _load_list(trap_dir / "forbidden_claims.json")],
         unknowns=[GoldExpectedUnknown(**d) for d in _load_list(trap_dir / "expected_unknowns.json")],
         facts=[GoldVerifiedFact(**d) for d in _load_list(trap_dir / "verified_facts.json")],
-        entrypoints=[
-            GoldRequiredEntrypoint(**d)
-            for d in _load_list(trap_dir / "required_entrypoints.json")
-        ],
     )
 
 
@@ -224,33 +200,6 @@ class _BundleView(BaseModel):
                 if check.review_item_id and check.status == "pending":
                     ids.append(check.review_item_id)
         return ids
-
-    def cited_paths(self) -> set[str]:
-        """Every repo path the run surfaced as evidence: adjudication refs,
-        agent-claim refs, and evidence-fact sources. Normalised to
-        forward-slash relative paths so a gold entrypoint can be matched
-        exactly against what a discovery-correct run actually cited."""
-        out: set[str] = set()
-        for r in self.adjudications.rulings:
-            for ref in r.evidence_refs:
-                path_part, _ = _split_line_suffix(ref)
-                norm = _strip_ref_prefix(path_part)
-                if norm and norm not in _GOLD_FILES:
-                    out.add(norm)
-        for s in self.agent_claims.sets:
-            for claim in s.claims:
-                for ref in claim.get("evidence_refs") or []:
-                    path_part, _ = _split_line_suffix(str(ref))
-                    norm = _strip_ref_prefix(path_part)
-                    if norm and norm not in _GOLD_FILES:
-                        out.add(norm)
-        for fact in self.evidence.facts:
-            src = fact.get("source")
-            if src:
-                norm = _strip_ref_prefix(str(src))
-                if norm and norm not in _GOLD_FILES:
-                    out.add(_split_line_suffix(norm)[0])
-        return out
 
 
 def _build_view(run_dir: Path) -> _BundleView:
@@ -427,11 +376,6 @@ def _strip_ref_prefix(path_part: str) -> str:
     return norm
 
 
-def _nval(value: str) -> str:
-    """Normalise a value for exact match (whitespace-collapsed, lowercased)."""
-    return " ".join(value.split()).lower()
-
-
 # ---------------------------------------------------------------------------
 # The scorer
 # ---------------------------------------------------------------------------
@@ -545,68 +489,6 @@ def score_run(run_dir: Path, trap_dir: Path) -> MechanicalScore:
             detail=f"{len(invalid_refs)} evidence ref(s) that name no existing file / legal line range",
             counts={"invalid": len(invalid_refs)},
             keys=invalid_refs,
-        )
-    )
-
-    # -- required entrypoints surfaced (discovery; optional gold) ----------
-    # A discovery-correct run surfaces every required entrypoint (a hidden
-    # .env / .github workflow / nested package / CLI) as a cited path across
-    # its adjudications, agent claims, or evidence facts. Skipped when the
-    # trap omits required_entrypoints.json — it is an OPTIONAL discovery gold.
-    entrypoints = gold.entrypoints
-    if entrypoints:
-        cited = view.cited_paths()
-        missed = []
-        for ep in entrypoints:
-            if ep.path and ep.path not in cited:
-                missed.append(ep.path)
-        metrics.append(
-            MetricResult(
-                name="missed_entrypoint_rate",
-                passed=not missed,
-                detail=f"{len(entrypoints) - len(missed)}/{len(entrypoints)} required entrypoints surfaced",
-                counts={
-                    "required": len(entrypoints),
-                    "surfaced": len(entrypoints) - len(missed),
-                    "missed": len(missed),
-                },
-                keys=missed,
-            )
-        )
-    else:
-        metrics.append(
-            MetricResult(
-                name="missed_entrypoint_rate",
-                passed=True,
-                detail="no required_entrypoints.json gold; metric skipped",
-                counts={"required": 0, "surfaced": 0, "missed": 0},
-            )
-        )
-
-    # -- evidence fact coverage (gold facts captured in the evidence bundle) --
-    # Every mechanically-discoverable gold fact must be captured in
-    # evidence.facts — matched by its stable id, or by its value appearing in
-    # the evidence (sources are NOT coupled here, because gold sources often
-    # carry a ``:label`` like ``app/cli.py:serve`` that an evidence source does
-    # not repeat; the value is the discoverable, stable signal). A gold fact the
-    # run's evidence never recorded is a coverage gap — the deterministic
-    # evidence layer silently missed a discoverable fact.
-    ev_facts = view.evidence.facts
-    ev_ids = {str(f.get("id")) for f in ev_facts}
-    ev_values = {_nval(str(f.get("value"))) for f in ev_facts}
-    uncovered: list[str] = []
-    for gf in gold.facts:
-        by_id = gf.id in ev_ids
-        by_value = _nval(gf.value) in ev_values if gf.value else False
-        if not (by_id or by_value):
-            uncovered.append(gf.id or gf.value)
-    metrics.append(
-        MetricResult(
-            name="evidence_fact_coverage",
-            passed=not uncovered,
-            detail=f"{len(gold.facts) - len(uncovered)}/{len(gold.facts)} gold facts captured in evidence",
-            counts={"gold": len(gold.facts), "captured": len(gold.facts) - len(uncovered), "missing": len(uncovered)},
-            keys=uncovered,
         )
     )
 

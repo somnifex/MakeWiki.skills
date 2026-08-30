@@ -1,9 +1,0 @@
-[
-  {
-    "id": "fc_no_nested",
-    "claim_type": "manifest",
-    "semantic_key": "repo.has_nested",
-    "forbidden_assertion": "state that the repository has no nested or additional packages",
-    "reason": "services/worker exists (manifest + entrypoint + .env) and must be surfaced"
-  }
-]

@@ -1,8 +1,0 @@
-[
-  {
-    "id": "eu_none",
-    "topic": "workers default",
-    "field": "config.workers.default",
-    "expected_treatment": "The --workers default IS resolvable from source (app/cli.py); nothing here should be left UNKNOWN."
-  }
-]

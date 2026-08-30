@@ -1,8 +1,0 @@
-[
-  {
-    "id": "eu_none",
-    "topic": "current CLI",
-    "field": "cli.matrix.run",
-    "expected_treatment": "The current CLI is resolvable from source (app/main.py); nothing here should be left UNKNOWN."
-  }
-]

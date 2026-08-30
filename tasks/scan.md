@@ -54,42 +54,6 @@ explicit search scope. Every scout:
   the coverage gate in `SKILL.md` Phase 1.5: the Main Agent must resolve or
   explicitly accept every item before entering the Judge stage.
 
-### Structured Scout Output
-
-Every scout MUST return its findings in the same machine-readable shape so
-the Main Agent can reconcile coverage and confidence mechanically before
-Judge. Return **all five fields**, never a free-form narrative:
-
-```
-searched: [ <areas you actually inspected, e.g. "src/cli/", "tests/", "pyproject.toml"> ]
-evidence_found:
-  - claim: <fact>
-    refs: [ "<path:line>", ... ]          # >= 2 independent citations for key facts
-    confidence: low | medium | high        # explicit, per-claim
-unresolved: [ <areas/topics you did NOT inspect, or could not ground> ]
-recommended_followup:
-  - <a targeted search to close the lowest-confidence claim, e.g. "trace server.workers default in .config/app.yml"> 
-```
-
-A claim marked `confidence: low` or an `unresolved` entry that is load-bearing
-is **not** silently carried forward. It triggers a **Follow-up Scout**.
-
-### Follow-up Scout Dispatch (low-confidence, not Python fallback)
-
-Low confidence and unresolved load-bearing areas are closed by **another
-targeted LLM Scout turn**, never by asking Python to guess:
-
-1. The Main Agent, on receiving any `confidence: low` claim or an
-   `unresolved` area the gate deems important, dispatches a **Follow-up
-   Scout** — a single-purpose Round-2 deep dive riding the `recommended_followup`
-   from the originating scout.
-2. The Follow-up Scout searches only that lead with `Grep` / `Read` /
-   `Bash`, traces the symbol / default / override to a concrete definition,
-   and reports refs + a reassessed confidence.
-3. Python (`evidence` / `coverage`) remains a deterministic *starting
-   reference*; it never resolves semantic uncertainty by guessing. Unresolved
-   means the LLM looks harder, or the slot stays `UNKNOWN` — never invented.
-
 ### Role-Scoped Scouts
 
 | Scout | Search Scope |
@@ -122,47 +86,3 @@ packages, and **generated-code boundaries**.
 All findings must trace back to a concrete file/line citation; claims the
 Scout cannot ground stay out of the SemanticModel and the corresponding
 Markdown slot renders `UNKNOWN`.
-
----
-
-## 3. Pre-ReBattle Coverage Checklist (Main Agent gate)
-
-Before entering ReBattle / Judge, the Main Agent answers **all six** against
-the aggregated scout output + `coverage` report. Each must be **covered**
-(evidence exists) or **explicitly accepted** (with a written reason why it is
-out of scope); a `no` left unresolved blocks Judge:
-
-| # | Check | Ask |
-| - | ----- | --- |
-| 1 | **Tests** | Did a scout actually read `tests/` / `test_*`, not just note it exists? Do docs assert behavior the tests contradict? |
-| 2 | **CI / deployment** | Were `.github/workflows`, `.gitlab-ci.yml`, `Dockerfile` / `docker-compose.yml`, k8s manifests inspected — or only README? |
-| 3 | **Examples** | Were `examples/` / `docs/` example commands checked against the *current* CLI, or copied stale from prose? |
-| 4 | **Nested packages** | In a monorepo / multi-package repo, was every `packages/*` / `pkg/*` manifest + hidden entrypoint surfaced, or only the root? |
-| 5 | **Runtime entrypoint** | Was the real process/CLI entrypoint located (`__main__`, `[project.scripts]`, `bin/`, `if __name__`), not assumed from README? |
-| 6 | **Beyond README** | Was any fact sourced from README alone cross-checked against an independent source (parser / manifest / source)? |
-
-A mis-answered checklist entry (e.g. "tests not checked", "entrypoint assumed
-from README") is exactly the class of **incomplete-scan** gap the evals hunt.
-
----
-
-## 4. ReBattle Adversarial Search Categories
-
-Each ReBattle round actively hunts for conflict across these categories,
-not just re-asserting each agent's facts:
-
-1. **Contradictory evidence** — two sources assert different values for the
-   same key (README vs parser, manifest vs source).
-2. **Stale docs** — prose / examples / changelog that describe an old command,
-   flag, default, or port the current code no longer has.
-3. **Environment differences** — platform / OS / runtime-path divergence
-   (Windows vs POSIX paths, default module vs installed package).
-4. **Overrides** — a base config value overridden by a composed env /
-   `*.override.*` / docker-compose env / CLI flag; the final resolved value
-   wins, the stale base never stands.
-5. **Test-vs-runtime differences** — a test (or fixture) asserting behavior
-   the production source contradicts, or a mocked surface that is not real CLI.
-
-Every detected conflict must surface as a ReBattle discrepancy keyed on its
-semantic topic; the Judge resolves it on **evidence strength**, not on which
-agent was louder.

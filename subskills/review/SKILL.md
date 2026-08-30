@@ -64,14 +64,8 @@ aligned passages, then judges the LLM-judged layers:
    position — section ORDER may legitimately differ per language. For
    multilingual output every reviewable H2 MUST carry a stable section marker,
    and duplicate section or block IDs within one document are L4a failures.
-3. **L5 Over-Assertion + Semantic Audit** — are any claims more confident than
-   the evidence supports? Then run the four adversarial semantic checks beyond
-   grounding: **unsupported claims** (no citable source — downgrade or cut),
-   **omitted prerequisites** (a setup step the docs assume but never state),
-   **wrong workflow order** (steps that cannot run in the order presented),
-   and **multilingual semantic drift** (the same stable section/block meaning
-   reduced or paraphrased off-track across languages despite exact block parity).
-   Are anti-AI-cliché rules followed?
+3. **L5 Over-Assertion Audit** — are any claims more confident than the
+   evidence supports? Are anti-AI-cliché rules followed?
 
 The Auditor uses the `references/anti_ai_cliche.md` style guide plus the
 Quality Gate thresholds from `makewiki.config.yaml:quality`.

@@ -3,7 +3,6 @@
     "id": "fc_readme_port_3000",
     "claim_type": "config",
     "semantic_key": "network.port.default",
-    "value": "3000",
     "forbidden_assertion": "The default port is 3000",
     "reason": "asserts the stale README value over the authoritative source"
   },

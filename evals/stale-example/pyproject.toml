@@ -1,6 +1,0 @@
-[project]
-name = "matrix"
-version = "1.0.0"
-
-[project.scripts]
-matrix = "app.main:main"

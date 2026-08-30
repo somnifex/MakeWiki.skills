@@ -1,6 +1,0 @@
-[project]
-name = "hub"
-version = "1.0.0"
-
-[project.scripts]
-hub = "hub.api:main"

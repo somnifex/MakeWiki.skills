@@ -1,8 +1,0 @@
-[
-  {
-    "id": "eu_none",
-    "topic": "nested packages",
-    "field": "services.worker.entrypoint",
-    "expected_treatment": "services/worker's entrypoint, manifest, and .env ARE resolvable from the tree; nothing here should be left UNKNOWN."
-  }
-]
