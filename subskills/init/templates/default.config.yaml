@@ -19,6 +19,7 @@ emit_uncertainty_notes: true        # Legacy-consumed (LegacyDeterministicRender
 agent:
   max_subagents: 10                # LLM-consumed
   rebattle_rounds: 2               # LLM-consumed
+  max_audit_rounds: 3              # LLM-consumed (authoritative Auditor loop budget)
   tier_override: auto              # LLM-consumed
 
 # Python-consumed (build-site / SiteCompiler).
@@ -53,7 +54,6 @@ scan:
   max_file_size_kb: 512            # Python-consumed
   enable_source_intelligence: true # Python-consumed
   source_intelligence_max_files: 50 # Python-consumed
-  max_external_urls: 3             # LLM-consumed (reserved for LLM-authored fetch steps)
   recursive_docs: true             # Python-consumed
 
 # Python-consumed (parity / semantic-review prep / code-grounding / codebase checks).
@@ -61,7 +61,7 @@ review:
   enable_cross_language_review: true        # Python-consumed
   enable_code_grounding_verification: true  # Python-consumed
   enable_codebase_verification: true        # Python-consumed
-  enable_semantic_review: true              # Python-consumed
+  enable_review_pair_generation: true         # Python-consumed
   min_page_alignment_ratio: 0.9             # Python-consumed
 
 # Legacy-consumed: the whole revision block only drives the deprecated

@@ -73,5 +73,5 @@ pending_mechanical_verification→3). MakeWiki is **evidence-backed**, not
 When discrepancies or defects are found, the Auditor Subagent immediately
 uses `Edit` to correct the Markdown files in-place without pausing to ask
 the user. The Semantic Revision step reruns the affected L-layers until
-the Quality Gate passes (within the configured `revision.max_rounds`
+the Quality Gate passes (within the configured `agent.max_audit_rounds`
 budget).

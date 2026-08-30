@@ -66,7 +66,6 @@ class ScanConfig(BaseModel):
     max_file_size_kb: int = 512
     enable_source_intelligence: bool = True
     source_intelligence_max_files: int = 50
-    max_external_urls: int = 3
     recursive_docs: bool = True
 
     _PYTHON_CONSUMED_FIELDS: ClassVar[frozenset[str]] = frozenset(
@@ -80,20 +79,27 @@ class ScanConfig(BaseModel):
             "recursive_docs",
         }
     )
-    _LLM_CONSUMED_FIELDS: ClassVar[frozenset[str]] = frozenset(
-        {"max_external_urls"}  # forward planning; reserved for LLM-authored fetch steps.
-    )
+    _LLM_CONSUMED_FIELDS: ClassVar[frozenset[str]] = frozenset()
     _SHARED_CONSUMED_FIELDS: ClassVar[frozenset[str]] = frozenset()
     _LEGACY_CONSUMED_FIELDS: ClassVar[frozenset[str]] = frozenset()
 
 
 class ReviewConfig(BaseModel):
-    """Controls cross-language and grounding review behaviour."""
+    """Controls cross-language and grounding review behaviour.
+
+    ``enable_review_pair_generation`` (formerly ``enable_semantic_review``)
+    is a MECHANICAL toggle: it gates whether the ``semantic-review`` CLI
+    prepares aligned passage pairs for the LLM to review. It does NOT control
+    the authoritative ``/makewiki`` LLM semantic audit — Python never closes
+    that audit; the Auditor always runs over L3/L4b/L5 in the Skill layer.
+    It was renamed so the name can never be misread as toggling the LLM
+    semantic audit off.
+    """
 
     enable_cross_language_review: bool = True
     enable_code_grounding_verification: bool = True
     enable_codebase_verification: bool = True
-    enable_semantic_review: bool = True
+    enable_review_pair_generation: bool = True
     min_page_alignment_ratio: float = 0.9
 
     _PYTHON_CONSUMED_FIELDS: ClassVar[frozenset[str]] = frozenset(
@@ -101,7 +107,7 @@ class ReviewConfig(BaseModel):
             "enable_cross_language_review",
             "enable_code_grounding_verification",
             "enable_codebase_verification",
-            "enable_semantic_review",
+            "enable_review_pair_generation",
             "min_page_alignment_ratio",
         }
     )
@@ -229,15 +235,26 @@ class LanguageProfileConfig(BaseModel):
 
 
 class AgentConfig(BaseModel):
-    """Controls multi-agent execution and subagent budget."""
+    """Controls multi-agent execution and subagent budget.
+
+    ``max_audit_rounds`` is the AUTHORITATIVE budget for the Auditor's
+    self-healing loop in ``/makewiki`` Phase 4: it bounds how many times the
+    Auditor may re-run ``verify-docs --semantic-audit`` to resolve pending /
+    failed L-layers before the loop stops. It is consumed by the LLM
+    orchestrator only — Python never enforces it (the Quality Gate is a single
+    decision point, not a loop). It deliberately replaces the legacy
+    ``revision.max_rounds`` for the authoritative loop; the legacy field stays
+    LEGACY_ONLY for the deprecated scaffold.
+    """
 
     max_subagents: int = 10
     rebattle_rounds: int = 2
+    max_audit_rounds: int = 3
     tier_override: str = "auto"  # "auto" | "S" | "M" | "L"
 
     _PYTHON_CONSUMED_FIELDS: ClassVar[frozenset[str]] = frozenset()
     _LLM_CONSUMED_FIELDS: ClassVar[frozenset[str]] = frozenset(
-        {"max_subagents", "rebattle_rounds", "tier_override"}
+        {"max_subagents", "rebattle_rounds", "max_audit_rounds", "tier_override"}
     )
     _SHARED_CONSUMED_FIELDS: ClassVar[frozenset[str]] = frozenset()
     _LEGACY_CONSUMED_FIELDS: ClassVar[frozenset[str]] = frozenset()

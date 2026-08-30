@@ -5,6 +5,39 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [Unreleased]
+
+### Config ownership, authoritative orchestration, and legacy contract
+
+Clarified that the authoritative `/makewiki` configuration governs LLM
+orchestration, and that legacy Python config no longer pretends to steer the
+LLM-first flow.
+
+- **Authoritative audit-loop budget**: the `/makewiki` Auditor's self-healing
+  loop (Phase 4) is now bounded by the LLM-owned `agent.max_audit_rounds`
+  (new field, LLM-consumed), not the legacy `revision.max_rounds`. `SKILL.md`
+  and `tasks/review.md` were corrected to reference it.
+- **Behavioral LLM-consumption contract**: `tests/contracts/
+  test_config_consumption_contract.py` now verifies every LLM_ONLY field is
+  actually referenced in the authoritative Skill layer (`SKILL.md` /
+  `tasks/*.md`), and that `revision.max_rounds` never steers the authoritative
+  loop. Dead config masked by category is now caught at test time.
+- **Dead config removed**: `scan.max_external_urls` was a futures-planning
+  field (no consumer, no fetch step) — removed.
+- **LLM_ONLY fields wired in**: `agent.rebattle_rounds` (Phase 2 ReBattle),
+  `content_depth.*`, `delivery.*`, `documentation_policy.*`, and
+  `language_profiles.*.tone` are now genuinely consumed by the Skill layer and
+  `tasks/write.md`, instead of being only classified.
+- **Mechanical review toggle renamed**: `review.enable_semantic_review` →
+  `review.enable_review_pair_generation`, so the name can no longer imply
+  closing the authoritative LLM semantic audit (it only gates the
+  `semantic-review` preparation command).
+- **Stale config key removed**: the inert `revision.min_grounding_score` was
+  dropped from `makewiki.config.yaml` (the threshold lives on
+  `quality.min_grounding_score`).
+
+---
+
 ## [2.0.0] — 2026-08-29
 
 ### Docs consolidation — accurate surface, honest statuses

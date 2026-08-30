@@ -342,3 +342,95 @@ def test_authoritative_output_fields_stay_python_only():
             f"{path} must stay PYTHON_ONLY (read by the authoritative CLI); "
             f"got {categories[path]}"
         )
+
+
+def _authoritative_skill_text() -> str:
+    """Concatenated SKILL.md + every tasks/*.md — the authoritative LLM layer."""
+    parts: list[str] = []
+    skill = PROJECT_ROOT / "SKILL.md"
+    if skill.is_file():
+        parts.append(skill.read_text(encoding="utf-8"))
+    tasks_dir = PROJECT_ROOT / "tasks"
+    for p in sorted(tasks_dir.glob("*.md")):
+        parts.append(p.read_text(encoding="utf-8"))
+    return "\n".join(parts)
+
+
+def test_llm_only_fields_are_referenced_in_authoritative_skill_layer():
+    """BEHAVIORAL LLM-consumption contract: every LLM_ONLY field must be
+    genuinely consumed by the authoritative Skill layer — referenced by name in
+    ``SKILL.md`` or a ``tasks/*.md`` task — not merely classified LLM_ONLY in
+    ``config.py``.
+
+    A field marked LLM-only that no writer / orchestrator instruction reads is
+    dead config masked by category (the governance failure this contract
+    exists to prevent). This positive check complements the negative test
+    ``test_llm_only_fields_are_not_python_read``: it proves there is a real
+    LLM-side reader, not just the absence of a Python read.
+    """
+    llm_only = [
+        path for path, cat in all_field_categories().items() if cat == "LLM_ONLY"
+    ]
+    assert llm_only, "expected some LLM_ONLY fields to check"
+    joined = _authoritative_skill_text()
+
+    missing: list[str] = []
+    for dotted in llm_only:
+        attr = dotted.rpartition(".")[2]
+        if not re.search(r"\b" + re.escape(attr) + r"\b", joined):
+            missing.append(dotted)
+    assert not missing, (
+        "LLM_ONLY fields never referenced in the authoritative Skill layer "
+        "(SKILL.md / tasks/*.md) — dead config masked by category: "
+        + ", ".join(sorted(missing))
+    )
+
+
+def test_authoritative_audit_loop_is_budgeted_by_agent_max_audit_rounds():
+    """GOVERNANCE: the authoritative ``/makewiki`` Auditor loop (SKILL.md) is
+    bounded by the LLM-owned ``agent.max_audit_rounds``, NEVER by the legacy
+    ``revision.max_rounds``.
+
+    Regression guard against req-2-style failure: the legacy ``revision.*``
+    block is LEGACY_ONLY (drives only the deprecated scaffold) and must not
+    masquerade as authoritative orchestration. ``agent.max_audit_rounds`` must
+    appear in SKILL.md, and ``revision.max_rounds`` must NOT appear anywhere in
+    the authoritative Skill layer (SKILL.md / tasks/*.md).
+    """
+    skill = (PROJECT_ROOT / "SKILL.md").read_text(encoding="utf-8")
+    assert re.search(r"\bmax_audit_rounds\b", skill), (
+        "agent.max_audit_rounds must bound the authoritative Auditor loop in SKILL.md"
+    )
+    joined = _authoritative_skill_text()
+    assert not re.search(r"revision\.max_rounds", joined), (
+        "revision.max_rounds must NOT steer the authoritative /makewiki flow "
+        "(SKILL.md / tasks/*.md); use agent.max_audit_rounds instead"
+    )
+
+
+def test_review_review_pair_toggle_is_mechanical_and_legacy_field_stays_gone():
+    """REQ 9 + REQ 2 regression guard.
+
+    ``review.enable_review_pair_generation`` is the MECHANICAL toggle for the
+    ``semantic-review`` preparation command — the old name,
+    ``review.enable_semantic_review``, is gone. And no ``revision.max_rounds``
+    reference drives the authoritative loop (legacy field stays LEGACY_ONLY).
+    """
+    categories = all_field_categories()
+    assert "ReviewConfig.enable_review_pair_generation" in categories
+    assert categories["ReviewConfig.enable_review_pair_generation"] == "PYTHON_ONLY"
+    assert "ReviewConfig.enable_semantic_review" not in categories, (
+        "enable_semantic_review was renamed to enable_review_pair_generation so "
+        "the name cannot imply closing the authoritative LLM semantic audit"
+    )
+
+
+def test_removed_dead_llm_only_field_is_gone():
+    """``scan.max_external_urls`` was removed: it had no consumer and no fetch
+    step (only a futures-planning comment), so keeping it LLM_ONLY was dead
+    config masked by category. Regression guard that it stays gone."""
+    declared = _all_config_field_paths()
+    assert "max_external_urls" not in declared["ScanConfig"], (
+        "scan.max_external_urls is dead config (no consumer, no fetch step) and "
+        "must stay removed"
+    )

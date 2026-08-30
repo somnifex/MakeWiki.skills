@@ -818,8 +818,8 @@ def semantic_review(
         raise typer.Exit(1)
 
     cfg = _load_config(config_path, wiki_dir)
-    if not cfg.review.enable_semantic_review:
-        console.print("[yellow]semantic-review is disabled (review.enable_semantic_review=false).[/yellow]")
+    if not cfg.review.enable_review_pair_generation:
+        console.print("[yellow]semantic-review is disabled (review.enable_review_pair_generation=false).[/yellow]")
         raise typer.Exit(0)
 
     from makewiki_skills.languages.registry import LanguageRegistry

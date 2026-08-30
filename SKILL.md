@@ -604,6 +604,11 @@ observations; Python never invents them.
 
 ### Phase 2: ReBattle Adversarial Cross-Examination & Adjudication
 
+The ReBattle runs `agent.rebattle_rounds` cross-examination rounds (default
+2). Each season the adversarial agents re-derive the *stable* SemanticModel
+and ClaimSet before writing — it is the LLM-owned provenance step that guards
+the Mechanical Facts.
+
 #### Blind extraction with self-reflection (Round 1)
 - **Agent Red** extracts runnable CLI commands, onboarding paths, expected
   outputs.
@@ -626,6 +631,11 @@ For each target language spawn an independent Language Writer Subagent. Each
 writer:
 - receives the same adjudicated SemanticModel and ClaimSet,
 - writes the complete native Markdown set into `<output_dir>/`,
+- honors `content_depth.*` bounds (``max_faq_items`` / ``max_usage_examples`` /
+  ``max_troubleshooting_items`` / ``mode``) when deciding how much FAQ, usage
+  example, and troubleshooting material to author per page,
+- emits the delivery pages (deployment runbook / compatibility matrix /
+  health checks on the installation page) only when `delivery.*` enables them,
 - runs the 4-dimensional self-reflection loop,
 - honors 100% code-block parity across languages.
 
@@ -647,7 +657,7 @@ over any deltas.
 3. Re-run `verify-docs` — now with `--semantic-audit <file>` (and
    `--semantic-model <file>` when the bundle declares a `semantic_model_digest`)
    to consume the Auditor's bundle — until the gate is `passed` or `failed`
-   or until `revision.max_rounds` is exhausted. Pending LLM layers exit 0 when
+   or until `agent.max_audit_rounds` is exhausted. Pending LLM layers exit 0 when
    `quality.allow_pending_llm_layers` is true:
    ```bash
    python <makewiki_root>/scripts/run_toolkit.py verify-docs <target> --semantic-audit <output_dir>/semantic_audit.json --semantic-model <output_dir>/semantic_model.json
@@ -734,20 +744,28 @@ dead or ambiguous:
   `renderer/validator.py` to enforce the no-unfounded-praise / no-banned-word
   rule mechanically; the writer also consults them so it never produces such
   descriptors in the first place.
-- **LLM-only**: `agent.*`, `delivery.*`, `language_profiles.*`,
-  `content_depth.*`, and the other `documentation_policy.*` fields
-  (`audience`, `structure_strategy`, `prefer_task_oriented_sections`,
-  `include_architecture_analysis`, `include_directory_overview`,
-  `include_source_walkthroughs`) — read by Skill / writers, NOT by Python.
-  The contract's negative test asserts these LLM-only fields have no Python
-  read.
-- **Python-only**: `scan.*`, `review.*`, `site.*`, `quality.*`,
-  `output_dir`, `languages`, `default_language`, `target_dir`. These are the
-  fields the authoritative mechanical CLI actually reads (`verify-docs`,
-  `parity`, `review`, `build-site`).
+- **LLM-only**: `agent.*` (incl. `max_audit_rounds`, the authoritative
+  Auditor-loop budget in Phase 4, and `rebattle_rounds`, the ReBattle budget in
+  Phase 2), `delivery.*` (Phase 3 writer page emission), `content_depth.*`
+  (Phase 3 writer authoring bounds), `language_profiles.*`, and the other
+  `documentation_policy.*` fields (`audience`, `structure_strategy`,
+  `prefer_task_oriented_sections`, `include_architecture_analysis`,
+  `include_directory_overview`, `include_source_walkthroughs`) — read by Skill
+  / writers, NOT by Python. The contract's behavioral test asserts each
+  LLM-only field is actually referenced in the authoritative Skill layer
+  (`SKILL.md` / `tasks/`), and its negative test asserts no LLM-only field has
+  a Python read.
+- **Python-only**: `scan.*`, `review.*` (incl. the mechanical
+  `enable_review_pair_generation`, which only gates the `semantic-review`
+  preparation command — it never closes the authoritative LLM semantic audit),
+  `site.*`, `quality.*`, `output_dir`, `languages`, `default_language`,
+  `target_dir`. These are the fields the authoritative mechanical CLI actually
+  reads (`verify-docs`, `parity`, `review`, `build-site`).
 - **Legacy-only**: `emit_uncertainty_notes`, `generate_*`, `strict_grounding`,
-  `overwrite`, `delete_stale_files`, and the whole `revision.*` block. These
-  SEMANTIC scaffolding decisions (whether to emit faq/troubleshooting/env-vars
+  `overwrite`, `delete_stale_files`, and the whole `revision.*` block. The
+  legacy revision round budget never bounds the authoritative `/makewiki`
+  Auditor loop — that is `agent.max_audit_rounds`. These SEMANTIC scaffolding
+  decisions (whether to emit faq/troubleshooting/env-vars
   pages, whether to attach uncertainty hedges, revision rounds) are consumed
   ONLY by the deprecated `legacy-generate` / `generate` scaffold — the legacy
   deterministic renderer, the legacy pipeline, and its mechanical repair

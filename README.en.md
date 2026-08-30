@@ -174,6 +174,7 @@ overwrite: true
 agent:                       # LLM-consumed
   max_subagents: 10
   rebattle_rounds: 2
+  max_audit_rounds: 3
   tier_override: auto
 
 site:                        # Python-consumed
