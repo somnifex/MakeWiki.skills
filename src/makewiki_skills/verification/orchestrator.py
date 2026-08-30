@@ -16,6 +16,7 @@ from makewiki_skills.verification.report import (
     ComprehensiveVerificationReport,
     LayerReport,
     ReviewItem,
+    SemanticProvenance,
     VerificationCheck,
 )
 from makewiki_skills.verification.semantic_audit import (
@@ -289,16 +290,16 @@ class VerificationOrchestrator:
             check.status = verdict.status
             check.verified = verdict.status == "passed"
             check.verification_source = "semantic_audit_bundle"
-            # Structured provenance: the Auditor's adjudication record kept as
-            # first-class fields (Python does not re-judge the verdict, it only
+            # Structured provenance: the Auditor's adjudication record kept as a
+            # formal typed schema (Python does not re-judge the verdict, it only
             # preserves who said what, when, and why).
-            check.provenance = {
-                "auditor": bundle.auditor,
-                "rationale_summary": verdict.rationale_summary,
-                "evidence_refs": list(verdict.evidence_refs),
-                "confidence": verdict.confidence,
-                "audited_at": bundle.audited_at,
-            }
+            check.provenance = SemanticProvenance(
+                auditor=bundle.auditor,
+                rationale_summary=verdict.rationale_summary,
+                evidence_refs=list(verdict.evidence_refs),
+                confidence=verdict.confidence,
+                audited_at=bundle.audited_at,
+            )
             # A readable one-line summary remains on detail for CLI/legacy
             # display; the structured fields are the source of truth.
             evidence = ", ".join(verdict.evidence_refs) if verdict.evidence_refs else "none"

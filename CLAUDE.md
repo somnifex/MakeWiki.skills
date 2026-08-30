@@ -119,8 +119,9 @@ mechanical scaffold; the authoritative flow is `/makewiki` (LLM-orchestrated).
   artifacts.
 - **Version binding**: skill version (`2.0.0`) ↔ toolkit version (`2.0.0`)
 
-  via the bootstrap script (`MAKEWIKI_TOOLKIT_VERSION` /
-  `MAKEWIKI_TOOLKIT_SHA256`).
+  via the bootstrap script (`MAKEWIKI_TOOLKIT_VERSION`, plus
+  `MAKEWIKI_TOOLKIT_COMMIT` for a Git install and
+  `MAKEWIKI_TOOLKIT_ARCHIVE_SHA256` for an Archive install).
 
 ## Build & Test
 

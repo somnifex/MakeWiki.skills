@@ -192,17 +192,32 @@ def validate_required_metrics(verdict: JudgeVerdict, rubric: Rubric) -> list[str
     """Return rubric metrics marked ``required=True`` that are MISSING from the
     verdict's ``each`` list (empty list = all present).
 
+    A judge bundle ONLY grades the semantic metrics (``SEMANTIC_METRICS``), never
+    the mechanical ones (recall / unsupported rate / evidence grounding, which
+    the mechanical scorer measures instead). So a rubric metric only holds a
+    judge bundle *incomplete* when it is both marked ``required`` AND is a
+    semantic metric the judge was supposed to grade. A required mechanical
+    metric is enforced by the scorer, not the judge; its absence from a judge
+    bundle is expected and never "incomplete".
+
     This is a cross-object (rubric + verdict) check, so it lives here as a plain
     function rather than in the pydantic model, which does not know the rubric.
-    Matching is exact metric-name equality against the rubric's required
-    metrics only — mechanical, never semantic.
+
+    The rubric may spell a metric in human form ("Native-language Quality") while
+    the protocol's canonical key is "native_language_quality". Both sides are
+    run through the SAME :func:`_normalize_metric_key` used by
+    :func:`assemble_judge_input`, so a required metric matches regardless of
+    spelling — there is exactly one normalization path, never two that can drift
+    apart. Matching remains mechanical, never semantic.
     """
-    present = {v.metric for v in verdict.each}
-    return [
-        name
+    semantic_required = {
+        _normalize_metric_key(name)
         for name, spec in rubric.metrics.items()
-        if spec.required and name not in present
-    ]
+        if spec.required and _normalize_metric_key(name) in SEMANTIC_METRICS
+    }
+    present = {_normalize_metric_key(v.metric) for v in verdict.each}
+    missing = sorted(semantic_required - present)
+    return missing
 
 
 def save_judge_verdict(run_dir: Path, verdict: JudgeVerdict) -> Path:

@@ -8,7 +8,6 @@
 <p align="center">
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="License MIT"></a>
   <a href="pyproject.toml"><img src="https://img.shields.io/badge/python-3.11%2B-blue.svg" alt="Python 3.11+"></a>
-  <a href="tests/"><img src="https://img.shields.io/badge/tests-passing-brightgreen.svg" alt="Tests"></a>
   <a href="SKILL.md"><img src="https://img.shields.io/badge/architecture-LLM%2Dfirst-orange.svg" alt="LLM-first"></a>
   <a href="references/grounding_policy.md"><img src="https://img.shields.io/badge/verification-L0%E2%80%93L5-purple.svg" alt="L0-L5 Verification"></a>
   <a href="SKILL.md"><img src="https://img.shields.io/badge/quality%20gate-4%2Dstate-success.svg" alt="Quality Gate (four-state)"></a>
@@ -67,7 +66,7 @@ CLI 表面按权威名 + 向后兼容别名设计，Python 部分严格只做机
 | Toolkit: 跨语言对比       | `makewiki parity <path>`                 | —                   | 机械      | 块 ID 完全相同 + 对齐段落输出                                          |
 | Toolkit: ReBattle 差异 | `makewiki rebattle-diff`                 | —                   | 机械      | 争议点确定性组织                                                    |
 | Toolkit: 站点          | `makewiki build-site <path>`             | —                   | 机械      | 编译离线静态站点                                                    |
-| Toolkit: 导出          | `makewiki export <path> --format html\   | epub\               | all`    | —                                                           | 机械 | 单文件导出（拒绝 `pdf`） |
+| Toolkit: 导出          | `makewiki export <path> --format html\|epub\|all` | — | 机械 | 单文件导出（拒绝 `pdf`） |
 | Toolkit: 同步载荷        | `makewiki sync-bundle <path>`            | `makewiki sync`     | 机械      | 仅准备 Confluence/Notion 同步包，不发布                               |
 | Toolkit: 确定性脚手架      | `makewiki legacy-generate <path>` | `makewiki generate` | 机械      | **非权威路径**，仅用于回归测试                                           |
 | Toolkit: 配置生成        | `makewiki init-config`                   | —                   | —       | 生成默认 `makewiki.config.yaml`                                 |
@@ -158,9 +157,9 @@ MakeWiki 不再宣称"零幻觉"，而提供**可验证的证据驱动文档**�
 如需自定义生成行为，可在项目根目录放置配置文件（可选）。配置字段分为四类：
 
 - **LLM-only**：被 Skill 编排器 / 写作者读取（`agent.*`、`delivery.*`、`content_depth.*`、`language_profiles.*` 及除下方两条外的 `documentation_policy.*`）。
-- **Python-only**：被权威机械 CLI 读取（`site.*`、`scan.*`、`review.*`、`quality.*`、`output_dir`、`languages`、`default_language`）。
+- **Python-only**：被权威机械 CLI 读取（`scan.*`、`review.*`（仅 `enable_review_pair_generation` 与 `min_page_alignment_ratio`）、`quality.*`、`output_dir`、`languages`、`default_language`）。
 - **Shared**：Python 用于机械执行、LLM 作为写作约束（`documentation_policy.forbid_unfounded_praise` 与 `documentation_policy.banned_descriptors`）。
-- **Legacy-only**：仅被已废弃的 `legacy-generate` / `generate` 脚手架读取的语义搭建字段（`generate_faq`、`generate_troubleshooting`、`generate_env_vars_page`、`emit_uncertainty_notes`、`strict_grounding`、`overwrite`、`delete_stale_files` 及整个 `revision.*` 块）。在权威 `/makewiki` 流程中，页面构成与规避措辞由 LLM 写作者决定，Python 绝不将其视为机械权威。
+- **Legacy-only**：仅被已废弃的 `legacy-generate` / `generate` 脚手架读取的语义搭建字段（`generate_faq`、`generate_troubleshooting`、`generate_env_vars_page`、`emit_uncertainty_notes`、`strict_grounding`、`overwrite`、`delete_stale_files`、整个 `revision.*` 块、整个 `site.*` 块，以及 `review.enable_cross_language_review` / `enable_code_grounding_verification` / `enable_codebase_verification` 三个开关——均只被已废弃的 Pipeline 读取）。在权威 `/makewiki` 流程中，页面构成与规避措辞由 LLM 写作者决定，Python 绝不将其视为机械权威。
 
 ```yaml
 output_dir: makewiki
@@ -190,7 +189,9 @@ quality:                     # Quality Gate 阈值
   min_grounding_score: 1.0
 ```
 
-详细字段分类参见 `makewiki config schema` 与 `tests/contracts/test_config_consumption_contract.py`。
+详细字段分类参见 [`templates/config.yaml`](templates/config.yaml)、
+[`subskills/init/templates/default.config.yaml`](subskills/init/templates/default.config.yaml)
+与 [`tests/contracts/test_config_consumption_contract.py`](tests/contracts/test_config_consumption_contract.py)。
 
 ---
 
@@ -212,7 +213,7 @@ uv run mypy src/makewiki_skills
 uv run ruff check .
 ```
 
-Toolkit 安装后会暴露 `makewiki` 控制台入口（`pip install` 后或 `uv run` 时可用）；`/makewiki` Skill 通过版本固定 + SHA256 校验的引导脚本拉取匹配的 Toolkit 版本，保证 Skill ↔ Toolkit 版本一致。
+Toolkit 安装后会暴露 `makewiki` 控制台入口（`pip install` 后或 `uv run` 时可用）；`/makewiki` Skill 通过版本固定 + 完整性校验的引导脚本拉取匹配的 Toolkit 版本（`MAKEWIKI_TOOLKIT_VERSION` 绑定版本，`MAKEWIKI_TOOLKIT_COMMIT` 绑定 Git 提交、`MAKEWIKI_TOOLKIT_ARCHIVE_SHA256` 校验归档），保证 Skill ↔ Toolkit 版本一致。
 
 ---
 

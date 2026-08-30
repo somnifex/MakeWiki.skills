@@ -4,8 +4,11 @@ Python must collect behavior *evidence*, never adjudicate semantics. A documente
 exit code is only ``passed`` when a real call site in the repository actually
 returns that code (``sys.exit(N)`` / ``SystemExit(N)`` / ``raise SystemExit(N)``);
 otherwise Python cannot prove the behavior and the check stays ``pending`` for
-the LLM Auditor. Error-symptom text is likewise only ``passed`` when it matches a
-known source handler; unmatched symptoms stay ``pending``.
+the LLM Auditor. Error-symptom text is NEVER auto-passed from a substring match:
+whether a documented symptom truthfully describes a source handler is a semantic
+judgment, so Python emits every symptom check ``pending`` and only records the
+substring overlap as *evidence* for the LLM Auditor (mirroring L4b/L5, which
+never auto-pass). Common process exit codes are likewise not auto-passed.
 """
 
 from __future__ import annotations
@@ -16,11 +19,6 @@ from pathlib import Path
 from makewiki_skills.model.document_artifact import DocumentArtifact
 from makewiki_skills.toolkit.error_extractor import ErrorStringExtractor
 from makewiki_skills.verification.report import LayerReport, VerificationCheck
-
-# Common process exit codes are NOT auto-passed: their semantic meaning (does the
-# tool really terminate with this code in this situation?) is LLM-judged, since
-# Python cannot trace the behavior that produces them without a call site.
-_COMMON_EXIT_CODES = frozenset({0, 1, 2, 127, 130})
 
 
 def _stable_slug(text: str) -> str:
@@ -65,16 +63,26 @@ class L3BehaviorVerifier:
                         kw in line.lower() for kw in ("error", "exception", "failed", "symptom", "cannot", "invalid", "troubleshoot")
                     ):
                         err_text = quote_match.group(1).strip()
-                        # Check if any known project error contains parts of this text
+                        # Whether a documented symptom truthfully describes a source
+                        # handler is SEMANTIC, so Python never adjudicates it. It only
+                        # notes whether any known source error shares this text — a
+                        # mechanical substring overlap recorded as EVIDENCE for the
+                        # LLM Auditor — and ALWAYS emits the check ``pending``. An
+                        # auto-passed symptom would bypass LLM review entirely (the
+                        # review registry registers only pending items) and would let
+                        # a substring heuristic clear part of the L3 layer, the same
+                        # boundary violation the architecture contract forbids for
+                        # L5. L3 symptom checks therefore never carry verified=True.
                         matched = any(
                             err_text.lower() in ke.lower() or ke.lower() in err_text.lower()
                             for ke in known_errors
                         )
-                        dest = "ast_declaration" if matched else "heuristic"
                         detail = (
-                            "Documented error symptom verified against source handlers"
+                            "Documented error symptom shares text with a source handler "
+                            "(substring overlap, not adjudication) — pending LLM Auditor "
+                            "review of whether the symptom genuinely maps to that handler"
                             if matched
-                            else "Documented error symptom not found in source; asserted without mechanical proof"
+                            else "Documented error symptom not found in source; pending LLM Auditor review"
                         )
                         checks.append(
                             VerificationCheck(
@@ -83,12 +91,12 @@ class L3BehaviorVerifier:
                                 language_code=lang,
                                 claim_type="behavior",
                                 claim_text=err_text[:60],
-                                verified=matched,
-                                status="passed" if matched else "pending",
-                                verification_source=dest,
+                                verified=False,
+                                status="pending",
+                                verification_source="evidence_shared_by_source_handler" if matched else "heuristic",
                                 detail=detail,
                                 review_item_id=(
-                                    f"L3:{doc.filename}:{_stable_slug(err_text[:60])}"
+                                    f"L3:{doc.filename}:L{i}:{_stable_slug(err_text[:60])}"
                                 ),
                             )
                         )

@@ -96,7 +96,13 @@ class QualityGateResult(BaseModel):
     mechanical_passed: bool = False
     semantic_complete: bool = False
     mechanical_score: float = 0.0
-    semantic_score: float | None = None
+    # Coverage ratio (0..1) of LLM-adjudicated checks (L3/L4b/L5) that passed.
+    # This is NOT a Python-computed semantic score: it is a mechanical COUNT of
+    # how many semantic checks the LLM Auditor marked passed out of those it
+    # adjudicated. None while any LLM layer is still pending (unadjudicated).
+    # The semantic QUALITY of the content is scored by the LLM Eval Judge, never
+    # here — Python only measures adjudication coverage.
+    semantic_coverage: float | None = None
     l0_status: str = "pending"
     l1_status: str = "pending"
     l2_status: str = "pending"
@@ -279,7 +285,7 @@ def evaluate_quality_gate(
     semantic_complete = not bool(pending_llm_layers)
 
     if pending_llm_layers:
-        semantic_score: float | None = None
+        semantic_coverage: float | None = None
     else:
         sem_total = 0
         sem_passed = 0
@@ -293,7 +299,10 @@ def evaluate_quality_gate(
         if l5 is not None:
             sem_total += l5.total_checks
             sem_passed += l5.passed_count
-        semantic_score = _score(sem_passed, sem_total)
+        # Coverage of LLM-adjudicated checks only — a mechanical count, never a
+        # Python-authored semantic rating (the LLM Eval Judge owns semantic
+        # quality).
+        semantic_coverage = _score(sem_passed, sem_total)
 
     # ---- unresolved counts (severity-differentiated) -------------------------
     mechanical_failed_count = sum(
@@ -398,7 +407,7 @@ def evaluate_quality_gate(
         semantic_complete=semantic_complete,
         grounding_score=grounding_score,
         mechanical_score=mechanical_score,
-        semantic_score=semantic_score,
+        semantic_coverage=semantic_coverage,
         l0_status=l0_status,
         l1_status=l1_status,
         l2_status=l2_status,

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import uuid
 from datetime import UTC, datetime
-from typing import Any, Literal
+from typing import Literal
 
 from pydantic import BaseModel, Field, computed_field
 
@@ -38,6 +38,30 @@ VerificationSource = Literal[
     "semantic_audit_bundle",
 ]
 
+#: The confidence a semantic Auditor (LLM) attached to one verdict. Mirrors the
+#: ``confidence`` field of :class:`~makewiki_skills.verification.semantic_audit.
+#: SemanticAuditVerdict` so provenance never invents a new vocabulary.
+SemanticConfidence = Literal["high", "medium", "low"]
+
+
+class SemanticProvenance(BaseModel):
+    """Structured provenance attached to a check merged from an LLM semantic
+    audit bundle.
+
+    This is the formal schema behind what was previously a loose
+    ``dict[str, Any]``: each field is typed, so a downstream consumer (CLI
+    report, eval scorer, Skill layer) reads real fields instead of parsing a
+    free-form dictionary. It records *who judged, when, with what rationale and
+    evidence, and how confidently* — it does NOT re-judge the verdict. It is
+    ``None`` on a check that was not merged from a semantic audit bundle.
+    """
+
+    auditor: str
+    rationale_summary: str
+    evidence_refs: list[str] = Field(default_factory=list)
+    confidence: SemanticConfidence = "medium"
+    audited_at: str
+
 
 class VerificationCheck(BaseModel):
     """A single verification check performed on a claim or document element."""
@@ -62,10 +86,11 @@ class VerificationCheck(BaseModel):
     #: Structured provenance from the LLM Auditor, populated by the item-level
     #: semantic-bundle merge (``verification_source == "semantic_audit_bundle"``).
     #: Holds the auditor, rationale, evidence refs, confidence and audited_at as
-    #: first-class fields so downstream consumers (CLI report, eval scorer, Skill
-    #: layer) can read them without parsing ``detail`` prose. None when the check
-    #: was not merged from an audit bundle.
-    provenance: dict[str, Any] | None = None
+    #: a formal typed schema (``SemanticProvenance``) so downstream consumers
+    #: (CLI report, eval scorer, Skill layer) can read them without parsing
+    #: ``detail`` prose or a free-form dictionary. None when the check was not
+    #: merged from an audit bundle.
+    provenance: SemanticProvenance | None = None
 
 
 class ReviewItem(BaseModel):

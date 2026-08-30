@@ -9,7 +9,6 @@
 <p align="center">
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="License MIT"></a>
   <a href="pyproject.toml"><img src="https://img.shields.io/badge/python-3.11%2B-blue.svg" alt="Python 3.11+"></a>
-  <a href="tests/"><img src="https://img.shields.io/badge/tests-passing-brightgreen.svg" alt="Tests"></a>
   <a href="SKILL.md"><img src="https://img.shields.io/badge/architecture-LLM%2Dfirst-orange.svg" alt="LLM-first"></a>
   <a href="references/grounding_policy.md"><img src="https://img.shields.io/badge/verification-L0%E2%80%93L5-purple.svg" alt="L0-L5 Verification"></a>
   <a href="SKILL.md"><img src="https://img.shields.io/badge/quality%20gate-4%2Dstate-success.svg" alt="Quality Gate (four-state)"></a>
@@ -68,7 +67,7 @@ The CLI surface is designed around authoritative names with backward-compatible 
 | Toolkit: Parity                 | `makewiki parity <path>`               | —                   | Block-ID exact match + aligned passages                              |
 | Toolkit: ReBattle diff          | `makewiki rebattle-diff`               | —                   | Deterministic dispute organizer                                      |
 | Toolkit: Site                   | `makewiki build-site <path>`           | —                   | Compile offline static site                                          |
-| Toolkit: Export                 | `makewiki export <path> --format html\ | epub\               | all`                                                                 | — | Single-file export (rejects `pdf`) |
+| Toolkit: Export                 | `makewiki export <path> --format html\|epub\|all` | — | Single-file export (rejects `pdf`) |
 | Toolkit: Sync bundle            | `makewiki sync-bundle <path>`          | `makewiki sync`     | Prepare Confluence/Notion bundles (no publish)                       |
 | Toolkit: Deterministic scaffold | `makewiki legacy-generate <path>`      | `makewiki generate` | **Non-authoritative**, regression only                               |
 | Toolkit: Config init            | `makewiki init-config`                 | —                   | Generate default `makewiki.config.yaml`                              |
@@ -159,9 +158,9 @@ MakeWiki no longer claims "zero hallucinations." It delivers **verifiable, evide
 Optional config file at the project root. Fields fall into four classes:
 
 - **LLM-only** — read by the Skill orchestrator / writers (`agent.*`, `delivery.*`, `content_depth.*`, `language_profiles.*`, and the other `documentation_policy.*` fields besides the two Shared ones below).
-- **Python-only** — read by the authoritative mechanical CLI (`site.*`, `scan.*`, `review.*`, `quality.*`, `output_dir`, `languages`, `default_language`).
+- **Python-only** — read by the authoritative mechanical CLI (`scan.*`, `review.*` (only `enable_review_pair_generation` and `min_page_alignment_ratio`), `quality.*`, `output_dir`, `languages`, `default_language`).
 - **Shared** — read by Python for mechanical enforcement AND by the LLM writer as guidance (`documentation_policy.forbid_unfounded_praise` and `documentation_policy.banned_descriptors`).
-- **Legacy-only** — semantic scaffolding fields consumed ONLY by the deprecated `legacy-generate` / `generate` scaffold (`generate_faq`, `generate_troubleshooting`, `generate_env_vars_page`, `emit_uncertainty_notes`, `strict_grounding`, `overwrite`, `delete_stale_files`, and the whole `revision.*` block). In the authoritative `/makewiki` flow the LLM writers decide page composition and hedging; Python never treats these as mechanical authority.
+- **Legacy-only** — semantic scaffolding fields consumed ONLY by the deprecated `legacy-generate` / `generate` scaffold (`generate_faq`, `generate_troubleshooting`, `generate_env_vars_page`, `emit_uncertainty_notes`, `strict_grounding`, `overwrite`, `delete_stale_files`, the whole `revision.*` block, the whole `site.*` block, and the `review.enable_cross_language_review` / `enable_code_grounding_verification` / `enable_codebase_verification` toggles — all read only by the deprecated Pipeline). In the authoritative `/makewiki` flow the LLM writers decide page composition and hedging; Python never treats these as mechanical authority.
 
 ```yaml
 output_dir: makewiki
@@ -191,7 +190,9 @@ quality:                     # Quality Gate thresholds
   min_grounding_score: 1.0
 ```
 
-Field classifications live in the config schema and are enforced by `tests/contracts/test_config_consumption_contract.py`.
+Field classifications live in [`templates/config.yaml`](templates/config.yaml),
+[`subskills/init/templates/default.config.yaml`](subskills/init/templates/default.config.yaml),
+and are enforced by `tests/contracts/test_config_consumption_contract.py`.
 
 ---
 
@@ -213,7 +214,7 @@ uv run mypy src/makewiki_skills
 uv run ruff check .
 ```
 
-The toolkit exposes a `makewiki` console entry on install. The `/makewiki` Skill pulls a matching Toolkit release through a version-pinned + SHA256-verified bootstrap script, keeping Skill and Toolkit versions aligned.
+The toolkit exposes a `makewiki` console entry on install. The `/makewiki` Skill pulls a matching Toolkit release through a version-pinned, integrity-checked bootstrap script (`MAKEWIKI_TOOLKIT_VERSION` binds the version, `MAKEWIKI_TOOLKIT_COMMIT` the Git commit, `MAKEWIKI_TOOLKIT_ARCHIVE_SHA256` the archive checksum), keeping Skill and Toolkit versions aligned.
 
 ---
 

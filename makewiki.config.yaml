@@ -82,7 +82,6 @@ delivery:
   include_compatibility_matrix: true
   include_health_checks: true
 quality:
-  fail_on_critical: true
   allow_pending_llm_layers: true
   min_grounding_score: 1.0
 language_profiles: {}

@@ -38,16 +38,25 @@ from pathlib import Path
 from typing import Any, ClassVar, Literal, cast, get_args
 
 import yaml  # type: ignore[import-untyped]
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 #: Every public config field maps to exactly one consumer category.
 ConsumerCategory = Literal["PYTHON_ONLY", "LLM_ONLY", "SHARED", "LEGACY_ONLY"]
 
 _CONSUMER_CATEGORIES: frozenset[str] = frozenset(get_args(ConsumerCategory))
 
+#: Config models reject unknown keys (``extra="forbid"``) so an unrecognised
+#: field in ``makewiki.config.yaml`` fails loudly instead of being silently
+#: discarded by pydantic's default ``extra="ignore"``. A silent-dead-field in
+#: the YAML (a key with no backing model field and no consumer) is a contract
+#: violation this prevents at load time, not just in a structural walk.
+_STRICT_CONFIG = ConfigDict(extra="forbid")
+
 
 class ScanConfig(BaseModel):
     """Controls which files and directories are scanned."""
+
+    model_config = _STRICT_CONFIG
 
     mode: str = "auto"  # "quick" | "standard" | "deep" | "auto"
     ignore_dirs: list[str] = Field(
@@ -96,6 +105,8 @@ class ReviewConfig(BaseModel):
     semantic audit off.
     """
 
+    model_config = _STRICT_CONFIG
+
     enable_cross_language_review: bool = True
     enable_code_grounding_verification: bool = True
     enable_codebase_verification: bool = True
@@ -104,20 +115,31 @@ class ReviewConfig(BaseModel):
 
     _PYTHON_CONSUMED_FIELDS: ClassVar[frozenset[str]] = frozenset(
         {
-            "enable_cross_language_review",
-            "enable_code_grounding_verification",
-            "enable_codebase_verification",
             "enable_review_pair_generation",
             "min_page_alignment_ratio",
         }
     )
     _LLM_CONSUMED_FIELDS: ClassVar[frozenset[str]] = frozenset()
     _SHARED_CONSUMED_FIELDS: ClassVar[frozenset[str]] = frozenset()
-    _LEGACY_CONSUMED_FIELDS: ClassVar[frozenset[str]] = frozenset()
+    _LEGACY_CONSUMED_FIELDS: ClassVar[frozenset[str]] = frozenset(
+        {
+            # These three toggles gate parts of the DEPRECATED deterministic
+            # pipeline (pipeline.py) only — cross-language review, code
+            # grounding, and codebase verification inside the legacy
+            # Pipeline. They are never read by the authoritative mechanical CLI
+            # (verify-docs / semantic-review / build-site), so they are not
+            # PYTHON_ONLY: they are legacy scaffold switches.
+            "enable_cross_language_review",
+            "enable_code_grounding_verification",
+            "enable_codebase_verification",
+        }
+    )
 
 
 class RevisionConfig(BaseModel):
     """Controls automatic document revision after verification."""
+
+    model_config = _STRICT_CONFIG
 
     enabled: bool = True
 
@@ -154,6 +176,8 @@ class RevisionConfig(BaseModel):
 class ContentDepthConfig(BaseModel):
     """Controls how much detail is generated and when pages are split into sub-pages."""
 
+    model_config = _STRICT_CONFIG
+
     mode: str = "auto"  # "compact" | "detailed" | "auto"
     max_faq_items: int = 20
     max_usage_examples: int = 8
@@ -176,6 +200,8 @@ class ContentDepthConfig(BaseModel):
 
 class DocumentationPolicyConfig(BaseModel):
     """Controls how conservative and user-facing the generated docs should be."""
+
+    model_config = _STRICT_CONFIG
 
     audience: str = "end-user"
     structure_strategy: str = "user-journey"
@@ -226,6 +252,8 @@ class DocumentationPolicyConfig(BaseModel):
 class LanguageProfileConfig(BaseModel):
     """Per-language overrides in the config file."""
 
+    model_config = _STRICT_CONFIG
+
     tone: str = "concise-user-facing"
 
     _PYTHON_CONSUMED_FIELDS: ClassVar[frozenset[str]] = frozenset()
@@ -247,6 +275,8 @@ class AgentConfig(BaseModel):
     LEGACY_ONLY for the deprecated scaffold.
     """
 
+    model_config = _STRICT_CONFIG
+
     max_subagents: int = 10
     rebattle_rounds: int = 2
     max_audit_rounds: int = 3
@@ -263,21 +293,28 @@ class AgentConfig(BaseModel):
 class SiteConfig(BaseModel):
     """Controls static HTML website compilation."""
 
+    model_config = _STRICT_CONFIG
+
     compile: bool = True
     theme: str = "auto"  # "auto" | "light" | "dark"
     include_search: bool = True
     output_subdir: str = "site"
 
-    _PYTHON_CONSUMED_FIELDS: ClassVar[frozenset[str]] = frozenset(
-        {"compile", "theme", "include_search", "output_subdir"}
-    )
+    _PYTHON_CONSUMED_FIELDS: ClassVar[frozenset[str]] = frozenset()
     _LLM_CONSUMED_FIELDS: ClassVar[frozenset[str]] = frozenset()
     _SHARED_CONSUMED_FIELDS: ClassVar[frozenset[str]] = frozenset()
-    _LEGACY_CONSUMED_FIELDS: ClassVar[frozenset[str]] = frozenset()
+    # The authoritative `build-site` CLI takes its output path and theme from
+    # command-line flags, NOT from this block; SiteConfig is read only by the
+    # deprecated deterministic Pipeline (pipeline.py), so it is LEGACY_ONLY.
+    _LEGACY_CONSUMED_FIELDS: ClassVar[frozenset[str]] = frozenset(
+        {"compile", "theme", "include_search", "output_subdir"}
+    )
 
 
 class DeliveryConfig(BaseModel):
     """Controls enterprise and commercial delivery documentation structure."""
+
+    model_config = _STRICT_CONFIG
 
     audience: str = "dual"  # "dual" | "end-user" | "enterprise"
     include_deployment_runbook: bool = True
@@ -300,6 +337,8 @@ class DeliveryConfig(BaseModel):
 class QualityConfig(BaseModel):
     """Thresholds for the unified L0-L5 Quality Gate."""
 
+    model_config = _STRICT_CONFIG
+
     # When True, unresolved LLM-judged layers (L3/L4-prose/L5) that are left
     # pending do not by themselves fail the gate.
     allow_pending_llm_layers: bool = True
@@ -318,6 +357,8 @@ class QualityConfig(BaseModel):
 
 class MakeWikiConfig(BaseModel):
     """Root configuration for a makewiki run."""
+
+    model_config = _STRICT_CONFIG
 
     output_dir: str = "makewiki"
     languages: list[str] = Field(default_factory=lambda: ["en", "zh-CN"])
@@ -352,7 +393,6 @@ class MakeWikiConfig(BaseModel):
             "scan",
             "review",
             "quality",
-            "site",
             "documentation_policy",
             "target_dir",
         }
@@ -364,11 +404,14 @@ class MakeWikiConfig(BaseModel):
     # These fields ONLY drive the deprecated ``legacy-generate`` / ``generate``
     # scaffold (the ``LegacyDeterministicRenderer`` emitting faq/troubleshooting/
     # env-vars pages and uncertainty notes, the legacy ``Pipeline`` write stage
-    # and its ``CodeGroundingVerifier`` strictness, and the whole legacy revision
-    # block). The authoritative ``/makewiki`` flow never reads them — the LLM
-    # writers decide page composition and hedging. So they are LEGACY_ONLY, not
-    # PYTHON_ONLY: Python consumes them only inside the non-authoritative
-    # scaffold, and they must never appear as legitimate mechanical enforcement.
+    # and its ``CodeGroundingVerifier`` strictness, the whole legacy revision
+    # block, and the legacy Pipeline's static-site compile step driven by
+    # ``SiteConfig``). The authoritative ``/makewiki`` flow never reads them —
+    # the LLM writers decide page composition and hedging, and the authoritative
+    # ``build-site`` CLI takes its theme/output from flags, not ``site.*``. So
+    # they are LEGACY_ONLY, not PYTHON_ONLY: Python consumes them only inside the
+    # non-authoritative scaffold, and they must never appear as legitimate
+    # mechanical enforcement.
     _LEGACY_CONSUMED_FIELDS: ClassVar[frozenset[str]] = frozenset(
         {
             "generate_faq",
@@ -379,6 +422,7 @@ class MakeWikiConfig(BaseModel):
             "overwrite",
             "delete_stale_files",
             "revision",
+            "site",
         }
     )
 

@@ -14,8 +14,9 @@ proves what can be mechanically proven. Documentation is evidence-backed with
 layered automated verification (L0 - L5) and a single Quality Gate.
 
 This file binds skill `2.0.0` to toolkit `2.0.0`. The bootstrap script pins
-the matching tag and verifies its SHA256 via `MAKEWIKI_TOOLKIT_VERSION` /
-`MAKEWIKI_TOOLKIT_SHA256`.
+the matching tag via `MAKEWIKI_TOOLKIT_VERSION`, the Git identity via
+`MAKEWIKI_TOOLKIT_COMMIT` (Git install) and the archive integrity checksum via
+`MAKEWIKI_TOOLKIT_ARCHIVE_SHA256` (Archive install).
 
 ---
 

@@ -117,7 +117,10 @@ def cmd_aggregate(args: argparse.Namespace) -> int:
     # LLM Eval-Judge summaries (present only when runs carried judge bundles).
     j = agg.judge
     if j is not None:
-        print(f"  judge_present={j.present_runs} judge_missing={j.missing_runs}/{j.total_runs}")
+        print(
+            f"  judge_present={j.present_runs} judge_incomplete={j.incomplete_runs} "
+            f"judge_missing={j.missing_runs}/{j.total_runs}"
+        )
         for m in j.per_metric:
             print(
                 f"  judge[{m.metric}] mean={m.mean} median={m.median} stddev={m.stddev} "

@@ -26,7 +26,11 @@ from pathlib import Path
 from makewiki_skills.generator.language_generator import GeneratedDocument
 from makewiki_skills.verification.orchestrator import VerificationOrchestrator
 from makewiki_skills.verification.quality_gate import evaluate_quality_gate
-from makewiki_skills.verification.report import LayerReport, VerificationCheck
+from makewiki_skills.verification.report import (
+    LayerReport,
+    SemanticProvenance,
+    VerificationCheck,
+)
 from makewiki_skills.verification.semantic_audit import (
     SemanticAuditBundle,
     SemanticAuditVerdict,
@@ -368,13 +372,15 @@ def test_semantic_audit_provenance_is_preserved(tmp_path: Path):
 
     check = _find_check(report, items[0].review_item_id)
     assert check.verification_source == "semantic_audit_bundle"
-    # Structured provenance is the source of truth (Req 5).
+    # Structured provenance is the source of truth (Req 5), held as a FORMAL
+    # typed schema (SemanticProvenance), not a loose dict to be parsed.
     assert check.provenance is not None
-    assert check.provenance["auditor"] == "fake_primary_auditor"
-    assert check.provenance["rationale_summary"] == "behavior matches traced source"
-    assert check.provenance["evidence_refs"] == ["src/app/cli.py:120-148"]
-    assert check.provenance["confidence"] == "high"
-    assert check.provenance["audited_at"] == "2026-01-02T03:04:05+00:00"
+    assert isinstance(check.provenance, SemanticProvenance)
+    assert check.provenance.auditor == "fake_primary_auditor"
+    assert check.provenance.rationale_summary == "behavior matches traced source"
+    assert check.provenance.evidence_refs == ["src/app/cli.py:120-148"]
+    assert check.provenance.confidence == "high"
+    assert check.provenance.audited_at == "2026-01-02T03:04:05+00:00"
     # The readable one-line detail is kept and mentions the same facts.
     assert "fake_primary_auditor" in check.detail
     assert "behavior matches traced source" in check.detail  # rationale

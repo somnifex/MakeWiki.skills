@@ -178,17 +178,40 @@ def test_llm_only_fields_are_not_python_read():
     )
 
 
-def test_python_consumed_fields_are_referenced_in_source():
-    """Python-consumed fields must actually be read somewhere in ``src/``.
+def test_python_consumed_fields_are_referenced_in_authoritative_source():
+    """Python-consumed fields must actually be read somewhere in ``src/`` by an
+    AUTHORITATIVE mechanical reader.
 
-    This catches the most common drift: declaring a field ``Python-consumed``
-    on the config model but never wiring it into a stage. The contract test
-    then fails fast instead of letting dead config ship.
+    The scan deliberately excludes the deprecated non-authoritative scaffold
+    (``pipeline/pipeline.py`` and the ``LegacyDeterministicRenderer`` in
+    ``generator/language_generator.py``). A field marked PYTHON_ONLY that is
+    referenced ONLY inside those legacy modules is really a legacy-only switch
+    wearing the wrong category — it must be LEGACY_ONLY, never authoritative
+    mechanical enforcement. This closes the gap where a legacy-only read made a
+    dead or misclassified field look Python-consumed.
+
+    Fields read only by the legacy scaffold but still marked PYTHON_ONLY will
+    now surface here as "never referenced by an authoritative reader" and fail.
     """
+    # Files that are ONLY the non-authoritative scaffold. A PYTHON_ONLY field's
+    # reader must live outside this set.
+    LEGACY_READER_FILES = {
+        "pipeline/pipeline.py",
+        "generator/language_generator.py",
+    }
+
+    def _is_legacy(path: Path) -> bool:
+        rel = str(path.relative_to(SRC_ROOT)).replace("\\", "/")
+        return rel in LEGACY_READER_FILES
+
     python_paths = python_consumed_field_paths()
-    src_texts: dict[str, str] = {}
-    for src_file in SRC_ROOT.rglob("*.py"):
-        src_texts[str(src_file)] = src_file.read_text(encoding="utf-8")
+    src_texts: dict[str, str] = {
+        str(src_file): src_file.read_text(encoding="utf-8")
+        for src_file in SRC_ROOT.rglob("*.py")
+        if not _is_legacy(src_file)
+    }
+    if not src_texts:
+        raise AssertionError("no authoritative source files to scan")
 
     missing: list[str] = []
     for dotted in python_paths:
@@ -204,7 +227,9 @@ def test_python_consumed_fields_are_referenced_in_source():
         if not any(pattern.search(text) for text in src_texts.values()):
             missing.append(dotted)
     assert not missing, (
-        "Fields marked Python-consumed but never referenced in src/: " + ", ".join(missing)
+        "Fields marked Python-consumed but never referenced by an AUTHORITATIVE "
+        "reader in src/ (excluding the legacy scaffold) — reclassify as "
+        "LEGACY_ONLY or wire an authoritative reader: " + ", ".join(missing)
     )
 
 
@@ -344,6 +369,36 @@ def test_authoritative_output_fields_stay_python_only():
         )
 
 
+def test_review_and_site_legacy_toggles_are_legacy_only_while_cli_switches_stay_python():
+    """The three historic ``review.enable_*`` toggles and the entire ``site``
+    block are read ONLY by the deprecated deterministic Pipeline
+    (``pipeline/pipeline.py``) — the authoritative mechanical CLI never consults
+    them, so they must be LEGACY_ONLY, not PYTHON_ONLY. By contrast
+    ``review.enable_review_pair_generation`` and ``review.min_page_alignment_ratio``
+    are genuinely read by the authoritative ``semantic-review`` CLI and stay
+    PYTHON_ONLY.
+    """
+    categories = all_field_categories()
+    for path in (
+        "ReviewConfig.enable_cross_language_review",
+        "ReviewConfig.enable_code_grounding_verification",
+        "ReviewConfig.enable_codebase_verification",
+        "MakeWikiConfig.site",
+    ):
+        assert categories[path] == "LEGACY_ONLY", (
+            f"{path} must be LEGACY_ONLY (read only by the deprecated Pipeline, "
+            f"never by the authoritative mechanical CLI); got {categories[path]}"
+        )
+    for path in (
+        "ReviewConfig.enable_review_pair_generation",
+        "ReviewConfig.min_page_alignment_ratio",
+    ):
+        assert categories[path] == "PYTHON_ONLY", (
+            f"{path} must be PYTHON_ONLY (read by the authoritative semantic-review "
+            f"CLI); got {categories[path]}"
+        )
+
+
 def _authoritative_skill_text() -> str:
     """Concatenated SKILL.md + every tasks/*.md — the authoritative LLM layer."""
     parts: list[str] = []
@@ -434,3 +489,45 @@ def test_removed_dead_llm_only_field_is_gone():
         "scan.max_external_urls is dead config (no consumer, no fetch step) and "
         "must stay removed"
     )
+
+
+def test_config_models_reject_unknown_keys():
+    """GOVERNANCE: every config model forbids unknown keys (``extra="forbid"``).
+
+    Requirement: LLM config must never allow a silent dead field. A key in
+    ``makewiki.config.yaml`` with no backing model field and no consumer used to
+    be silently dropped by pydantic's default ``extra="ignore"`` (e.g. the
+    legacy ``quality.fail_on_critical``). Each model now carries
+    ``model_config = _STRICT_CONFIG`` so an unrecognised key in either the root
+    config or any nested block (``scan`` / ``review`` / ``quality`` / ...) is a
+    hard load-time ``ValidationError`` instead of a silent discard.
+    """
+    from makewiki_skills.config import iter_config_models
+
+    for model in iter_config_models():
+        assert model.model_config.get("extra") == "forbid", (
+            f"{model.__name__} must reject unknown keys (extra='forbid'); "
+            f"got model_config={model.model_config}"
+        )
+
+    # End-to-end: an unknown root key AND an unknown nested key each fail.
+    from pydantic import ValidationError
+
+    from makewiki_skills.config import MakeWikiConfig
+
+    try:
+        MakeWikiConfig.model_validate({"quality": {"fail_on_critical": True}})
+    except ValidationError:
+        pass
+    else:
+        raise AssertionError(
+            "unknown nested key quality.fail_on_critical must fail validation"
+        )
+
+    try:
+        MakeWikiConfig.model_validate({"no_such_root_field": 1})
+    except ValidationError:
+        pass
+    else:
+        raise AssertionError("unknown root key must fail validation")
+

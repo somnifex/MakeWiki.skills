@@ -22,12 +22,12 @@ agent:
   max_audit_rounds: 3              # LLM-consumed (authoritative Auditor loop budget)
   tier_override: auto              # LLM-consumed
 
-# Python-consumed (SiteCompiler).
+# Legacy-consumed (read only by the deprecated deterministic Pipeline, pipeline.py).
 site:
-  compile: true                    # Python-consumed (Pipeline.stage_compile_site)
-  theme: auto                      # Python-consumed (SiteCompiler.theme)
-  include_search: true             # Python-consumed (SiteCompiler.include_search)
-  output_subdir: site              # Python-consumed (Pipeline.site_output)
+  compile: true                    # Legacy-consumed (Pipeline.stage_compile_site)
+  theme: auto                      # Legacy-consumed (Pipeline.stage_compile_site)
+  include_search: true             # Legacy-consumed (Pipeline.stage_compile_site)
+  output_subdir: site              # Legacy-consumed (Pipeline.stage_compile_site)
 
 # LLM-consumed: delivery scope sections chosen by the writers.
 delivery:                          # LLM-consumed
@@ -56,11 +56,12 @@ scan:
   source_intelligence_max_files: 50 # Python-consumed
   recursive_docs: true             # Python-consumed
 
-# Python-consumed (parity / semantic-review prep / code-grounding / codebase checks).
+# The three enable_* toggles gate the deprecated Pipeline (Legacy-consumed);
+# enable_review_pair_generation / min_page_alignment_ratio are Python-consumed.
 review:
-  enable_cross_language_review: true        # Python-consumed
-  enable_code_grounding_verification: true  # Python-consumed
-  enable_codebase_verification: true        # Python-consumed
+  enable_cross_language_review: true        # Legacy-consumed (deprecated Pipeline)
+  enable_code_grounding_verification: true  # Legacy-consumed (deprecated Pipeline)
+  enable_codebase_verification: true        # Legacy-consumed (deprecated Pipeline)
   enable_review_pair_generation: true         # Python-consumed (semantic-review CLI)
   min_page_alignment_ratio: 0.9             # Python-consumed (semantic-review CLI)
 

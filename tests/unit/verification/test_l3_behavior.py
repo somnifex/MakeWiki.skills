@@ -70,7 +70,10 @@ def test_l3_exit_code_traced_in_repository_passes(tmp_path: Path):
     assert exit_checks[0].verification_source == "verified_from_repository"
 
 
-def test_l3_behavior_error_message_match(tmp_path: Path):
+def test_l3_behavior_error_symptom_match_is_pending_with_evidence(tmp_path: Path):
+    """A substring overlap between a documented symptom and a source handler is
+    EVIDENCE for the LLM Auditor, never an auto-pass. The check stays pending so
+    it registers for LLM review instead of bypassing it."""
     src = """
 def run():
     raise ValueError("Configuration file not found or invalid format")
@@ -86,10 +89,17 @@ def run():
     verifier = L3BehaviorVerifier(tmp_path)
     report = verifier.verify_documents({"en": [doc]})
 
-    assert report.passed
+    # The layer cannot pass on a substring heuristic; the item must register
+    # for LLM adjudication.
+    assert report.passed is False
+    assert report.verdict == "pending"
     err_checks = [c for c in report.checks if "Configuration file not found" in c.claim_text]
     assert len(err_checks) == 1
-    assert err_checks[0].verified
+    assert err_checks[0].verified is False
+    assert err_checks[0].status == "pending"
+    # The substring overlap is surfaced as mechanical EVIDENCE (shared with a
+    # source handler), not as a verdict.
+    assert err_checks[0].verification_source == "evidence_shared_by_source_handler"
 
 
 def test_l3_unmatched_error_symptom_is_pending_not_passed(tmp_path):

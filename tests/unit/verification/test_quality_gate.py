@@ -253,10 +253,10 @@ def test_quality_gate_mechanical_score_excludes_pending_llm():
     assert result.grounding_score < result.mechanical_score  # overall includes pending
 
 
-def test_quality_gate_semantic_score_none_when_pending():
+def test_quality_gate_semantic_coverage_none_when_pending():
     report = _review_report(llm_pending=True)
     result = evaluate_quality_gate(report, MakeWikiConfig.default(Path(".")))
-    assert result.semantic_score is None
+    assert result.semantic_coverage is None
 
 
 def test_quality_gate_all_adjudicated_passes():
@@ -266,7 +266,7 @@ def test_quality_gate_all_adjudicated_passes():
     assert result.verdict == "passed"
     assert result.semantic_complete is True
     assert result.pending_llm_layers == []
-    assert result.semantic_score == pytest.approx(1.0)
+    assert result.semantic_coverage == pytest.approx(1.0)
     assert result.passed is True
     assert result.exit_code == 0
 

@@ -292,3 +292,112 @@ def test_validate_required_metrics_empty_required_set():
         judge.JudgeVerdict(trap="synth", overall=0.5), rubric
     ) == []
 
+
+def test_required_metric_matches_under_normalization():
+    """A rubric that spells a required metric in human form ("Workflow
+    Correctness") must match a verdict keyed by the canonical
+    "workflow_correctness" — the same normalization assemble_judge_input uses."""
+    rubric = judge.Rubric(
+        trap="synth",
+        metrics={
+            "Workflow Correctness": judge.RubricMetric(
+                name="Workflow Correctness", weight=0.4, required=True
+            ),
+            "Native-language Quality": judge.RubricMetric(
+                name="Native-language Quality", weight=0.3, required=True
+            ),
+        },
+    )
+    v = judge.JudgeVerdict(
+        trap="synth",
+        each=[
+            judge.JudgeAreaVerdict(metric="workflow_correctness", score=0.9),
+            judge.JudgeAreaVerdict(metric="native_language_quality", score=0.7),
+        ],
+        overall=0.8,
+    )
+    assert judge.validate_required_metrics(v, rubric) == []
+
+
+def test_required_metric_missing_reports_canonical_key():
+    """A missing required metric is reported under its normalized canonical key,
+    so the missing list is stable regardless of how the rubric spelled it."""
+    rubric = judge.Rubric(
+        trap="synth",
+        metrics={
+            "Documentation Usefulness": judge.RubricMetric(
+                name="Documentation Usefulness", weight=0.3, required=True
+            ),
+        },
+    )
+    v = judge.JudgeVerdict(
+        trap="synth",
+        each=[judge.JudgeAreaVerdict(metric="workflow_correctness", score=0.9)],
+        overall=0.8,
+    )
+    assert judge.validate_required_metrics(v, rubric) == ["documentation_usefulness"]
+
+
+def test_required_mechanical_metric_does_not_mark_bundle_incomplete():
+    """A required MECHANICAL rubric metric (recall / unsupported rate / evidence
+    grounding) must NOT make a judge bundle incomplete.
+
+    The LLM judge grades only the semantic metrics (``SEMANTIC_METRICS``); the
+    mechanical metrics are graded by the Python scorer, never present in a judge
+    bundle. Every real trap rubric marks mechanical metrics ``required=True``
+    (e.g. ``Unsupported Claim Rate``), so requiring them against the judge's
+    verdict would misclassify every legitimate bundle as incomplete. A bundle is
+    incomplete only when it omits a required SEMANTIC metric the judge owed.
+    """
+    rubric = judge.Rubric(
+        trap="synth",
+        metrics={
+            "Unknown Discipline": judge.RubricMetric(
+                name="Unknown Discipline", weight=0.4, required=True
+            ),
+            "Unsupported Claim Rate": judge.RubricMetric(
+                name="Unsupported Claim Rate", weight=0.25, required=True
+            ),
+            "Required Claim Recall": judge.RubricMetric(
+                name="Required Claim Recall", weight=0.15, required=True
+            ),
+            "Workflow Correctness": judge.RubricMetric(
+                name="Workflow Correctness", weight=0.0, required=True
+            ),
+        },
+    )
+    v = judge.JudgeVerdict(
+        trap="synth",
+        each=[
+            judge.JudgeAreaVerdict(metric="workflow_correctness", score=0.9),
+            judge.JudgeAreaVerdict(metric="documentation_usefulness", score=0.7),
+        ],
+        overall=0.8,
+    )
+    # Only workflow_correctness is both required AND semantic; it is present.
+    assert judge.validate_required_metrics(v, rubric) == []
+
+
+def test_required_semantic_metric_marks_bundle_incomplete_even_with_mechanical():
+    """A missing required SEMANTIC metric marks the bundle incomplete regardless
+    of how many required MECHANICAL metrics are (correctly) absent from the judge
+    verdict — the semantic requirement is the binding one."""
+    rubric = judge.Rubric(
+        trap="synth",
+        metrics={
+            "Evidence Grounding": judge.RubricMetric(
+                name="Evidence Grounding", weight=0.2, required=True
+            ),
+            "Epistemic Calibration": judge.RubricMetric(
+                name="Epistemic Calibration", weight=0.2, required=True
+            ),
+        },
+    )
+    v = judge.JudgeVerdict(
+        trap="synth",
+        each=[judge.JudgeAreaVerdict(metric="workflow_correctness", score=0.9)],
+        overall=0.8,
+    )
+    # epistemic_calibration is required AND semantic but missing -> incomplete.
+    assert judge.validate_required_metrics(v, rubric) == ["epistemic_calibration"]
+

@@ -192,8 +192,8 @@ def test_aggregate_mixed_judge_and_missing_runs(tmp_path: Path):
 
     wf = next(m for m in j.per_metric if m.metric == "workflow_correctness")
     assert wf.judged == 2
-    assert wf.missing == 1
-    assert wf.total == 3
+    assert wf.missing == 0  # both COMPLETE runs graded it; total scoped to present runs
+    assert wf.total == 2
     assert wf.mean == pytest.approx((0.9 + 0.7) / 2)
     assert wf.median == pytest.approx(0.8, abs=1e-3)
     assert wf.min == 0.7
@@ -203,26 +203,28 @@ def test_aggregate_mixed_judge_and_missing_runs(tmp_path: Path):
 
     doc = next(m for m in j.per_metric if m.metric == "documentation_usefulness")
     assert doc.judged == 2
-    assert doc.missing == 1
+    assert doc.missing == 0
     assert doc.mean == pytest.approx(0.8, abs=1e-3)
 
     # overall summary aggregates the judge-supplied overalls
     assert j.overall is not None
     assert j.overall.metric == "overall"
     assert j.overall.judged == 2
-    assert j.overall.missing == 1
+    assert j.overall.missing == 0
     assert j.overall.mean == pytest.approx(0.8, abs=1e-3)  # (0.85 + 0.75) / 2
 
-    # the run WITHOUT a bundle must never be given a fabricated score
+    # the run WITHOUT a bundle is reported as a missing run, never given a
+    # fabricated score and never folded into the per-metric population.
     assert j.missing_runs == 1
     for metric in ("workflow_correctness", "documentation_usefulness"):
         m = next(x for x in j.per_metric if x.metric == metric)
-        assert m.missing == 1
-        assert m.judged + m.missing == m.total == 3
-    # metrics no bundle graded at all: judged 0, everything missing.
+        assert m.missing == 0
+        assert m.judged == m.total == 2
+    # metrics no bundle graded at all: judged 0, missing across the present runs.
     untouched = next(x for x in j.per_metric if x.metric == "semantic_parity")
     assert untouched.judged == 0
-    assert untouched.missing == 3
+    assert untouched.missing == 2
+    assert untouched.total == 2
     assert untouched.mean == 0.0
 
 
@@ -266,9 +268,12 @@ def test_aggregate_no_judge_bundles_at_all(tmp_path: Path):
     assert j.total_runs == 4
     assert j.overall is None
     for m in j.per_metric:
+        # Scoped to the complete present run population (here, none), so no
+        # metric reports any judged/missing/total; the 4 absent runs surface as
+        # missing_runs on the aggregate, not fabricated per-metric numbers.
         assert m.judged == 0
-        assert m.missing == 4
-        assert m.total == 4
+        assert m.missing == 0
+        assert m.total == 0
         assert m.mean == 0.0
         assert m.median == 0.0
         assert m.stddev == 0.0
@@ -331,4 +336,115 @@ def test_aggregate_judge_pass_rate_uses_rubric_threshold(tmp_path: Path):
     # threshold 0.5: 0.7 passes, 0.3 fails -> 1/2 judged pass.
     assert wf.pass_rate == pytest.approx(0.5, abs=1e-3)
     assert wf.judged == 2
-    assert wf.missing == 1
+    assert wf.missing == 0
+    assert wf.total == 2  # both complete runs graded it; run-2 (no bundle) excluded
+
+
+def _write_required_rubric(trap_dir: Path) -> None:
+    """Writer a rubric that marks workflow_correctness as a REQUIRED metric."""
+    (trap_dir / "rubric.yaml").write_text(
+        "trap: synth\n"
+        "metrics:\n"
+        "  workflow_correctness:\n"
+        "    weight: 0.4\n"
+        "    required: true\n"
+        "  documentation_usefulness:\n"
+        "    weight: 0.3\n"
+        "    required: false\n"
+        "scoring:\n"
+        "  pass_threshold: 0.8\n",
+        encoding="utf-8",
+    )
+
+
+def test_required_metric_omission_marks_bundle_incomplete(tmp_path: Path):
+    """A judge bundle missing a REQUIRED rubric metric is classified incomplete,
+    never an ordinary present run and never an ordinary optional-missing."""
+    trap_dir = _write_gold(tmp_path)
+    _write_required_rubric(trap_dir)
+    runs = tmp_path / "runs" / "synth"
+    # run-0: complete (has the required metric). run-1: bundle omits the required
+    # workflow_correctness. run-2: no bundle at all.
+    _write_run(runs / "run-0")
+    _write_run(runs / "run-1")
+    _write_run(runs / "run-2")
+    _write_judge_bundle(
+        runs / "run-0",
+        scores={"workflow_correctness": 0.9, "documentation_usefulness": 0.7},
+        overall=0.85,
+    )
+    _write_judge_bundle(
+        runs / "run-1",
+        scores={"documentation_usefulness": 0.9},
+        overall=0.9,
+    )
+    j = agg_mod.aggregate_judge_scores(
+        [runs / name for name in ("run-0", "run-1", "run-2")], trap_dir
+    )
+
+    # run-0 is complete, run-1 is incomplete (required metric missing), run-2 missing.
+    assert j.present_runs == 1
+    assert j.incomplete_runs == 1
+    assert j.missing_runs == 1
+    assert j.total_runs == 3
+    assert len(j.incomplete_run_ids) == 1
+
+    # The required metric is graded once (run-0); the incomplete + missing runs
+    # are excluded from the (present-run-scoped) distribution.
+    wf = next(m for m in j.per_metric if m.metric == "workflow_correctness")
+    assert wf.judged == 1
+    assert wf.missing == 0
+    assert wf.total == 1
+    assert wf.mean == pytest.approx(0.9)
+
+    # An optional metric graded ONLY in the incomplete run is NOT pooled into the
+    # statistics: run-1's judgment cannot be treated as ordinary, so its 0.9
+    # must not shift the distribution of the single complete run (run-0's 0.7).
+    doc = next(m for m in j.per_metric if m.metric == "documentation_usefulness")
+    assert doc.judged == 1  # run-0 only; run-1's incomplete value excluded
+    assert doc.missing == 0  # no complete run skipped it
+    assert doc.total == 1
+    assert doc.mean == pytest.approx(0.7)  # NOT (0.7 + 0.9) / 2
+
+    assert j.overall is not None
+    assert j.overall.judged == 1  # run-0 only; run-1's overall excluded
+    assert j.overall.missing == 0
+    assert j.overall.mean == pytest.approx(0.85)
+
+
+def test_required_metric_present_in_all_bundles_is_not_incomplete(tmp_path: Path):
+    """When every judge bundle supplies the required metric, no run is incomplete."""
+    trap_dir = _write_gold(tmp_path)
+    _write_required_rubric(trap_dir)
+    runs = tmp_path / "runs" / "synth"
+    for name in ("run-0", "run-1"):
+        _write_run(runs / name)
+        _write_judge_bundle(
+            runs / name,
+            scores={"workflow_correctness": 0.8, "documentation_usefulness": 0.6},
+            overall=0.8,
+        )
+    j = agg_mod.aggregate_judge_scores([runs / "run-0", runs / "run-1"], trap_dir)
+    assert j.present_runs == 2
+    assert j.incomplete_runs == 0
+    assert j.missing_runs == 0
+
+
+def test_required_metric_omission_wires_into_aggregate_runs(tmp_path: Path):
+    """aggregate_runs surfaces incomplete runs through the judge aggregate."""
+    trap_dir = _write_gold(tmp_path)
+    _write_required_rubric(trap_dir)
+    runs = tmp_path / "runs" / "synth"
+    for name in ("run-0", "run-1", "run-2"):
+        _write_run(runs / name)
+    _write_judge_bundle(
+        runs / "run-0", scores={"workflow_correctness": 0.8}, overall=0.8
+    )
+    # run-1 and run-2 omit the required workflow_correctness.
+    _write_judge_bundle(runs / "run-1", scores={"documentation_usefulness": 0.5}, overall=0.5)
+    _write_judge_bundle(runs / "run-2", scores={"documentation_usefulness": 0.6}, overall=0.6)
+    a = agg_mod.aggregate_runs([runs / name for name in ("run-0", "run-1", "run-2")], trap_dir)
+    assert a.judge.present_runs == 1
+    assert a.judge.incomplete_runs == 2
+    assert a.judge.missing_runs == 0
+    assert a.judge.total_runs == 3

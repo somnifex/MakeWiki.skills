@@ -1,10 +1,14 @@
 """Bootstrap Reproducibility Contract.
 
 The root ``scripts/bootstrap_toolkit.py`` is the canonical version-pinned +
-SHA256-checked bootstrap: it resolves an exact release tag
-(``archive/refs/tags/v2.0.0.zip`` / ``--branch v2.0.0``) and verifies an
-archive SHA256 when ``MAKEWIKI_TOOLKIT_SHA256`` is set. Every subskill ships a
-copy of this script so each phase self-bootstraps identically.
+integrity-checked bootstrap. It resolves an exact release tag
+(``archive/refs/tags/v2.0.0.zip`` / ``--branch v2.0.0``) and records split,
+distinct provenance: ``MAKEWIKI_TOOLKIT_VERSION`` (version),
+``MAKEWIKI_TOOLKIT_COMMIT`` (Git identity for a Git install), and
+``MAKEWIKI_TOOLKIT_ARCHIVE_SHA256`` (archive integrity checksum for an Archive
+install). The legacy combined ``MAKEWIKI_TOOLKIT_SHA256`` is a warning-only
+deprecated alias, not the contract. Every subskill ships a copy of this script
+so each phase self-bootstraps identically.
 
 The contract guards against supply-chain drift: it forbids any subskill copy
 from silently reverting to the old behaviour of pulling an unpinned
@@ -69,18 +73,37 @@ def test_no_subskill_bootstrap_pulls_unpinned_main():
     assert not offenders, "Unpinned bootstrap found: " + "; ".join(offenders)
 
 
-def test_root_bootstrap_carries_version_and_sha256_pinning():
-    """The canonical root script must pin the version and support SHA256 checks."""
+def test_root_bootstrap_carries_version_commit_and_archive_sha256():
+    """The canonical root script must pin the version and support the split
+    provenance contract: Git install binds version + commit, Archive install
+    binds version + archive SHA256.
+
+    The env names are distinct and non-overlapping:
+    ``MAKEWIKI_TOOLKIT_VERSION`` (every install), ``MAKEWIKI_TOOLKIT_COMMIT``
+    (Git identity), ``MAKEWIKI_TOOLKIT_ARCHIVE_SHA256`` (archive integrity
+    checksum). The deprecated combined name ``MAKEWIKI_TOOLKIT_SHA256`` is kept
+    as a warning-only alias but must NOT be the contract.
+    """
     text = ROOT_BOOTSTRAP.read_text(encoding="utf-8")
     assert "MAKEWIKI_TOOLKIT_VERSION" in text, (
         "root bootstrap must resolve version from MAKEWIKI_TOOLKIT_VERSION"
     )
-    assert "MAKEWIKI_TOOLKIT_SHA256" in text, (
-        "root bootstrap must support the MAKEWIKI_TOOLKIT_SHA256 archive integrity check"
+    # Git install: version + commit identity.
+    assert "MAKEWIKI_TOOLKIT_COMMIT" in text, (
+        "root bootstrap must support MAKEWIKI_TOOLKIT_COMMIT (Git install identity)"
+    )
+    # Archive install: version + archive SHA256 integrity checksum.
+    assert "MAKEWIKI_TOOLKIT_ARCHIVE_SHA256" in text, (
+        "root bootstrap must support MAKEWIKI_TOOLKIT_ARCHIVE_SHA256 (archive "
+        "integrity checksum)"
+    )
+    assert "MAKEWIKI_TOOLKIT_COMMIT" != "MAKEWIKI_TOOLKIT_ARCHIVE_SHA256", (
+        "commit identity and archive checksum must remain distinct env vars"
     )
     assert "refs/heads/main" not in text, (
         "root bootstrap must never pull the moving main branch"
     )
+
 
 
 # ---------- Version-binding (requested == installed reuse, != replace) -------

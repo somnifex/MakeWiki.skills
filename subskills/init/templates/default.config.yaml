@@ -22,12 +22,12 @@ agent:
   max_audit_rounds: 3              # LLM-consumed (authoritative Auditor loop budget)
   tier_override: auto              # LLM-consumed
 
-# Python-consumed (build-site / SiteCompiler).
+# Legacy-consumed (read only by the deprecated deterministic Pipeline, pipeline.py).
 site:
-  compile: true                    # Python-consumed
-  theme: auto                      # Python-consumed
-  include_search: true             # Python-consumed
-  output_subdir: site              # Python-consumed
+  compile: true                    # Legacy-consumed
+  theme: auto                      # Legacy-consumed
+  include_search: true             # Legacy-consumed
+  output_subdir: site              # Legacy-consumed
 
 # LLM-consumed: delivery scope sections chosen by the Writers.
 delivery:                          # LLM-consumed
@@ -56,11 +56,12 @@ scan:
   source_intelligence_max_files: 50 # Python-consumed
   recursive_docs: true             # Python-consumed
 
-# Python-consumed (parity / semantic-review prep / code-grounding / codebase checks).
+# The three enable_* toggles gate the deprecated Pipeline (Legacy-consumed);
+# enable_review_pair_generation / min_page_alignment_ratio are Python-consumed.
 review:
-  enable_cross_language_review: true        # Python-consumed
-  enable_code_grounding_verification: true  # Python-consumed
-  enable_codebase_verification: true        # Python-consumed
+  enable_cross_language_review: true        # Legacy-consumed
+  enable_code_grounding_verification: true  # Legacy-consumed
+  enable_codebase_verification: true        # Legacy-consumed
   enable_review_pair_generation: true         # Python-consumed
   min_page_alignment_ratio: 0.9             # Python-consumed
 

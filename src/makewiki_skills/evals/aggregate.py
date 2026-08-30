@@ -40,9 +40,13 @@ class MetricAggregate(BaseModel):
 class JudgeMetricSummary(BaseModel):
     """Mechanical summary of one metric's JUDGE-SUPPLIED scores.
 
-    Statistics are computed from the LLM judge's own per-run scores; Python
-    never produces a semantic score. ``missing`` covers runs with no judge
-    bundle at all, plus runs with a bundle that omitted this metric.
+    Statistics are computed from the LLM judge's own per-run scores across the
+    COMPLETE present runs only; Python never produces a semantic score and never
+    pools an incomplete judgment into the distribution. ``missing`` therefore
+    covers a complete run that still did not grade this particular (optional)
+    metric; runs with no judge bundle at all are reported as ``missing_runs`` on
+    the aggregate, and runs whose bundle omitted a required metric as
+    ``incomplete_runs`` — neither is folded into these per-metric numbers.
     """
 
     metric: str
@@ -60,15 +64,24 @@ class JudgeMetricSummary(BaseModel):
 class JudgeAggregate(BaseModel):
     """Aggregate of the LLM judge verdicts present across runs.
 
-    Summarises ONLY judge-supplied scores. Runs without a judge bundle are
-    reported as missing; no score is ever fabricated for them.
+    Summarises ONLY judge-supplied scores. Runs are classified three ways:
+    * ``present_runs`` — a judge bundle that satisfied every required rubric
+      metric (a complete, usable judgment);
+    * ``incomplete_runs`` — a judge bundle missing one or more REQUIRED rubric
+      metrics (its judgment cannot be treated as ordinary — a required metric
+      was never graded, which is a distinct failure from an optional absence);
+    * ``missing_runs`` — no judge bundle at all.
+
+    No score is ever fabricated for a missing or incomplete run.
     """
 
-    present_runs: int = 0  # runs that actually have a judge bundle
+    present_runs: int = 0  # complete judge bundles (all required metrics present)
+    incomplete_runs: int = 0  # judge bundles missing >= 1 required rubric metric
     missing_runs: int = 0  # runs with no judge bundle
-    total_runs: int = 0  # present + missing
+    total_runs: int = 0  # present + incomplete + missing
     per_metric: list[JudgeMetricSummary] = Field(default_factory=list)
     overall: JudgeMetricSummary | None = None  # judge-supplied overall scores, or None if no judge run
+    incomplete_run_ids: list[str] = Field(default_factory=list)  # run ids disqualified as incomplete
 
 
 class TrapAggregate(BaseModel):
@@ -131,41 +144,64 @@ def aggregate_judge_scores(run_dirs: Iterable[Path], trap_dir: Path) -> JudgeAgg
 
     For each run, :func:`judge.load_judge_verdict` reads the persisted judge
     bundle; a run with none is a *missing* run for every metric and for overall.
-    Statistics come only from the judge-supplied scores (never computed by
-    Python); ``pass_rate`` uses the rubric's ``pass_threshold`` (default 0.8).
+    A run whose bundle omits a REQUIRED rubric metric is classified *incomplete*
+    (``judge.validate_required_metrics``) — it is counted separately from both
+    complete present runs and from missing runs, so a required-metric omission
+    can never masquerade as an ordinary optional absence.
+
+    The descriptive statistics (mean / median / stddev / min / max / pass_rate)
+    are computed ONLY over the *complete* present runs. An incomplete bundle is
+    not pooled into the numbers even when it carries a score: a judgment that
+    skipped a required metric cannot be treated as ordinary, so its values are
+    counted as neither ``judged`` nor folded into the distribution. Its runs
+    surface via ``incomplete_runs`` (and the per-metric ``total``, which counts
+    every run in the population). Statistics still come only from the
+    judge-supplied scores (never computed by Python); ``pass_rate`` uses the
+    rubric's ``pass_threshold`` (default 0.8).
     """
     run_dirs = list(run_dirs)
-    threshold = judge.load_rubric(trap_dir).pass_threshold
+    rubric = judge.load_rubric(trap_dir)
+    threshold = rubric.pass_threshold
     total = len(run_dirs)
 
-    verdicts: list[judge.JudgeVerdict] = []
+    complete: list[judge.JudgeVerdict] = []
+    incomplete_ids: list[str] = []
     missing_runs = 0
     for rd in run_dirs:
         v = judge.load_judge_verdict(rd)
         if v is None:
             missing_runs += 1
+        elif judge.validate_required_metrics(v, rubric):
+            # The bundle omitted a required rubric metric -> incomplete. It is
+            # excluded from the score distribution: its judgment cannot be
+            # treated as ordinary and must not dilute or shift the population
+            # statistics of the usable runs.
+            incomplete_ids.append(v.judge_id or rd.name)
         else:
-            verdicts.append(v)
-    present_runs = len(verdicts)
+            complete.append(v)
+    present_runs = len(complete)
+    incomplete_runs = len(incomplete_ids)
 
     per_metric: list[JudgeMetricSummary] = []
     for metric in judge.SEMANTIC_METRICS:
-        scores = [s for v in verdicts if (s := v.score_for(metric)) is not None]
-        per_metric.append(_summarise(scores, metric=metric, total=total, threshold=threshold))
+        scores = [s for v in complete if (s := v.score_for(metric)) is not None]
+        per_metric.append(_summarise(scores, metric=metric, total=present_runs, threshold=threshold))
 
-    overall_scores = [v.overall for v in verdicts]
+    overall_scores = [v.overall for v in complete]
     overall: JudgeMetricSummary | None = _summarise(
-        overall_scores, metric="overall", total=total, threshold=threshold
+        overall_scores, metric="overall", total=present_runs, threshold=threshold
     )
     if present_runs == 0:
         overall = None
 
     return JudgeAggregate(
         present_runs=present_runs,
+        incomplete_runs=incomplete_runs,
         missing_runs=missing_runs,
         total_runs=total,
         per_metric=per_metric,
         overall=overall,
+        incomplete_run_ids=incomplete_ids,
     )
 
 
