@@ -1,0 +1,9 @@
+[
+  {
+    "id": "fc_no_plugins",
+    "claim_type": "plugin",
+    "semantic_key": "plugin.none",
+    "forbidden_assertion": "Project has no extensible plugin architecture",
+    "value": "no_plugins"
+  }
+]

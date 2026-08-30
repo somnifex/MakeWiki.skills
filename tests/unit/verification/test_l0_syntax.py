@@ -1,7 +1,7 @@
 """Unit tests for L0 Syntax Verifier."""
 
 
-from makewiki_skills.generator.language_generator import GeneratedDocument
+from makewiki_skills.model.document_artifact import GeneratedDocument
 from makewiki_skills.verification.l0_syntax import L0SyntaxVerifier
 
 

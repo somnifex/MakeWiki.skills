@@ -117,16 +117,17 @@ def test_semantic_content_requires_adjudication():
     assert model.provenance.user_tasks == "llm"
 
 
-def test_config_shared_fields_are_classified_shared():
-    """The two fields consumed by BOTH planes (Python mechanical ban + LLM
-    writing guidance) are classified SHARED on DocumentationPolicyConfig."""
+def test_config_prose_judgment_fields_are_classified_llm_only():
+    """The prose-judgment documentation_policy fields are consumed ONLY by the
+    LLM writer (LLM_ONLY): with the mechanical validator prose check removed,
+    Python no longer reads them."""
     assert (
         field_consumer_category(DocumentationPolicyConfig, "forbid_unfounded_praise")
-        == "SHARED"
+        == "LLM_ONLY"
     )
     assert (
         field_consumer_category(DocumentationPolicyConfig, "banned_descriptors")
-        == "SHARED"
+        == "LLM_ONLY"
     )
 
 

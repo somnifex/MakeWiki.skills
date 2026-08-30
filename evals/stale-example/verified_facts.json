@@ -1,0 +1,9 @@
+[
+  {
+    "id": "vf_connect_fn",
+    "fact_type": "symbol",
+    "value": "def connect(tls_mode: str = 'strict')",
+    "source": "src/client.py:4",
+    "note": "current api signature"
+  }
+]

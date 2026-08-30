@@ -1,0 +1,9 @@
+[
+  {
+    "id": "vf_real_app",
+    "fact_type": "symbol",
+    "value": "start_server",
+    "source": "real_app.py:5",
+    "note": "valid entrypoint"
+  }
+]

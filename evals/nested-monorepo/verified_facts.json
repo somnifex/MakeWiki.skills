@@ -1,0 +1,23 @@
+[
+  {
+    "id": "vf_core_pkg",
+    "fact_type": "manifest",
+    "value": "packages/core/pyproject.toml",
+    "source": "packages/core/pyproject.toml",
+    "note": "core package definition"
+  },
+  {
+    "id": "vf_cli_pkg",
+    "fact_type": "manifest",
+    "value": "packages/cli/pyproject.toml",
+    "source": "packages/cli/pyproject.toml",
+    "note": "cli package definition"
+  },
+  {
+    "id": "vf_web_pkg",
+    "fact_type": "manifest",
+    "value": "apps/web/package.json",
+    "source": "apps/web/package.json",
+    "note": "web app package definition"
+  }
+]

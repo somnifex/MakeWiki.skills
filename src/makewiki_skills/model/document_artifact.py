@@ -23,8 +23,7 @@ class DocumentArtifact(BaseModel):
     """A single rendered Markdown document for one language.
 
     Pure value object: no logic, no generation side-effects. It is produced by
-    the LLM Language Writer adapter and by the legacy deterministic renderer,
-    and it is consumed by L0-L5 verifiers, the MechanicalRepairEngine, the
+    the LLM Language Writers, and it is consumed by L0-L5 verifiers, the
     cross-language reviewer, the output manager and the site compiler.
     """
 

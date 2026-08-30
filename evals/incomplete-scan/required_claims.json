@@ -1,0 +1,9 @@
+[
+  {
+    "id": "rc_auth_plugin",
+    "claim_type": "plugin",
+    "semantic_key": "plugin.auth.custom",
+    "assertion": "src/plugins/custom_auth.py provides the CustomAuthPlugin class",
+    "must_state": "CustomAuthPlugin in src/plugins/custom_auth.py"
+  }
+]

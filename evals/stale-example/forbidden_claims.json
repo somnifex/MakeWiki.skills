@@ -1,0 +1,9 @@
+[
+  {
+    "id": "fc_secure_param",
+    "claim_type": "api",
+    "semantic_key": "api.connect.param.secure",
+    "forbidden_assertion": "client.connect(secure=True)",
+    "value": "secure=True"
+  }
+]

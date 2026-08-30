@@ -1,0 +1,9 @@
+[
+  {
+    "id": "rc_tls_mode_param",
+    "claim_type": "api",
+    "semantic_key": "api.connect.param.tls_mode",
+    "assertion": "client.connect takes tls_mode argument ('strict' or 'disabled')",
+    "must_state": "tls_mode argument in client.connect"
+  }
+]

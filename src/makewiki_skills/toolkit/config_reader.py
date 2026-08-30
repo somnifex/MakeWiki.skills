@@ -51,13 +51,20 @@ class ConfigReaderTool:
         return ToolResult(success=False, error=f"Unknown config format: {ext}")
 
     @staticmethod
-    def extract_key_paths(data: dict[str, Any], prefix: str = "") -> list[str]:
+    def extract_key_paths(data: Any, prefix: str = "") -> list[str]:
+        """Safely extract nested key paths, resilient to scalar, list, and null values."""
         paths: list[str] = []
+        if not isinstance(data, dict):
+            return paths
         for key, value in data.items():
-            full = f"{prefix}.{key}" if prefix else key
+            full = f"{prefix}.{key}" if prefix else str(key)
             paths.append(full)
             if isinstance(value, dict):
                 paths.extend(ConfigReaderTool.extract_key_paths(value, full))
+            elif isinstance(value, list):
+                for idx, item in enumerate(value):
+                    if isinstance(item, dict):
+                        paths.extend(ConfigReaderTool.extract_key_paths(item, f"{full}[{idx}]"))
         return paths
 
     def _read(self, path: Path, parser: Callable[[str], Any]) -> ToolResult:
@@ -72,8 +79,22 @@ class ConfigReaderTool:
             return ToolResult(success=False, error=str(exc))
 
     @staticmethod
+    def _normalize_yaml_data(val: Any) -> Any:
+        """Safely normalize YAML values (booleans, nulls, numbers, lists, dicts)."""
+        if val is None:
+            return None
+        if isinstance(val, dict):
+            return {str(k): ConfigReaderTool._normalize_yaml_data(v) for k, v in val.items()}
+        if isinstance(val, list):
+            return [ConfigReaderTool._normalize_yaml_data(item) for item in val]
+        return val
+
+    @staticmethod
     def _parse_yaml(text: str) -> Any:
-        return yaml.safe_load(text) or {}
+        raw = yaml.safe_load(text)
+        if raw is None:
+            return {}
+        return ConfigReaderTool._normalize_yaml_data(raw)
 
     @staticmethod
     def _parse_toml(text: str) -> Any:

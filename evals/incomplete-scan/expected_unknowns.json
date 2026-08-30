@@ -1,0 +1,8 @@
+[
+  {
+    "id": "eu_cloud_secrets",
+    "topic": "security",
+    "field": "auth.cloud_kms.key_arn",
+    "expected_treatment": "render UNKNOWN or leave unasserted"
+  }
+]

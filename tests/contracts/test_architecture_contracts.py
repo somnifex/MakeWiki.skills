@@ -59,80 +59,32 @@ def _modules_under(pkg_name: str) -> list[Path]:
 
 
 # ---------------------------------------------------------------------------
-# Boundary 1 — legacy cognitive generator confined to the deprecated scaffold
+# Boundary 1 — legacy cognitive pipeline & generator packages completely deleted
 # ---------------------------------------------------------------------------
 
 
-def test_legacy_renderer_only_imported_by_scaffold():
-    """The legacy cognitive renderer may be imported ONLY by ``pipeline.py``.
+def test_legacy_packages_are_completely_absent():
+    """The legacy cognitive packages (pipeline, generator, revision) are removed.
 
-    ``pipeline.py`` is the explicitly-deprecated deterministic scaffold (its
-    ``run`` stage is gated by ``_LEGACY_WRITER == True``, see below). Any import
-    of the legacy generator from a mechanical plane (verification, evals) — or
-    from any other ``src`` module — would let Python-based cognitive generation
-    silently reach the authoritative-mechanical boundary. The single allowed
-    import site pins the deprecation path.
+    In Phase 2, Python cognitive pipeline, Jinja generator, and revision engine
+    are completely deleted from the codebase. Python owns only mechanical proof,
+    extraction, validation, compilation, and packaging.
     """
-    imported_by: list[str] = []
+    forbidden_pkgs = ["pipeline", "generator", "revision"]
+    for pkg in forbidden_pkgs:
+        pkg_dir = SRC_DIR / pkg
+        assert not pkg_dir.exists(), f"Legacy cognitive package '{pkg}' must be deleted"
+
+
+def test_mechanical_planes_never_import_generator_or_pipeline_packages():
+    """No module in src/ imports generator or pipeline packages."""
     for py in SRC_DIR.rglob("*.py"):
         if "__pycache__" in py.parts:
             continue
-        rel = py.relative_to(SRC_DIR).as_posix()
-        if rel in ("evals/__init__.py", "verification/__init__.py"):
-            continue
         text = py.read_text(encoding="utf-8")
-        if GENERATOR_PKG in text and "import" in text:
-            imported_by.append(rel)
-    # generators/language_generator.py defines it; pipeline.py is the scaffold.
-    allowed = {
-        "pipeline/pipeline.py",
-        "generator/language_generator.py",
-        "generator/__init__.py",
-    }
-    assert set(imported_by) <= allowed, (
-        f"legacy renderer import leaked into legacy-scaffold-external module(s): "
-        f"{sorted(set(imported_by) - allowed)}"
-    )
-
-
-def test_mechanical_planes_never_import_generator_package():
-    """No mechanical-plane module (verification or evals) imports the generator.
-
-    The verification and eval planes are the parts of the toolkit that must stay
-    purely mechanical. A generator import there would let Python cognitive
-    authoring interact with proof machinery.
-    """
-    for pkg in ("verification", "evals"):
-        for module in _modules_under(pkg):
-            roots = _module_import_roots(module)
-            assert "generator" not in roots, (
-                f"{pkg}/{module.name} imports the legacy generator package"
-            )
-
-
-def test_scaffold_writer_is_explicitly_flagged_legacy():
-    """The pipeline entry point that drives the renderer is explicitly legacy.
-
-    ``Pipeline._LEGACY_WRITER`` is the marker that declares the deterministic
-    document-generation stage to be a non-authoritative scaffold. Removing or
-    flipping it would silently promote the legacy cognitive writer — the test
-    fails loudly if that marker ever disappears.
-    """
-    pipeline = SRC_DIR / "pipeline" / "pipeline.py"
-    tree = ast.parse(pipeline.read_text(encoding="utf-8"))
-    found = False
-    for node in ast.walk(tree):
-        if isinstance(node, ast.ClassDef) and node.name == "Pipeline":
-            for stmt in node.body:
-                if (
-                    isinstance(stmt, ast.Assign)
-                    and any(
-                        getattr(t, "id", "") == "_LEGACY_WRITER" for t in stmt.targets
-                    )
-                    and ast.unparse(stmt.value) == "True"
-                ):
-                    found = True
-    assert found, "Pipeline must carry _LEGACY_WRITER = True (legacy scaffold marker)"
+        assert "makewiki_skills.pipeline" not in text, f"{py} imports makewiki_skills.pipeline"
+        assert "makewiki_skills.generator" not in text, f"{py} imports makewiki_skills.generator"
+        assert "makewiki_skills.revision" not in text, f"{py} imports makewiki_skills.revision"
 
 
 # ---------------------------------------------------------------------------
@@ -192,7 +144,7 @@ def test_l3_l4b_and_l5_pending_checks_carry_review_item_id():
     We assert the emitted ``review_item_id`` values for the real verifiers are
     non-empty and stable-key shaped.
     """
-    from makewiki_skills.generator.language_generator import GeneratedDocument as GD
+    from makewiki_skills.model.document_artifact import DocumentArtifact as GD
     from makewiki_skills.verification.l3_behavior import L3BehaviorVerifier
     from makewiki_skills.verification.l4_cross_language import (
         L4CrossLanguageVerifier,

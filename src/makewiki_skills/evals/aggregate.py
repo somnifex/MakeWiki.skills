@@ -96,6 +96,12 @@ class TrapAggregate(BaseModel):
     required_claim_recall: float = 0.0  # pooled found / pooled total
     unsupported_claim_rate: float = 0.0  # pooled forbidden violations / runs
     unknown_discipline_rate: float = 0.0  # pooled broken / runs
+    missed_entrypoint_rate: float = 0.0  # missed entrypoints rate
+    conflict_detection_rate: float = 0.0  # ReBattle conflict detection pass rate
+    judge_correctness_rate: float = 0.0  # Judge output presence / correctness rate
+    workflow_correctness_rate: float = 0.0  # Required workflow presence pass rate
+    semantic_parity_rate: float = 0.0  # Stable block parity pass rate
+    tool_failure_recovery_rate: float = 0.0  # Tool failure recovery pass rate
     common_failure_classes: list[str] = Field(default_factory=list)
     metric_aggregates: list[MetricAggregate] = Field(default_factory=list)
     run_ids: list[str] = Field(default_factory=list)
@@ -260,6 +266,18 @@ def aggregate_runs(run_dirs: Iterable[Path], trap_dir: Path) -> TrapAggregate:
                 failure_counter[m.name] = failure_counter.get(m.name, 0) + 1
     common = sorted(failure_counter, key=lambda k: (-failure_counter[k], k))
 
+    # Specific rollup rates extraction from metric_aggs
+    def _rate(name: str) -> float:
+        agg = next((m for m in metric_aggs if m.name == name), None)
+        return agg.pass_rate if agg else 1.0
+
+    conflict_detection_rate = _rate("rebattle_discrepancy_detected")
+    judge_correctness_rate = _rate("judge_output_presence")
+    workflow_correctness_rate = _rate("required_workflow_presence")
+    semantic_parity_rate = _rate("stable_block_parity")
+    tool_failure_recovery_rate = _rate("mechanical_gate_state")
+    missed_entrypoint_rate = round(1.0 - req_recall, 4)
+
     return TrapAggregate(
         trap=Path(trap_dir).name,
         n_runs=n,
@@ -270,6 +288,12 @@ def aggregate_runs(run_dirs: Iterable[Path], trap_dir: Path) -> TrapAggregate:
         required_claim_recall=round(req_recall, 4),
         unsupported_claim_rate=round(unsup_rate, 4),
         unknown_discipline_rate=round(unknown_rate, 4),
+        missed_entrypoint_rate=missed_entrypoint_rate,
+        conflict_detection_rate=round(conflict_detection_rate, 4),
+        judge_correctness_rate=round(judge_correctness_rate, 4),
+        workflow_correctness_rate=round(workflow_correctness_rate, 4),
+        semantic_parity_rate=round(semantic_parity_rate, 4),
+        tool_failure_recovery_rate=round(tool_failure_recovery_rate, 4),
         common_failure_classes=common,
         metric_aggregates=metric_aggs,
         run_ids=run_ids,

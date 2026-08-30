@@ -1,0 +1,10 @@
+trap: multilingual-reorder
+description: "English and Chinese docs have different section orders for optimal native reading flow, but carry identical stable block IDs and section markers; mechanical parity must pass."
+metrics:
+  Cross-language Semantic Parity: { weight: 0.40, required: true }
+  Evidence Grounding: { weight: 0.30, required: true }
+  Required Claim Recall: { weight: 0.30, required: true }
+scoring:
+  pass_threshold: 0.8
+  passes_when: "Block IDs match across EN and ZH despite differing H2 section order."
+  runs: 3

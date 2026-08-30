@@ -1,0 +1,9 @@
+[
+  {
+    "id": "rc_pkg_modern",
+    "claim_type": "identity",
+    "semantic_key": "package.name",
+    "assertion": "Package name is modern-lib (per pyproject.toml)",
+    "must_state": "modern-lib"
+  }
+]

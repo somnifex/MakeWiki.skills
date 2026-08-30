@@ -24,111 +24,6 @@ app = typer.Typer(
 console = Console()
 
 
-@app.command(name="legacy-generate")
-def deterministic_generate(
-    target: Path = typer.Argument(..., help="Target project directory"),
-    langs: list[str] = typer.Option(["en", "zh-CN"], "--lang", "-l", help="Languages to generate"),
-    config_path: Path | None = typer.Option(
-        None, "--config", "-c", help="Path to makewiki.config.yaml"
-    ),
-    output: str | None = typer.Option(None, "--output", "-o", help="Output directory name"),
-    verbose: bool = typer.Option(False, "--verbose", "-v", help="Verbose output"),
-) -> None:
-    """LEGACY/regression scaffold only — NOT the authoritative /makewiki path.
-
-    Drives Python's *mechanical* pipeline (extract evidence, build
-    identity/installation/configuration/commands, render Jinja templates) and
-    produces UNKNOWN-marked structural scaffolding, not full semantic docs — it
-    never invents FAQ, troubleshooting, usage, or workflow prose. Retained
-    solely as a regression scaffold for deterministic tests. The authoritative,
-    LLM-driven flow that authors real documentation is `/makewiki` in the Skill
-    layer.
-    """
-    from makewiki_skills.pipeline.pipeline import Pipeline
-
-    target = Path(target).resolve()
-    if not target.is_dir():
-        console.print(f"[red]Error:[/red] Target directory does not exist: {target}")
-        raise typer.Exit(1)
-
-    cfg = _load_config(config_path, target)
-    cfg.languages = langs
-    if output:
-        cfg.output_dir = output
-
-    console.print(f"[bold]MakeWiki[/bold] generating docs for [cyan]{target.name}[/cyan]")
-    console.print(f"  Languages: {', '.join(cfg.languages)}")
-    console.print(f"  Output: {target / cfg.output_dir}")
-    console.print()
-
-    pipeline = Pipeline(cfg)
-    ctx = pipeline.run()
-
-    if ctx.errors:
-        console.print("[red]Errors:[/red]")
-        for err in ctx.errors:
-            console.print(f"  - {err}")
-
-    if ctx.warnings:
-        console.print("[yellow]Warnings:[/yellow]")
-        for w in ctx.warnings:
-            console.print(f"  - {w}")
-
-    console.print()
-    console.print(f"[green]Done![/green] Written {len(ctx.written_files)} files")
-
-    if verbose and ctx.stage_timings:
-        table = Table(title="Stage Timings")
-        table.add_column("Stage")
-        table.add_column("Time (s)", justify="right")
-        for name, t in ctx.stage_timings.items():
-            table.add_row(name, f"{t:.3f}")
-        console.print(table)
-
-    if ctx.cross_language_review:
-        review = ctx.cross_language_review
-        console.print(f"  Cross-language consistency: {review.consistency_score:.1%}")
-        if review.critical_issues:
-            console.print(f"  [red]Critical issues: {len(review.critical_issues)}[/red]")
-
-    if ctx.grounding_report:
-        report = ctx.grounding_report
-        console.print(f"  Grounding score: {report.grounding_score:.1%}")
-        if report.violations:
-            console.print(f"  [yellow]Ungrounded claims: {len(report.violations)}[/yellow]")
-
-    if ctx.codebase_verification_report:
-        cb_report = ctx.codebase_verification_report
-        console.print(
-            f"  Codebase verification: {cb_report.score:.1%} ({cb_report.verified_count}/{cb_report.total_checks})"
-        )
-        if cb_report.failed_count:
-            console.print(f"  [yellow]Failed checks: {cb_report.failed_count}[/yellow]")
-
-    if ctx.validation_report:
-        console.print(f"  Validation: {ctx.validation_report.summary()}")
-
-
-@app.command(name="generate")
-def generate_alias(
-    target: Path = typer.Argument(..., help="Target project directory"),
-    langs: list[str] = typer.Option(["en", "zh-CN"], "--lang", "-l", help="Languages to generate"),
-    config_path: Path | None = typer.Option(
-        None, "--config", "-c", help="Path to makewiki.config.yaml"
-    ),
-    output: str | None = typer.Option(None, "--output", "-o", help="Output directory name"),
-    verbose: bool = typer.Option(False, "--verbose", "-v", help="Verbose output"),
-) -> None:
-    """Deprecated alias for `legacy-generate`.
-
-    LEGACY/regression scaffold only — NOT the authoritative `/makewiki` path.
-    Retained for backward compatibility; it runs the same deterministic,
-    non-authoritative UNKNOWN-marked scaffold pipeline. Prefer the
-    authoritative, LLM-driven `/makewiki` skill flow for real documentation.
-    """
-    deterministic_generate(target, langs, config_path, output, verbose)
-
-
 @app.command(name="evidence")
 def evidence(
     target: Path = typer.Argument(..., help="Target project directory"),
@@ -139,11 +34,13 @@ def evidence(
 ) -> None:
     """Scan a project and emit the collected evidence facts.
 
-    Emits *facts only* — deterministic extractions (commands, config keys,
+    Emits facts only — deterministic extractions (commands, config keys,
     paths, versions) with their source evidence. Python never interprets what
-    the repository *means*; that is the LLM's job.
+    the repository means; that is the LLM's job.
     """
-    from makewiki_skills.pipeline.pipeline import Pipeline
+    from makewiki_skills.scanner.evidence_bundle import EvidenceBundle
+    from makewiki_skills.scanner.evidence_collector import EvidenceCollector
+    from makewiki_skills.scanner.project_detector import ProjectDetector
 
     target = Path(target).resolve()
     if not target.is_dir():
@@ -151,51 +48,39 @@ def evidence(
         raise typer.Exit(1)
 
     cfg = _load_config(config_path, target)
-    pipeline = Pipeline(cfg)
-    ctx = pipeline.run_until("verify_claims")
+    detector = ProjectDetector()
+    detection = detector.detect(target)
+    collector = EvidenceCollector(cfg)
+    collected = collector.collect(target, detection)
 
     if output_format == "json":
-        if ctx.detection and ctx.evidence_registry:
-            files_read: list[str] = []
-            if ctx.collected_evidence:
-                files_read = ctx.collected_evidence.raw_files_read
-            claims_data = (
-                [c.model_dump() for c in ctx.claim_set.claims]
-                if ctx.claim_set
-                else []
-            )
-            coverage_data: dict[str, Any] = {}
-            if ctx.collected_evidence:
-                coverage_data = ctx.collected_evidence.coverage.model_dump()
-            bundle = ctx.evidence_registry.to_evidence_bundle(
-                detection=ctx.detection,
-                files_read=files_read,
-                claims=claims_data,
-                coverage=coverage_data,
-            )
-            typer.echo(json_lib.dumps(bundle.model_dump(), indent=2, ensure_ascii=False))
-        else:
-            typer.echo(json_lib.dumps({"error": "No evidence collected"}, indent=2))
+        bundle = EvidenceBundle.from_registry(
+            detection=detection,
+            facts=collected.facts,
+            files_read=collected.raw_files_read,
+            claims=[],
+            coverage=collected.coverage.model_dump(),
+        )
+        typer.echo(json_lib.dumps(bundle.model_dump(), indent=2, ensure_ascii=False))
         return
 
-    if ctx.detection:
-        console.print(f"[bold]Project:[/bold] {ctx.detection.project_name}")
-        console.print(f"[bold]Type:[/bold] {ctx.detection.project_type.value}")
-        console.print(f"[bold]Confidence:[/bold] {ctx.detection.confidence:.0%}")
-        console.print(f"[bold]Indicators:[/bold] {', '.join(ctx.detection.indicators_found)}")
-
-    if ctx.claim_set:
-        console.print(f"[bold]Claims Generated:[/bold] {len(ctx.claim_set.claims)}")
-
+    console.print(f"[bold]Project:[/bold] {detection.project_name}")
+    console.print(f"[bold]Type:[/bold] {detection.project_type.value}")
+    console.print(f"[bold]Confidence:[/bold] {detection.confidence:.0%}")
+    console.print(f"[bold]Indicators:[/bold] {', '.join(detection.indicators_found)}")
     console.print()
-    summary = ctx.evidence_registry.to_summary()
+
+    summary: dict[str, int] = {}
+    for f in collected.facts:
+        summary[f.fact_type] = summary.get(f.fact_type, 0) + 1
+
     table = Table(title="Evidence Summary")
     table.add_column("Fact Type")
     table.add_column("Count", justify="right")
     for ftype, count in sorted(summary.items()):
         table.add_row(ftype, str(count))
     console.print(table)
-    console.print(f"Total facts: {len(ctx.evidence_registry)}")
+    console.print(f"Total facts: {len(collected.facts)}")
 
 
 @app.command(name="scan")
@@ -221,10 +106,11 @@ def coverage(
 
     Pure bookkeeping: what was discovered, inspected, skipped (with reason),
     and ignored by the mechanical walk, plus which categories the walk did not
-    touch (``uncovered_categories``) and low-confidence facts. No semantic
+    touch (uncovered_categories) and low-confidence facts. No semantic
     judgment — the LLM Scout layer owns resolving the gaps this reports.
     """
-    from makewiki_skills.pipeline.pipeline import Pipeline
+    from makewiki_skills.scanner.evidence_collector import EvidenceCollector
+    from makewiki_skills.scanner.project_detector import ProjectDetector
 
     target = Path(target).resolve()
     if not target.is_dir():
@@ -232,14 +118,11 @@ def coverage(
         raise typer.Exit(1)
 
     cfg = _load_config(None, target)
-    pipeline = Pipeline(cfg)
-    ctx = pipeline.run_until("verify_claims")
-
-    if ctx.collected_evidence is None:
-        console.print(f"[red]Error:[/red] No coverage collected for {target}")
-        raise typer.Exit(1)
-
-    report = ctx.collected_evidence.coverage
+    detector = ProjectDetector()
+    detection = detector.detect(target)
+    collector = EvidenceCollector(cfg)
+    collected = collector.collect(target, detection)
+    report = collected.coverage
 
     if output_format == "json":
         typer.echo(json_lib.dumps(report.model_dump(), indent=2, ensure_ascii=False))
@@ -247,6 +130,9 @@ def coverage(
 
     console.print(f"[bold]Coverage:[/bold] {target}")
     console.print(f"[bold]Files discovered:[/bold] {report.files_discovered}")
+    console.print(f"[bold]Files read:[/bold] {report.files_read}")
+    console.print(f"[bold]Files parsed:[/bold] {report.files_parsed}")
+    console.print(f"[bold]Files with facts:[/bold] {report.files_with_facts}")
     console.print(f"[bold]Inspected by tool:[/bold] {len(report.files_inspected_by_tool)}")
     console.print(
         f"[bold]Skipped:[/bold] {len(report.files_skipped)} "
@@ -1164,73 +1050,288 @@ def build_site(
         console.print(f"  - {path}")
 
 
-@app.command(name="sizing")
-def sizing(
+@app.command(name="census")
+def census(
     target: Path = typer.Argument(..., help="Target project directory"),
     format_type: str = typer.Option("human", "--format", "-f", help="Output format: human, json"),
 ) -> None:
-    """Assess project complexity and recommend subagent budget (Tier S / M / L)."""
+    """Extract raw verifiable facts from the repository (traits census)."""
     target = Path(target).resolve()
     if not target.is_dir():
         console.print(f"[red]Error:[/red] Target directory does not exist: {target}")
         raise typer.Exit(1)
 
-    source_exts = {".py", ".js", ".ts", ".jsx", ".tsx", ".rs", ".go", ".java", ".c", ".cpp"}
-    source_files = [
-        p
-        for p in target.rglob("*")
-        if p.is_file()
-        and p.suffix in source_exts
-        and not any(part in p.parts for part in ["node_modules", ".git", ".venv", "dist", "build"])
-    ]
-    doc_files = [
-        p
-        for p in target.rglob("*.md")
-        if p.is_file()
-        and not any(part in p.parts for part in ["node_modules", ".git", ".venv", "makewiki"])
-    ]
+    source_ext_to_lang: dict[str, str] = {
+        ".py": "python",
+        ".ts": "typescript",
+        ".tsx": "typescript",
+        ".js": "javascript",
+        ".jsx": "javascript",
+        ".rs": "rust",
+        ".go": "go",
+        ".java": "java",
+        ".c": "c",
+        ".cpp": "cpp",
+        ".h": "c",
+        ".hpp": "cpp",
+        ".cc": "cpp",
+        ".cxx": "cpp",
+        ".rb": "ruby",
+        ".php": "php",
+        ".cs": "csharp",
+        ".swift": "swift",
+        ".kt": "kotlin",
+        ".kts": "kotlin",
+        ".scala": "scala",
+        ".sh": "shell",
+        ".bash": "shell",
+        ".sql": "sql",
+        ".html": "html",
+        ".css": "css",
+        ".scss": "css",
+        ".sass": "css",
+        ".less": "css",
+    }
 
-    source_count = len(source_files)
-    doc_count = len(doc_files)
+    manifest_names = {
+        "pyproject.toml",
+        "setup.py",
+        "setup.cfg",
+        "requirements.txt",
+        "Pipfile",
+        "package.json",
+        "pnpm-lock.yaml",
+        "pnpm-workspace.yaml",
+        "yarn.lock",
+        "Cargo.toml",
+        "go.mod",
+        "pom.xml",
+        "build.gradle",
+        "build.gradle.kts",
+        "Gemfile",
+        "composer.json",
+        "CMakeLists.txt",
+        "Makefile",
+        "flake.nix",
+    }
 
-    if source_count < 15:
-        tier = "Tier S"
-        recommended_subagents = 2
-        strategy = "Lightweight / Single-pass with prompt-based multi-perspective check"
-        rebattle_rounds = 0
-    elif source_count <= 80:
-        tier = "Tier M"
-        recommended_subagents = 4
-        strategy = "Standard Multi-Agent (Scout + Red vs Blue ReBattle + Parallel Writers)"
-        rebattle_rounds = 1
-    else:
-        tier = "Tier L"
-        recommended_subagents = 8
-        strategy = (
-            "Deep Multi-Agent (Scout + Red/Blue/Green 3-Way ReBattle + Parallel Writers + Reviewer)"
-        )
-        rebattle_rounds = 2
+    entrypoint_names = {
+        "main.py",
+        "app.py",
+        "cli.py",
+        "index.ts",
+        "index.js",
+        "main.ts",
+        "main.js",
+        "main.rs",
+        "main.go",
+    }
+
+    test_dir_names = {"tests", "test", "spec", "specs", "__tests__"}
+
+    ignore_parts = {
+        "node_modules",
+        ".git",
+        ".venv",
+        "venv",
+        "__pycache__",
+        ".pytest_cache",
+        ".mypy_cache",
+        ".ruff_cache",
+        "dist",
+        "build",
+        "target",
+        "makewiki",
+        ".makewiki",
+        ".idea",
+        ".vscode",
+    }
+
+    source_files: list[Path] = []
+    doc_files: list[Path] = []
+    manifests: list[str] = []
+    entrypoints: list[str] = []
+    configs: list[str] = []
+    ci_and_infra: list[str] = []
+    test_files: list[str] = []
+    test_dirs: set[str] = set()
+    tool_failures: list[str] = []
+
+    try:
+        for p in target.rglob("*"):
+            if any(part in p.parts for part in ignore_parts):
+                continue
+            if p.is_dir():
+                if p.name in test_dir_names:
+                    try:
+                        test_dirs.add(str(p.relative_to(target)).replace("\\", "/"))
+                    except ValueError:
+                        test_dirs.add(p.name)
+                continue
+            if not p.is_file():
+                continue
+
+            try:
+                rel_str = str(p.relative_to(target)).replace("\\", "/")
+            except ValueError:
+                rel_str = p.name
+            suffix = p.suffix.lower()
+            name = p.name
+
+            # Source files
+            if suffix in source_ext_to_lang:
+                source_files.append(p)
+                if name in entrypoint_names or ("src" in p.parts and name in entrypoint_names):
+                    entrypoints.append(rel_str)
+                if (
+                    name.startswith("test_")
+                    or name.endswith("_test.py")
+                    or name.endswith(".test.ts")
+                    or name.endswith(".test.js")
+                    or name.endswith(".spec.ts")
+                    or name.endswith(".spec.js")
+                    or name.endswith("_test.go")
+                    or name.endswith("Test.java")
+                ):
+                    test_files.append(rel_str)
+
+            # Doc files
+            elif suffix in {".md", ".rst", ".adoc"}:
+                doc_files.append(p)
+
+            # Manifests
+            if name in manifest_names:
+                manifests.append(rel_str)
+
+            # Configs
+            if (
+                name.startswith(".env")
+                or name.endswith(".config.js")
+                or name.endswith(".config.ts")
+                or name.endswith(".config.yaml")
+                or name.endswith(".config.yml")
+                or name.endswith(".config.toml")
+                or name in {"config.yaml", "config.yml", "config.toml", "config.json", "tsconfig.json"}
+            ):
+                configs.append(rel_str)
+
+            # CI & Infra
+            if (
+                ".github/workflows" in rel_str
+                or ".gitlab-ci.yml" in rel_str
+                or "Dockerfile" in name
+                or "docker-compose" in name
+                or rel_str.startswith("k8s/")
+                or rel_str.startswith("helm/")
+            ):
+                ci_and_infra.append(rel_str)
+
+    except Exception as exc:
+        tool_failures.append(f"Filesystem walk warning: {exc}")
+
+    # Aggregations
+    by_ext: dict[str, int] = {}
+    by_lang: dict[str, int] = {}
+    for sf in source_files:
+        ext = sf.suffix.lower()
+        by_ext[ext] = by_ext.get(ext, 0) + 1
+        lang = source_ext_to_lang.get(ext, "other")
+        by_lang[lang] = by_lang.get(lang, 0) + 1
+
+    # Monorepo shape
+    is_monorepo = False
+    workspaces: list[str] = []
+    for candidate_dir in ["packages", "apps", "libs", "crates", "modules"]:
+        cdir = target / candidate_dir
+        if cdir.is_dir():
+            is_monorepo = True
+            try:
+                for sub in sorted(cdir.iterdir()):
+                    if sub.is_dir():
+                        workspaces.append(f"{candidate_dir}/{sub.name}")
+            except Exception:
+                pass
+
+    # Detected ecosystems
+    ecosystems: list[str] = []
+    if "python" in by_lang or any("py" in m for m in manifests):
+        ecosystems.append("python")
+    if "typescript" in by_lang or "javascript" in by_lang or any("package.json" in m for m in manifests):
+        ecosystems.append("node")
+    if "rust" in by_lang or any("Cargo.toml" in m for m in manifests):
+        ecosystems.append("rust")
+    if "go" in by_lang or any("go.mod" in m for m in manifests):
+        ecosystems.append("go")
+    if "java" in by_lang or "kotlin" in by_lang or any("pom.xml" in m or "gradle" in m for m in manifests):
+        ecosystems.append("jvm")
+    if any("Docker" in f or "docker" in f for f in ci_and_infra):
+        ecosystems.append("docker")
+    if any(".github" in f for f in ci_and_infra):
+        ecosystems.append("github_actions")
 
     data = {
         "project": target.name,
-        "source_files": source_count,
-        "doc_files": doc_count,
-        "tier": tier,
-        "recommended_subagents": recommended_subagents,
-        "rebattle_rounds": rebattle_rounds,
-        "strategy": strategy,
+        "project_root": str(target),
+        "source_files": len(source_files),
+        "doc_files": len(doc_files),
+        "languages": by_lang,
+        "extensions": by_ext,
+        "manifests": sorted(manifests),
+        "entrypoints": sorted(entrypoints),
+        "tests": {
+            "test_files_count": len(test_files),
+            "test_directories": sorted(test_dirs),
+        },
+        "configs": sorted(configs),
+        "ci_and_infra": sorted(ci_and_infra),
+        "monorepo_shape": {
+            "is_monorepo": is_monorepo,
+            "workspaces": workspaces,
+        },
+        "detected_ecosystems": ecosystems,
+        "tool_failures_and_skips": {
+            "failures": tool_failures,
+        },
     }
 
     if format_type == "json":
         typer.echo(json_lib.dumps(data, indent=2, ensure_ascii=False))
     else:
-        console.print(f"[bold]Project Sizing & Subagent Budget: [cyan]{target.name}[/cyan][/bold]")
-        console.print(f"  Source files: {source_count}")
-        console.print(f"  Doc files:    {doc_count}")
-        console.print(f"  Assessment:   [bold green]{tier}[/bold green]")
-        console.print(f"  Subagents:    [yellow]{recommended_subagents} subagents max[/yellow]")
-        console.print(f"  ReBattle:     {rebattle_rounds} round(s)")
-        console.print(f"  Strategy:     {strategy}")
+        console.print(f"[bold]Project Fact Census: [cyan]{target.name}[/cyan][/bold]")
+        console.print(f"  Source files: {len(source_files)}")
+        console.print(f"  Doc files:    {len(doc_files)}")
+        if by_lang:
+            lang_summary = ", ".join(
+                f"{lang}: {cnt}" for lang, cnt in sorted(by_lang.items(), key=lambda x: -x[1])
+            )
+            console.print(f"  Languages:    {lang_summary}")
+        if manifests:
+            console.print(
+                f"  Manifests:    {', '.join(sorted(manifests)[:5])}{'...' if len(manifests) > 5 else ''}"
+            )
+        if entrypoints:
+            console.print(
+                f"  Entrypoints:  {', '.join(sorted(entrypoints)[:5])}{'...' if len(entrypoints) > 5 else ''}"
+            )
+        if test_dirs or test_files:
+            console.print(
+                f"  Tests:        {len(test_files)} test files, dirs: {', '.join(sorted(test_dirs)) or 'none'}"
+            )
+        if is_monorepo:
+            console.print(f"  Monorepo:     yes ({len(workspaces)} workspaces)")
+        if ecosystems:
+            console.print(f"  Ecosystems:   {', '.join(ecosystems)}")
+        if tool_failures:
+            console.print(f"  [yellow]Warnings:     {len(tool_failures)} tool warnings recorded[/yellow]")
+
+
+@app.command(name="sizing", hidden=True)
+def sizing(
+    target: Path = typer.Argument(..., help="Target project directory"),
+    format_type: str = typer.Option("human", "--format", "-f", help="Output format: human, json"),
+) -> None:
+    """Deprecated alias for 'census'."""
+    census(target=target, format_type=format_type)
 
 
 @app.command(name="rebattle-diff")

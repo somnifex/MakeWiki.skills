@@ -1,0 +1,16 @@
+[
+  {
+    "id": "vf_db_yaml",
+    "fact_type": "config_key",
+    "value": "database.host: localhost",
+    "source": "config.yaml",
+    "note": "yaml default"
+  },
+  {
+    "id": "vf_db_env",
+    "fact_type": "env_var",
+    "value": "DATABASE_URL",
+    "source": "app.py",
+    "note": "env override"
+  }
+]

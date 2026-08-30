@@ -1,0 +1,9 @@
+[
+  {
+    "id": "vf_custom_auth",
+    "fact_type": "symbol",
+    "value": "class CustomAuthPlugin",
+    "source": "src/plugins/custom_auth.py:4",
+    "note": "plugin class"
+  }
+]

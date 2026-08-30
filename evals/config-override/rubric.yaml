@@ -1,0 +1,12 @@
+trap: config-override
+description: "Configuration has a multi-tier hierarchy where environment variable DATABASE_URL overrides config.yaml host/port settings."
+metrics:
+  Evidence Grounding: { weight: 0.30, required: true }
+  Required Claim Recall: { weight: 0.30, required: true }
+  Unsupported Claim Rate: { weight: 0.15 }
+  Unknown Discipline: { weight: 0.10 }
+  ReBattle Conflict Detection: { weight: 0.15 }
+scoring:
+  pass_threshold: 0.8
+  passes_when: "Docs explain that DATABASE_URL takes priority over config.yaml database settings."
+  runs: 3

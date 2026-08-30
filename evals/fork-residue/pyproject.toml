@@ -1,0 +1,4 @@
+[project]
+name = "modern-lib"
+version = "2.0.0"
+description = "Modern successor fork of legacy-lib"

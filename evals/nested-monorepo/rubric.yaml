@@ -1,0 +1,12 @@
+trap: nested-monorepo
+description: "Repository is a nested multi-package monorepo where packages have cross-dependencies; requires discovery of all sub-packages without conflating scopes."
+metrics:
+  Evidence Grounding: { weight: 0.25, required: true }
+  Required Claim Recall: { weight: 0.30, required: true }
+  Unsupported Claim Rate: { weight: 0.15 }
+  Unknown Discipline: { weight: 0.10 }
+  Task Discovery: { weight: 0.20 }
+scoring:
+  pass_threshold: 0.8
+  passes_when: "Docs correctly identify and document packages/core, packages/cli, and apps/web with distinct responsibilities."
+  runs: 3

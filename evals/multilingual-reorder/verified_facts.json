@@ -1,0 +1,9 @@
+[
+  {
+    "id": "vf_serve",
+    "fact_type": "command",
+    "value": "service serve",
+    "source": "src/service.py:5",
+    "note": "valid command"
+  }
+]

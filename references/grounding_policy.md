@@ -22,9 +22,9 @@ adjudication in the authoritative `/makewiki` path.
 
 | Level  | Name               | Scope & Check Criteria                                                                                                          | Owner                                                                 | Mechanical Tool                           |
 | ------ | ------------------ | ------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------- | ----------------------------------------- |
-| **L0** | **Syntax**         | Markdown AST, single H1, heading hierarchy, valid internal relative links.                                                      | Mechanical                                                            | `OutputValidator` (`validate`)            |
-| **L1** | **Existence**      | Every referenced file path, command executable, and config key exists in repository files.                                      | Mechanical                                                            | `CodebaseVerifier` (`verify-docs`)        |
-| **L2** | **Interface**      | CLI argument names, parameter flags, default values, environment variable keys, and type constraints match source declarations. | Mechanical                                                            | `CodeGroundingVerifier` + AST Parser      |
+| **L0** | **Syntax**         | Markdown AST, single H1, heading hierarchy, valid internal relative links.                                                      | Mechanical                                                            | `L0SyntaxVerifier` (`verify-docs`)        |
+| **L1** | **Existence**      | Every referenced file path, command executable, and config key exists in repository files.                                      | Mechanical                                                            | `L1ExistenceVerifier` (`verify-docs`)     |
+| **L2** | **Interface**      | CLI argument names, parameter flags, default values, environment variable keys, and type constraints match source declarations. | Mechanical                                                            | `L2InterfaceVerifier` + AST Parser        |
 | **L3** | **Behavior**       | Documented exit codes, error conditions, log locations, and execution workflows trace to source handlers.                       | LLM-judged (Python provides evidence list)                            | `L3BehaviorVerifier` + Auditor reasoning  |
 | **L4** | **Cross-Language** | 100% character-for-character parity of all code blocks, commands, and config keys across all language versions.                 | Mixed (exact = Python; prose = LLM)                                   | `CrossLanguageReviewer` + `parity`        |
 | **L5** | **Epistemic**      | All unconfirmed or derived claims carry consistent hedging caveats across all languages.                                        | LLM-judged (Python provides low-confidence / ungrounded command list) | `L5EpistemicVerifier` + Auditor reasoning |
@@ -156,13 +156,13 @@ llm_verification_role:
   rule: "Python returns evidence; LLM returns judgment; Quality Gate combines."
 ```
 
-### Mechanical Repair Boundary
+### Revision & Repair Boundary
 
-The semantic revision path is `MechanicalRepairEngine` (module
-`makewiki_skills.revision`; `RevisionEngine` retained as an alias). It applies
-**mechanical repairs only**: cross-language code-block parity by stable block
-ID and canned UNKNOWN evidence caveats. Anti-cliché prose rewriting is the LLM
-Auditor's domain; Python never rewrites narrative voice.
+All semantic revisions, hedging adjustments, and anti-cliché prose rewrites are
+performed in-place by the LLM Auditor (bounded by `agent.max_audit_rounds`).
+Python mechanical tooling performs verification (`verify-docs`, `parity`,
+`review`, `validate`) and returns evidence and status verdicts to guide the
+Auditor. Python owns no cognitive rewriting.
 
 ---
 
@@ -225,9 +225,9 @@ mechanical_unknown_contract:
 
 ```yaml
 layer_to_tool:
-  L0_syntax: "OutputValidator / validate"
-  L1_existence: "CodebaseVerifier / verify-docs"
-  L2_interface: "CodeGroundingVerifier + AST Parser / verify-docs"
+  L0_syntax: "L0SyntaxVerifier / verify-docs"
+  L1_existence: "L1ExistenceVerifier / verify-docs"
+  L2_interface: "L2InterfaceVerifier + AST Parser / verify-docs"
   L3_behavior: "L3BehaviorVerifier (evidence) + Auditor reasoning / verify-docs + Auditor"
   L4_cross_language: "L4CrossLanguageVerifier + parity + Auditor prose review"
   L5_epistemic: "L5EpistemicVerifier (evidence list) + Auditor reasoning"

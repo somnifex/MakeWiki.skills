@@ -2,10 +2,8 @@
 
 from __future__ import annotations
 
-import re
 from pathlib import Path
 
-from makewiki_skills.config import DocumentationPolicyConfig
 from makewiki_skills.toolkit.markdown_tools import MarkdownIssue, MarkdownTool
 
 
@@ -28,11 +26,16 @@ class ValidationReport:
 
 
 class OutputValidator:
-    """Validate the generated makewiki/ directory."""
+    """Validate the generated makewiki/ directory.
 
-    def __init__(self, documentation_policy: DocumentationPolicyConfig | None = None) -> None:
+    This is a purely mechanical (L0) validator: it checks markdown structure
+    and links. Prose-level quality (banned descriptors, AI clichés, forbidden
+    developer-facing headings) is cognitive judgment and belongs to the LLM
+    writer plane, not the deterministic Python plane.
+    """
+
+    def __init__(self) -> None:
         self._md = MarkdownTool()
-        self._policy = documentation_policy or DocumentationPolicyConfig()
 
     def validate(self, output_dir: Path) -> ValidationReport:
         report = ValidationReport()
@@ -77,11 +80,6 @@ class OutputValidator:
                 for issue_data in links.data["issues"]:
                     report.issues.append(MarkdownIssue(**issue_data))
                     file_has_issues = True
-
-            policy_issues = self._check_policy(content)
-            if policy_issues:
-                report.issues.extend(policy_issues)
-                file_has_issues = True
 
             if file_has_issues:
                 report.files_with_issues += 1
@@ -135,116 +133,3 @@ class OutputValidator:
                 issues.append(f"Page '{base}' missing for languages: {missing}")
 
         return issues
-
-    def _check_policy(self, content: str) -> list[MarkdownIssue]:
-        issues: list[MarkdownIssue] = []
-        issues.extend(self._check_banned_descriptors(content))
-        issues.extend(self._check_forbidden_headings(content))
-        issues.extend(self._check_ai_cliches(content))
-        return issues
-
-    def _check_ai_cliches(self, content: str) -> list[MarkdownIssue]:
-        stripped = self._strip_code(content)
-        issues: list[MarkdownIssue] = []
-
-        # 1. Check for "不是...而是..."
-        match_bushi = re.search(r"不是[^\n，。！？]+而是", stripped)
-        if match_bushi:
-            issues.append(
-                MarkdownIssue(
-                    line=self._line_number(stripped, match_bushi.start()),
-                    issue_type="ai_cliche",
-                    message=f"Avoid binary AI trope '不是...而是...', state facts directly: '{match_bushi.group()}'",
-                    severity="warning",
-                )
-            )
-
-        # 2. Check for "收敛"
-        for m in re.finditer(r"收敛", stripped):
-            issues.append(
-                MarkdownIssue(
-                    line=self._line_number(stripped, m.start()),
-                    issue_type="ai_cliche",
-                    message="Avoid abstract AI buzzword '收敛', use concrete technical verbs.",
-                    severity="warning",
-                )
-            )
-
-        # 3. Check for headings ending with redundant colons
-        for heading in self._md.extract_headings(content):
-            if re.search(r"[:：]\s*$", heading.text):
-                issues.append(
-                    MarkdownIssue(
-                        line=heading.line,
-                        issue_type="heading_colon",
-                        message=f"Heading ends with redundant colon: '{heading.text}'",
-                        severity="warning",
-                    )
-                )
-
-        return issues
-
-    def _check_banned_descriptors(self, content: str) -> list[MarkdownIssue]:
-        if not self._policy.forbid_unfounded_praise:
-            return []
-
-        stripped = self._strip_code(content)
-        issues: list[MarkdownIssue] = []
-        for word in self._policy.banned_descriptors:
-            pattern = re.compile(rf"\b{re.escape(word)}\b", re.IGNORECASE)
-            match = pattern.search(stripped)
-            if not match:
-                continue
-            issues.append(
-                MarkdownIssue(
-                    line=self._line_number(stripped, match.start()),
-                    issue_type="banned_descriptor",
-                    message=f"Found discouraged descriptor without evidence: {word}",
-                    severity="warning",
-                )
-            )
-        return issues
-
-    def _check_forbidden_headings(self, content: str) -> list[MarkdownIssue]:
-        issues: list[MarkdownIssue] = []
-        for heading in self._md.extract_headings(content):
-            text = heading.text.lower()
-            if any(
-                re.search(pattern, text, re.IGNORECASE) for pattern in _FORBIDDEN_HEADING_PATTERNS
-            ):
-                issues.append(
-                    MarkdownIssue(
-                        line=heading.line,
-                        issue_type="forbidden_heading",
-                        message=f"Developer-facing heading found in user docs: {heading.text}",
-                        severity="warning",
-                    )
-                )
-        return issues
-
-    @staticmethod
-    def _strip_code(content: str) -> str:
-        without_blocks = re.sub(r"```.*?```", "", content, flags=re.DOTALL)
-        return re.sub(r"`[^`]+`", "", without_blocks)
-
-    @staticmethod
-    def _line_number(content: str, offset: int) -> int:
-        return content.count("\n", 0, offset) + 1
-
-
-_FORBIDDEN_HEADING_PATTERNS = (
-    r"\barchitecture\b",
-    r"\bproject structure\b",
-    r"\bdirectory\b",
-    r"\bmodule(?:s)?\b",
-    r"\bclass diagram\b",
-    r"\bpackage diagram\b",
-    r"\bdesign pattern(?:s)?\b",
-    r"\bsource code\b",
-    "\u67b6\u6784",
-    "\u76ee\u5f55",
-    "\u6a21\u5757",
-    "\u7c7b\u56fe",
-    "\u5305\u56fe",
-    "\u6e90\u7801",
-)

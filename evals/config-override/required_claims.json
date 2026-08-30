@@ -1,0 +1,16 @@
+[
+  {
+    "id": "rc_db_env_override",
+    "claim_type": "config",
+    "semantic_key": "config.db.env_override",
+    "assertion": "DATABASE_URL environment variable overrides config.yaml database host",
+    "must_state": "DATABASE_URL overrides config.yaml"
+  },
+  {
+    "id": "rc_default_host",
+    "claim_type": "config",
+    "semantic_key": "config.db.default_host",
+    "assertion": "The default database host is localhost in config.yaml",
+    "must_state": "localhost as fallback"
+  }
+]

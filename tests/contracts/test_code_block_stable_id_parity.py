@@ -1,29 +1,28 @@
 """Stable code-block ID parity contract.
 
-Cross-language code-block parity must match logical blocks by a stable
+Cross-language code-block parity matches logical blocks by a stable
 ``[[id:...]]`` marker — never by position. This contract verifies the
-mechanical harmonizer:
+mechanical L4 cross-language verifier:
 
 * extracts blocks keyed by their stable ID,
 * compares block bodies by content hash,
-* appends ID-tagged blocks that are missing from a secondary language, and
-* replaces ID-tagged blocks whose body diverged from the primary (byte-exact).
-
-Blocks without an ID marker are intentionally NOT positionally harmonized —
-without a stable ID, Python cannot prove they are the same logical block.
+* detects ID-tagged blocks that are missing from a secondary language,
+* detects ID-tagged blocks whose body diverged from the primary, and
+* flags untagged technical blocks unless explicitly exempted.
 """
 
 from __future__ import annotations
 
-from makewiki_skills.generator.language_generator import GeneratedDocument
-from makewiki_skills.revision.revision_engine import MechanicalRepairEngine
+from makewiki_skills.model.document_artifact import DocumentArtifact
+from makewiki_skills.verification.l4_cross_language import (
+    L4CrossLanguageVerifier,
+    extract_blocks_by_id,
+    stable_block_content_hash,
+)
 
-ID_PATTERN = r"[[id:{id}]]"
-BLOCK_ID_MARKER = "[[id:getting_started.install]]"
 
-
-def _doc(filename: str, base_name: str, language_code: str, content: str) -> GeneratedDocument:
-    return GeneratedDocument(
+def _doc(filename: str, base_name: str, language_code: str, content: str) -> DocumentArtifact:
+    return DocumentArtifact(
         filename=filename,
         base_name=base_name,
         language_code=language_code,
@@ -34,28 +33,29 @@ def _doc(filename: str, base_name: str, language_code: str, content: str) -> Gen
 def test_extract_blocks_keyed_by_stable_id():
     content = (
         "# Doc\n\n"
+        "<!-- makewiki:section=getting_started -->\n"
+        "## Getting Started\n\n"
         "[[id:getting_started.install]]\n```bash\nmake setup\n```\n\n"
+        "<!-- makewiki:section=usage -->\n"
+        "## Usage\n\n"
         "[[id:usage.deploy]]\n```bash\nmake deploy\n```\n"
     )
-    blocks = MechanicalRepairEngine._extract_blocks_by_id(content)
+    blocks = extract_blocks_by_id(content)
     assert set(blocks.keys()) == {"getting_started.install", "usage.deploy"}
-    install_block, install_hash = blocks["getting_started.install"]
-    assert "make setup" in install_block
-    assert isinstance(install_hash, str) and len(install_hash) == 16
+    install_full, install_hash = blocks["getting_started.install"]
+    assert "make setup" in install_full
 
 
 def test_content_hash_differs_for_different_bodies():
-    engine = MechanicalRepairEngine()
-    a = engine._content_hash("make setup\n")
-    b = engine._content_hash("make setup --force\n")
+    a = stable_block_content_hash("make setup\n")
+    b = stable_block_content_hash("make setup --force\n")
     assert a != b
-    # Deterministic and stable in length.
-    assert engine._content_hash("make setup\n") == a
+    assert stable_block_content_hash("make setup\n") == a
 
 
-def test_harmonize_appends_missing_block_by_id_not_position():
-    """A block missing from the secondary is appended by its stable ID."""
-    engine = MechanicalRepairEngine()
+def test_l4_detects_missing_block_by_id():
+    """A block missing from the secondary is flagged as a parity failure."""
+    verifier = L4CrossLanguageVerifier()
     docs = {
         "en": [
             _doc(
@@ -63,6 +63,8 @@ def test_harmonize_appends_missing_block_by_id_not_position():
                 "README.md",
                 "en",
                 "# Welcome\n\n"
+                "<!-- makewiki:section=install -->\n"
+                "## Install\n\n"
                 "[[id:install.init]]\n```bash\napp init\n```\n\n"
                 "[[id:install.build]]\n```bash\napp build\n```\n",
             )
@@ -72,29 +74,31 @@ def test_harmonize_appends_missing_block_by_id_not_position():
                 "README.zh-CN.md",
                 "README.md",
                 "zh-CN",
-                "# 欢迎\n\n[[id:install.init]]\n```bash\napp init\n```\n",
+                "# 欢迎\n\n"
+                "<!-- makewiki:section=install -->\n"
+                "## 安装\n\n"
+                "[[id:install.init]]\n```bash\napp init\n```\n",
             )
         ],
     }
-    harmonized = engine._harmonize_cross_language_code(docs)
-    assert harmonized >= 1
-    content = docs["zh-CN"][0].content
-    # The missing ID-tagged build block is appended.
-    assert "app build" in content
-    # The existing init block is not duplicated by position.
-    assert content.count("app init") == 1
+    report = verifier.verify_documents(docs)
+    l4a_failures = [c for c in report.checks if c.claim_type == "l4a_mechanical" and c.status == "failed"]
+    assert any("install.build" in (c.detail or "") or "install.build" in c.claim_text for c in l4a_failures)
 
 
-def test_harmonize_replaces_diverged_block_by_id():
-    """A block sharing an ID but differing in body is replaced byte-exactly."""
-    engine = MechanicalRepairEngine()
+def test_l4_detects_diverged_block_by_id():
+    """A block sharing an ID but differing in body is flagged as a failure."""
+    verifier = L4CrossLanguageVerifier()
     docs = {
         "en": [
             _doc(
                 "README.md",
                 "README.md",
                 "en",
-                "# Welcome\n\n[[id:install.init]]\n```bash\napp init --force\n```\n",
+                "# Welcome\n\n"
+                "<!-- makewiki:section=install -->\n"
+                "## Install\n\n"
+                "[[id:install.init]]\n```bash\napp init --force\n```\n",
             )
         ],
         "zh-CN": [
@@ -102,27 +106,31 @@ def test_harmonize_replaces_diverged_block_by_id():
                 "README.zh-CN.md",
                 "README.md",
                 "zh-CN",
-                "# 欢迎\n\n[[id:install.init]]\n```bash\napp init\n```\n",
+                "# 欢迎\n\n"
+                "<!-- makewiki:section=install -->\n"
+                "## 安装\n\n"
+                "[[id:install.init]]\n```bash\napp init\n```\n",
             )
         ],
     }
-    engine._harmonize_cross_language_code(docs)
-    content = docs["zh-CN"][0].content
-    assert "app init --force" in content
-    # The diverged body is replaced, not appended redundantly.
-    assert content.count("[[id:install.init]]") == 1
+    report = verifier.verify_documents(docs)
+    l4a_failures = [c for c in report.checks if c.claim_type == "l4a_mechanical" and c.status == "failed"]
+    assert len(l4a_failures) >= 1
 
 
-def test_unid_blocks_are_not_harmonized_by_position():
-    """Without a stable ID, parity cannot be proven and nothing is harmonized."""
-    engine = MechanicalRepairEngine()
+def test_l4_passes_when_blocks_match_by_id():
+    """When ID-tagged blocks match across languages, L4a checks pass."""
+    verifier = L4CrossLanguageVerifier()
     docs = {
         "en": [
             _doc(
                 "README.md",
                 "README.md",
                 "en",
-                "# Welcome\n\n```bash\napp build\n```\n\n```bash\napp deploy\n```\n",
+                "# Welcome\n\n"
+                "<!-- makewiki:section=install -->\n"
+                "## Install\n\n"
+                "[[id:install.init]]\n```bash\napp init\n```\n",
             )
         ],
         "zh-CN": [
@@ -130,18 +138,13 @@ def test_unid_blocks_are_not_harmonized_by_position():
                 "README.zh-CN.md",
                 "README.md",
                 "zh-CN",
-                "# 欢迎\n\n```bash\napp build\n```\n",
+                "# 欢迎\n\n"
+                "<!-- makewiki:section=install -->\n"
+                "## 安装\n\n"
+                "[[id:install.init]]\n```bash\napp init\n```\n",
             )
         ],
     }
-    harmonized = engine._harmonize_cross_language_code(docs)
-    assert harmonized == 0
-    # The second positional block is NOT appended, since no ID proves identity.
-    assert "app deploy" not in docs["zh-CN"][0].content
-
-
-def test_id_marker_inside_fence_body_is_recognized():
-    """The ID marker may also be the first line inside the fence body."""
-    engine = MechanicalRepairEngine()
-    # Odd real-world form: marker as a fence-internal first line.
-    assert engine._block_id("```bash\n[[id:install.init]]\napp init\n```") == "install.init"
+    report = verifier.verify_documents(docs)
+    l4a_failures = [c for c in report.checks if c.claim_type == "l4a_mechanical" and c.status == "failed"]
+    assert len(l4a_failures) == 0

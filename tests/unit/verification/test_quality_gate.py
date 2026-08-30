@@ -132,7 +132,7 @@ def test_llm_layer_passed_flags_reflect_actual_layer_status():
 
 def test_orchestrator_runs_all_layers_on_directory():
     """verify-docs path: orchestrator produces L0-L5 on a real wiki directory."""
-    from makewiki_skills.generator.language_generator import GeneratedDocument
+    from makewiki_skills.model.document_artifact import GeneratedDocument
 
     project_dir = Path(__file__).resolve().parents[3]  # repo root
     documents: dict[str, list[GeneratedDocument]] = {
@@ -488,7 +488,7 @@ def _audit_bundle(verdicts):
 def _project_and_docs(tmp_path: Path):
     """A tiny repo (real CLI) + EN/zh-CN writer docs so the mechanical layers
     pass and only the LLM-judged L3/L4b/L5 layers stay pending."""
-    from makewiki_skills.generator.language_generator import GeneratedDocument
+    from makewiki_skills.model.document_artifact import GeneratedDocument
 
     proj = tmp_path / "project"
     proj.mkdir(exist_ok=True)

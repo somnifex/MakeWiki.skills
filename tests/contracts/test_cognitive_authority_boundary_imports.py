@@ -59,39 +59,18 @@ def test_every_verifier_imports_neutral_document_artifact():
 
 
 def test_revision_and_renderer_do_not_author_narrative_python():
-    """The revision engine and legacy renderer must not contain per-language
-    narrative-prose translation tables or fabricated multi-language caveats."""
+    """The revision engine and legacy renderer are deleted in Phase 2."""
     revision_engine = SRC_DIR / "revision" / "revision_engine.py"
     language_generator = SRC_DIR / "generator" / "language_generator.py"
 
-    for path in (revision_engine, language_generator):
-        text = path.read_text(encoding="utf-8")
-        assert "_SIMPLE_TRANSLATIONS" not in text, f"{path.name} carries a translation table"
-
-    # The legacy renderer deliberately keeps UNKNOWN markers English-only; it
-    # must NOT carry per-language narrative dictionaries.
-    tree = ast.parse(language_generator.read_text(encoding="utf-8"))
-    class_names = {
-        node.name
-        for node in ast.walk(tree)
-        if isinstance(node, (ast.ClassDef, ast.FunctionDef))
-    }
-    # No class- or function-level narrative translation table lives in the renderer.
-    assert "_SIMPLE_TRANSLATIONS" not in class_names
-
-    # The renderer must expose no module-level narrative translation dictionary.
-    module_assigns = [
-        node
-        for node in ast.walk(tree)
-        if isinstance(node, ast.Assign)
-        and any(getattr(t, "id", "") == "_SIMPLE_TRANSLATIONS" for t in node.targets)
-    ]
-    assert module_assigns == []
+    assert not revision_engine.exists()
+    assert not language_generator.exists()
 
 
-def test_config_consumer_categories_include_shared():
-    """The SHARED fields consumed by both planes are classified SHARED, proving
-    the mechanical plane does consume config that also guides the LLM writer."""
+def test_config_consumer_categories_prose_judgment_is_llm_only():
+    """The prose-judgment documentation_policy fields are LLM_ONLY: the
+    mechanical plane no longer judges prose quality (the validator prose
+    checker was removed), so only the LLM writer consumes them."""
     from makewiki_skills.config import (
         DocumentationPolicyConfig,
         field_consumer_category,
@@ -99,9 +78,9 @@ def test_config_consumer_categories_include_shared():
 
     assert (
         field_consumer_category(DocumentationPolicyConfig, "forbid_unfounded_praise")
-        == "SHARED"
+        == "LLM_ONLY"
     )
     assert (
         field_consumer_category(DocumentationPolicyConfig, "banned_descriptors")
-        == "SHARED"
+        == "LLM_ONLY"
     )

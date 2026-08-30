@@ -1,0 +1,23 @@
+[
+  {
+    "id": "rc_core_package",
+    "claim_type": "package",
+    "semantic_key": "monorepo.package.core",
+    "assertion": "packages/core is the shared foundational library",
+    "must_state": "core as shared library"
+  },
+  {
+    "id": "rc_cli_package",
+    "claim_type": "package",
+    "semantic_key": "monorepo.package.cli",
+    "assertion": "packages/cli exposes the command-line interface binary",
+    "must_state": "cli binary from packages/cli"
+  },
+  {
+    "id": "rc_web_app",
+    "claim_type": "package",
+    "semantic_key": "monorepo.package.web",
+    "assertion": "apps/web is the user-facing web frontend application",
+    "must_state": "apps/web application"
+  }
+]

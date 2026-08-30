@@ -1,0 +1,12 @@
+trap: tool-failure-recovery
+description: "A malformed Python file with syntax errors causes mechanical AST parsing to fail, requiring a Recovery Scout to explore and extract verified entrypoints directly via cognitive file inspection."
+metrics:
+  Evidence Grounding: { weight: 0.30, required: true }
+  Required Claim Recall: { weight: 0.35, required: true }
+  Unsupported Claim Rate: { weight: 0.15 }
+  Unknown Discipline: { weight: 0.10 }
+  Judge Correctness: { weight: 0.10 }
+scoring:
+  pass_threshold: 0.8
+  passes_when: "Docs correctly identify real_app.py entrypoint and functions despite broken_syntax.py AST parser crash."
+  runs: 3

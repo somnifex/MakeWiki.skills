@@ -23,11 +23,11 @@ honest base otherwise), ``pending_mechanical_verification -> 3``. The legacy
 
 from __future__ import annotations
 
-from typing import Literal
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
-from makewiki_skills.config import MakeWikiConfig, RevisionConfig
+from makewiki_skills.config import MakeWikiConfig
 from makewiki_skills.verification.report import (
     ComprehensiveVerificationReport,
     VerificationCheck,
@@ -184,11 +184,12 @@ def _score(passed: int, total: int) -> float:
 
 def evaluate_quality_gate(
     report: ComprehensiveVerificationReport,
-    revision: RevisionConfig | MakeWikiConfig | None = None,
+    config: MakeWikiConfig | None = None,
     *,
     min_grounding_score: float | None = None,
     resolved_critical_in_rounds: int = 0,
     allow_pending_llm_layers: bool | None = None,
+    revision: Any = None,
 ) -> QualityGateResult:
     """Evaluate a comprehensive report against configurable quality thresholds.
 
@@ -196,41 +197,33 @@ def evaluate_quality_gate(
     ----------
     report:
         The aggregate L0-L5 report from the orchestrator.
-    revision:
+    config:
         Optional configuration. A full ``MakeWikiConfig`` supplies the gate's
         single grounding threshold from ``quality.min_grounding_score`` (and
-        ``quality.allow_pending_llm_layers`` when the flag is None); a bare
-        ``RevisionConfig`` has no quality block, so the gate falls back to its
-        default threshold 1.0.
+        ``quality.allow_pending_llm_layers`` when the flag is None).
     min_grounding_score:
         Explicit override for the grounding threshold. When None, the gate
-        inherits it from ``revision.quality.min_grounding_score`` (or the
-        default 1.0).
+        inherits it from ``config.quality.min_grounding_score`` (or default 1.0).
     allow_pending_llm_layers:
         EXIT POLICY ONLY — never changes the truth verdict. When True (default),
         unresolved LLM-judged layers (L3 / L4b / L5) that are pending hold the
         gate at ``pending_semantic_review`` and exit 0. When False, the verdict
         STILL reads ``pending_semantic_review`` (never ``failed``) but the honest
-        base exit code is 2, conveying that the review was not granted. This flag
-        maps ``pending_semantic_review`` to 0-or-2 via ``ci_exit_code_for``; it
-        can never promote a pending semantic state to ``failed``.
+        base exit code is 2.
+    revision:
+        Backward-compatibility alias for ``config``.
     """
+    cfg = config if config is not None else (revision if isinstance(revision, MakeWikiConfig) else None)
     min_score = min_grounding_score
     if min_score is None:
-        if isinstance(revision, MakeWikiConfig):
-            # The single Quality Gate threshold lives on quality.*, not on the
-            # revision engine (which no longer carries its own copy).
-            min_score = revision.quality.min_grounding_score
-        elif isinstance(revision, RevisionConfig):
-            # Backward-compatible: a bare RevisionConfig has no quality block, so
-            # fall back to the gate default rather than a dead split threshold.
-            min_score = 1.0
+        if isinstance(cfg, MakeWikiConfig):
+            min_score = cfg.quality.min_grounding_score
         else:
             min_score = 1.0
 
     pending_allowed = allow_pending_llm_layers
-    if pending_allowed is None and isinstance(revision, MakeWikiConfig):
-        pending_allowed = revision.quality.allow_pending_llm_layers
+    if pending_allowed is None and isinstance(cfg, MakeWikiConfig):
+        pending_allowed = cfg.quality.allow_pending_llm_layers
     if pending_allowed is None:
         pending_allowed = True
 

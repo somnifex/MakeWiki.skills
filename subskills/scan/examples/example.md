@@ -1,7 +1,7 @@
 # Example: makewiki-scan
 
 ```bash
-# Sizing and complexity check
+# Repo fact census and evidence check
 /makewiki-scan
 
 # Output structured JSON evidence (facts only — no interpretation)

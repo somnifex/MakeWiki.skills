@@ -39,18 +39,32 @@ class FilesystemTool:
         pattern: str = "**/*",
         exclude: list[str] | None = None,
     ) -> ToolResult:
-        exclude = exclude or []
+        exclude_list = exclude or []
         try:
+            import os
             root = Path(path).resolve()
             if not root.is_dir():
                 return ToolResult(success=False, error=f"Not a directory: {path}")
             matches: list[str] = []
-            for p in root.glob(pattern):
-                rel = str(p.relative_to(root)).replace("\\", "/")
-                if any(fnmatch.fnmatch(rel, ex) for ex in exclude):
-                    continue
-                if p.is_file():
-                    matches.append(rel)
+            for dirpath, dirnames, filenames in os.walk(str(root)):
+                dirnames[:] = [
+                    d for d in dirnames
+                    if not any(fnmatch.fnmatch(d, ex) or fnmatch.fnmatch(f"{d}/", ex) for ex in exclude_list)
+                ]
+                for f in filenames:
+                    file_path = Path(dirpath) / f
+                    rel = str(file_path.relative_to(root)).replace("\\", "/")
+                    if any(fnmatch.fnmatch(rel, ex) for ex in exclude_list):
+                        continue
+                    clean_pattern = pattern[3:] if pattern.startswith("**/") else pattern
+                    if (
+                        pattern == "**/*"
+                        or fnmatch.fnmatch(rel, pattern)
+                        or fnmatch.fnmatch(rel, clean_pattern)
+                        or fnmatch.fnmatch(f, pattern)
+                        or fnmatch.fnmatch(f, clean_pattern)
+                    ):
+                        matches.append(rel)
             matches.sort()
             return ToolResult(success=True, data={"paths": matches, "total": len(matches)})
         except Exception as exc:

@@ -1,89 +1,115 @@
-# Task: Autonomous Project Reconnaissance & Sizing (Subagent 深度勘探)
-
+# Task: Autonomous Repo Fact Census & Dynamic Reconnaissance (代码库事实普查与动态勘探)
 
 ## Overview
 
 Reconnaissance is Phase 0 & 1 of the MakeWiki pipeline. **Scout Subagents**
-autonomously explore the repository structure and developer interfaces,
-extracting rich evidence directly from the codebase. The Python toolkit
-provides the mechanical counterpart: `sizing` assesses tier + subagent
-budget, and `evidence` (formerly `scan`) returns a facts-only JSON bundle
-of commands, config keys, paths, and versions.
+autonomously explore the repository structure, code paths, and developer interfaces,
+returning structured **Search Ledgers**. The Python toolkit provides the mechanical
+counterpart: `census` extracts raw verifiable repository traits (file counts, languages,
+manifests, entrypoints, configs, tests, CI/infra, monorepo shape, ecosystems, tool warnings),
+and `evidence` (alias `scan`) returns a facts-only JSON bundle.
 
-The boundary is explicit: Python returns **facts**; the LLM returns
-**meaning**. Where the LLM cannot ground a claim in evidence, the
-corresponding Markdown slot renders `UNKNOWN` rather than fabricated prose.
-
----
-
-## 1. Dynamic Sizing & Subagent Allocation (Phase 0)
-
-The tier is computed mechanically from source file count (`sizing`); the
-LLM-orchestrated subagent budget respects that ceiling.
-
-| Tier       | Source File Count | Subagent Budget  | ReBattle Protocol                         | Subagent Allocation                                   |
-| ---------- | ----------------- | ---------------- | ----------------------------------------- | ----------------------------------------------------- |
-| **Tier S** | < 15 files        | 1 ~ 2 Subagents  | Single-pass prompt self-review (0 rounds) | Main Agent (Scout+Judge) + 1~2 Parallel Writers       |
-| **Tier M** | 15 ~ 80 files     | 3 ~ 5 Subagents  | Red vs Blue (1 debate round)              | 1 Scout + 2 ReBattle (Red, Blue) + 2 Writers          |
-| **Tier L** | > 80 files        | 5 ~ 10 Subagents | Red + Blue + Green (2 debate rounds)      | 2 Scouts + 3 ReBattle + Parallel Writers + 1 Reviewer |
-
-`agent.tier_override` in `makewiki.config.yaml` (LLM-consumed) lets the
-Skill honor a manual override; otherwise the tier comes from `sizing`.
+The boundary is strict: Python measures **facts**; the LLM decides **meaning**.
+Python is an auditable evidence channel, never an infallible authority: if Python evidence
+conflicts with direct source inspection, the Main Agent investigates directly.
 
 ---
 
-## 2. Scout Subagent Extraction Scope (Phase 1)
+## 1. Repository Fact Census & Dynamic Subagent Planning (Phase 0)
 
-Reconnaissance fans out across **eight role-scoped scouts**, each owning an
-explicit search scope. Every scout:
+In Phase 0, the Main Agent executes `makewiki census .` (or `python run_toolkit.py census .`)
+to extract objective repository traits. The Main Agent then evaluates the repository shape
+and dynamically synthesizes the Scout topology within configured upper bounds (`agent.max_subagents`, host `max_parallelism`):
 
-- **Directly inspects the repository** using `Glob`, `Grep`, `Read`, and
-  `Bash` (`ls` / `find` / `git ls-files`) — independent of, and in addition to,
-  the Python `evidence` / `coverage` bundles. Python is a *starting
-  reference*, never the only source.
-- **Two-phase retrieval**:
-  - *Round 1 Broad Scan*: entrypoints, modules, key directories, configs,
-    tests, deployment, docs leads.
-  - *Round 2 Targeted Deep Dive*: trace symbol definitions, callers,
-    implementations, overrides, defaults, test evidence, and conflicting docs.
-- **Two-independent-sources rule**: for each key fact (a flag, a route, a
-  config key, a default), seek at least two independent evidence sources —
-  e.g. README + the actual CLI parser; a manifest + the source that reads it.
-  A single source that contradicts code is a *conflict to surface*, not a fact.
-- **Coverage handoff**: each scout ends by listing `unexplored` /
-  `unresolved` areas — directories or topics it did NOT inspect. This feeds
-  the coverage gate in `SKILL.md` Phase 1.5: the Main Agent must resolve or
-  explicitly accept every item before entering the Judge stage.
+- **Lightweight / Single-module Projects**: Consolidated scouts (e.g. Structure + Surface)
+- **Standard Multi-component Projects**: Dedicated scouts per domain (Structure, Runtime/CLI, Tests, Config)
+- **Complex / Polyglot / Monorepos**: Parallel specialized scouts synthesized dynamically
 
-### Role-Scoped Scouts
+---
 
-| Scout | Search Scope |
-| ----- | ------------ |
-| **Structure** | Topology via manifests & build configs: `pyproject.toml`, `package.json`, `go.mod`, `Cargo.toml`, `pom.xml`, `build.gradle`; `Makefile`, `CMakeLists.txt`, `Taskfile.yml`, `Justfile`; `Dockerfile`, `docker-compose.yml`, Kubernetes manifests |
-| **Runtime / Entrypoint** | Process entrypoints & start scripts: `__main__.py` / `if __name__ == "__main__"`, `bin/` targets, `[project.scripts]` / `scripts` / `bin` manifest fields, service mains, worker / daemon processes |
-| **CLI / API** | User-facing surfaces: Typer/Click/Argparse flags & commands; Cobra/Clap/Commander options; FastAPI/Flask/Gin/Express/Axum REST route definitions; help strings |
-| **Config** | Configuration & env schemas: `.env*`, `config.yaml` / `.toml` / `.ini` / `.cfg`, `settings`/`constants` modules, env-var reads; nested / composed overrides |
-| **Tests / Behavior** | Test suites & behavioral evidence: `tests/`, `test_*`, `*_test`, pytest/unittest/Jest fixtures, CI test steps |
-| **Deployment / CI** | `.github/workflows`, `.gitlab-ci.yml`, `Jenkinsfile`, `Docker`/`Compose`, k8s manifests, cloud/deploy scripts (`deploy.sh`, `serverless.yml`), migrations |
-| **Docs / Examples** | `README*`, `docs/`, `examples/`, `guides/`, changelogs; example commands & expected outputs |
-| **Dependency / Monorepo** | Manifests & lock files, vendored deps, plugin/extension registrations, multi-package `packages/*` / `pkg/*` layout, **generated-code boundaries** (`vendor/`, `dist/`, `build/`, `*_pb2.py`, `.min.js`, `generated/`) |
+## 2. Dynamic Scout Synthesis & Search Loop (Phase 1)
 
-### Search-Scope Checklist (all scouts combined)
+The Main Agent does not deploy a fixed list of 8 scouts. Instead, it drives an autonomous
+**Search Loop** asking:
+1. *What do I still not understand about the system?*
+2. *What important repository areas are unexplored?*
+3. *Which facts are single-source or lack sufficient corroboration?*
+4. *Which tool failures need recovery?*
+5. *Which claims conflict?*
 
-Every pass must explicitly cover — or explicitly declare uncovered — each of:
-`source`, `tests`, `examples`, `README/docs`, `pyproject`/`package`/`Cargo`/`go`
-manifests, CLI entrypoints, API/routes, config/env files, Docker/Compose,
-Makefile/scripts, CI/CD, deployment, migrations, plugins/extensions, monorepo
-packages, and **generated-code boundaries**.
+Scouts are synthesized dynamically based on Census findings and ongoing investigation needs:
+- **Structure Scout**: Explores package layouts, build systems, manifests, and monorepo boundaries.
+- **Runtime / CLI Scout**: Traces process entrypoints, CLI parsers, subcommands, and flags.
+- **Config & Env Scout**: Analyzes configuration schemas, env vars, defaults, and priority overrides.
+- **Test & Behavior Scout**: Inspects test fixtures, assertions, and operational behaviors.
+- **Deployment / CI Scout**: Analyzes workflows, Dockerfiles, Kubernetes manifests, and cloud deploy steps.
+- **Domain Specialists**: Synthesized on-demand (e.g., `FFI Bindings Scout`, `Plugin Ecosystem Scout`, `Fork Provenance Scout`, `Migration Scout`).
 
-### Per-Tier Allocation
+---
 
-| Tier | Scout Allocation |
-| ---- | ---------------- |
-| **Tier S** | 1~2 consolidated scouts (all roles folded into Structure + Surface) |
-| **Tier M** | 3 scouts (Structure, Runtime/Entrypoint + CLI/API + Config consolidated, Tests/Behavior) |
-| **Tier L** | up to 8 in parallel (one per role) |
+## 3. Scout Deliverable: Structured Search Ledger
 
-All findings must trace back to a concrete file/line citation; claims the
-Scout cannot ground stay out of the SemanticModel and the corresponding
-Markdown slot renders `UNKNOWN`.
+Every Scout directly inspects the codebase using `Glob`, `Grep`, `Read`, and `Bash`
+(`ls` / `find` / `git ls-files`) and terminates its investigation by outputting a structured
+`<search_ledger>` block:
+
+```markdown
+<search_ledger>
+# Role: [Synthesized Scout Role Name]
+**Confidence:** [0.0 - 1.0]
+
+## Searched Areas
+- [Architectural component or module inspected]
+
+## Paths Inspected
+- `path/to/inspected_file.py`
+
+## Claims & Evidence
+1. **[claim_id]**: [Concrete factual assertion discovered]
+   - *Evidence*: `path/to/file.py:L10-L25`
+2. **[claim_id]** **[CONFLICT]**: [Assertion that contradicts another source, e.g. README vs code]
+   - *Evidence*: `README.md:L5`, `src/config.py:L40`
+
+## Unresolved
+- [Unclear behaviors, missing definitions, or ambiguous configurations]
+
+## Unexplored
+- [Directories or subsystems observed but left for follow-up inspection]
+
+## Recommended Follow-ups
+- [Specific areas or specialized scouts recommended for subsequent exploration]
+</search_ledger>
+```
+
+---
+
+## 4. Recovery Scout Protocol
+
+When mechanical extraction encounters errors or degraded coverage, the Main Agent
+dynamically spawns a **Recovery Scout**:
+
+- **Trigger Conditions**:
+  - Mechanical tool throws AST parsing error, syntax error, or unhandled file format.
+  - Scanner returns 0 facts or skips a known critical directory.
+  - A Scout returns `confidence < 0.7` or flags critical paths in `unresolved`.
+  - Conflicting evidence between doc comments and implementation.
+- **Recovery Mandate**:
+  - Recovery Scout relies exclusively on direct cognitive codebase inspection (`Glob`, `Grep`, `Read`).
+  - Directly reads raw source files, extracts ground-truth symbols/schemas/entrypoints, and resolves ambiguities.
+  - Emits a definitive Search Ledger to unblock subsequent phases.
+
+---
+
+## 5. Blind Coverage Reviewer Protocol
+
+For complex, large, or polyglot repositories, the Main Agent deploys an independent
+**Blind Coverage Reviewer** before moving to ReBattle or Writing:
+
+- **Blind Independence**:
+  - The Blind Coverage Reviewer is **NOT** given the Search Ledgers of previous Scouts or any generated drafts.
+  - It receives only the raw repository path and Census traits.
+- **Objective**:
+  - Independently re-explores the codebase to identify hidden entrypoints, forgotten sub-packages, undeclared plugins, config overrides, or missing workflows.
+- **Discrepancy Loop**:
+  - The Main Agent compares the Blind Reviewer's findings with the existing claims pool.
+  - If unexpected core subsystems were missed or placed in `unexplored`, the Main Agent updates its search plan and dispatches targeted scouts before proceeding.

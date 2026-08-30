@@ -1,77 +1,83 @@
-# Task: Subagent Adversarial Review & Self-Healing (审查员审计与自愈)
+# Task: LLM Semantic Audit & Cross-Language Review (语义审查与质量门禁)
 
 ## Overview
 
-Review is Phase 4 of MakeWiki. The **Auditor Subagent** executes an
-autonomous cognitive audit and in-place self-healing pass, ensuring 100%
-cross-language parity, evidence-backed grounding, and natural technical
-prose. The Python toolkit supplies the mechanical half: `verify-docs` runs
-the unified L0–L5 verification, `parity` checks block-ID exact-match across
-languages, and `semantic-review` produces aligned passages for the Auditor.
+Review is Phase 4 of MakeWiki. The **LLM Auditor** evaluates the cognitive layers
+of documentation quality (L3 behavior meaning, L4b prose parity, L5 epistemic accuracy),
+while the Python toolkit mechanically measures syntax (L0), existence (L1), interfaces (L2),
+and exact block-ID parity (L4a).
 
-The Quality Gate aggregates the result into an honest four-state verdict
-(`passed` / `pending_semantic_review` / `pending_mechanical_verification` /
-`failed`) mapped to the CI exit policy (passed→0, failed→1,
-pending_semantic_review→0 when `allow_pending_llm_layers` else 2,
-pending_mechanical_verification→3). MakeWiki is **evidence-backed**, not
-"zero-hallucination"; every status reflects a concrete check, not marketing.
+The LLM Auditor produces an authoritative, machine-readable **`SemanticAuditBundle`**
+JSON, which is consumed by the Python Quality Gate (`verify-docs --semantic-audit <file>`).
 
 ---
 
-## 1. Auditor Subagent Responsibilities
+## 1. LLM Auditor Responsibilities
 
-1. **L3 Behavior Judgment**:
-   - For each documented command, decide whether the described behavior is
+The LLM Auditor reviews the authored documentation against the source repository and SemanticModel:
 
-     consistent with what the source actually does.
-   - Python supplies evidence; the Auditor renders the L3 verdict.
-2. **L4 Prose Parity Judgment**:
-   - Python enforces exact block-ID parity (L4a) across languages. Matching is
-
-     keyed on stable block IDs (`[[id:<slug>]]`) and stable H2 section markers
-     (`<!-- makewiki:section=<slug> -->`), never on heading text or heading
-     position; section ORDER may differ per language. For multilingual output
-     every reviewable H2 MUST carry a stable section marker; a missing marker
-     or a duplicate section ID is an L4a mechanical failure Python flags
-     before the Auditor sees prose.
-   - The Auditor judges prose parity (L4b) from the aligned passages produced
-
-     by `semantic-review`.
-3. **L5 Over-Assertion & Anti-AI-Cliché Audit**:
-   - Flags claims more confident than their evidence warrants.
-   - Enforces `references/anti_ai_cliche.md`: bans binary tropes
-
-     ("不是……而是……"), buzzwords ("收敛", "赋能", "对齐"), trailing colons
-     in headings, and unfounded praise.
-4. **Side-by-Side Cross-Language Audit**:
-   - Compares English and Chinese Markdown documents side-by-side.
-   - Verifies that all code blocks, command arguments, and config keys
-
-     match character-for-character across all languages for blocks carrying
-     the same stable ID.
-5. **Codebase Ground-Truth Verification**:
-   - Verifies that every documented CLI command, file path, and env var
-
-     actually exists in the target repository.
-6. **Emit the SemanticAuditBundle**: After judging, write a machine-readable
-
-   `SemanticAuditBundle` JSON capturing the L3 / L4b / L5 verdicts (schema:
-   `schema_version`, `documents_digest` (sha256 over the audited markdown
-   set), optional `semantic_model_digest`, `auditor`, `audited_at`, and a
-   list of verdicts whose entries carry `review_item_id`, `layer` (L3 / L4b /
-   L5), `status` (passed / failed), `rationale_summary`, `evidence_refs`, and
-   `confidence`. Emit it last, after all
-   in-place edits, so `documents_digest` matches the final markdown set; a
-   stale bundle (digest mismatch after documents change) is rejected and must
-   be re-audited. `verify-docs --semantic-audit <file>` (a flag on
-   `verify-docs`) consumes it, and Python never re-judges the verdicts.
+1. **Behavioral Meaning (L3)**:
+   - Evaluates whether documented commands and workflows accurately achieve their described purpose.
+   - Identifies omitted prerequisites, incorrect step orders, or flawed execution logic.
+2. **Semantic Prose Parity (L4b)**:
+   - Evaluates whether descriptions, explanations, and warnings convey identical semantic meaning across all target languages.
+   - Ensures that reordered sections maintain comprehensive informational parity.
+   - Flags missing sections as critical parity failures.
+3. **Epistemic Standing & Overclaim Review (L5)**:
+   - Detects ungrounded speculation, fabricated guarantees, or unverified claims.
+   - Ensures proper hedging for provisional or environment-dependent behaviors.
+4. **Troubleshooting & Incident Logic**:
+   - Audits error handling guides to ensure symptoms accurately trace to root causes with verifiable recovery steps.
 
 ---
 
-## 2. In-Place Autonomous Self-Healing
+## 2. Review Protocol & SemanticAuditBundle
 
-When discrepancies or defects are found, the Auditor Subagent immediately
-uses `Edit` to correct the Markdown files in-place without pausing to ask
-the user. The Semantic Revision step reruns the affected L-layers until
-the Quality Gate passes (within the configured `agent.max_audit_rounds`
-budget).
+1. **Mechanical Pre-alignment**:
+   - Python extracts aligned passages and pending semantic checks via `python run_toolkit.py review <wiki_dir>` or `verify-docs <target>`.
+   - Each reviewable item receives a deterministic `review_item_id` (e.g. `L3:README.md:make build`, `L4b:README:build`, `L5:README.md:myapp run`).
+2. **Auditor Adjudication**:
+   - The LLM Auditor evaluates each pending item.
+   - In-place repairs: if a minor error is detected, the Auditor edits the Markdown files directly in `<wiki_dir>`.
+3. **Bundle Emission (Must be Last)**:
+   - The Auditor generates `semantic_audit.json` matching the `SemanticAuditBundle` schema:
+
+```json
+{
+  "schema_version": "1",
+  "documents_digest": "sha256:...",
+  "semantic_model_digest": "sha256:...",
+  "auditor": "LLM Auditor",
+  "audited_at": "2026-08-30T10:30:00Z",
+  "verdicts": [
+    {
+      "review_item_id": "L4b:README.md:getting_started",
+      "layer": "L4b",
+      "status": "passed",
+      "rationale_summary": "Semantic prose and instructions match identically between EN and ZH.",
+      "evidence_refs": ["README.md", "README.zh-CN.md"],
+      "confidence": "high"
+    }
+  ]
+}
+```
+
+4. **Quality Gate Verification**:
+   - Run `python run_toolkit.py verify-docs <target> --wiki-dir <wiki_dir> --semantic-audit <wiki_dir>/semantic_audit.json`.
+   - Python validates document digests, merges verdicts item-by-item into the Quality Gate, and reports the honest four-state verdict (`passed`, `pending_semantic_review`, `pending_mechanical_verification`, `failed`).
+
+---
+
+## 3. Main Agent Termination Decision
+
+Python never decides "completion". The Main Agent evaluates:
+- Coverage metrics & unresolved questions
+- Tool health and recovery status
+- Semantic audit results & Quality Gate verdict
+- User requirements
+
+And decides the final outcome:
+- **Continue Search**: If critical coverage gaps or unproven facts remain.
+- **Continue Debate**: If unresolved disputes persist.
+- **Revise**: If the Quality Gate is pending or failed.
+- **Deliver**: If Quality Gate is `passed` and all deliverables are compiled.

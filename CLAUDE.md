@@ -13,7 +13,7 @@ MakeWiki runs on **two planes** separated by a Cognitive Authority Boundary:
   deterministically.
 - **Mechanical Plane (Python toolkit)**: proves what can be mechanically proven —
 
-  sizing, evidence extraction, AST / CLI / config / manifest parsing, L0 / L1 /
+  census, evidence extraction, AST / CLI / config / manifest parsing, L0 / L1 /
   L2 / L4-exact, schema validation, parity, static site, export, sync-bundle,
   Quality Gate. Forbidden from inventing narrative content; returns `UNKNOWN`
   when it cannot prove a slot.
@@ -26,11 +26,14 @@ non-blocking. It is the only place where the two planes meet.
 
 ### Cognitive Authority Boundary
 
-LLM Agents are the authoritative decision makers for semantic work. Python
-tooling MUST NOT invent semantic conclusions. When deterministic tooling
-cannot mechanically establish a fact, it MUST return UNKNOWN rather than
-guess. Python-generated semantic conclusions MUST NOT override LLM Agent
-adjudication in the authoritative `/makewiki` path.
+Main Agent LLM is the sole runtime orchestrator. Subagents own cognitive work.
+Python owns no scheduling or semantic decisions. Python is an auditable
+evidence channel, not an infallible authority. If Python evidence conflicts with
+direct source inspection, the Main Agent must investigate. When deterministic
+tooling cannot mechanically establish a fact, it MUST return UNKNOWN rather than
+guess. Mechanical tool failures produce degraded mechanical verification,
+never cognitive failure; the Main Agent may spawn Recovery Scouts for direct
+inspection.
 
 When a host has **no subagent API**, MakeWiki runs sequentially on one agent —
 the Main Agent assumes each role in sequence. No semantics are lost, only
@@ -51,7 +54,7 @@ wall-clock changes.
 
 ## Available skills
 
-- `/makewiki` — full LLM-orchestrated flow (`sizing -> scout -> rebattle ->
+- `/makewiki` — full LLM-orchestrated flow (`census -> scout -> rebattle ->
 
   parallel writers -> auditor / quality gate -> site compile`). Authoritative.
 - `/makewiki-site` — build offline static website from generated markdown
@@ -63,7 +66,7 @@ wall-clock changes.
 - `makewiki-sync` — prepare Confluence Storage XML and Notion Block API sync
 
   payloads (bundle prep only; does NOT publish).
-- `/makewiki-scan` — inspect project evidence and assess sizing tier.
+- `/makewiki-scan` — inspect project evidence and repository fact census.
 - `/makewiki-review` — prepare cross-language parity and aligned passages for
 
   LLM semantic review.
@@ -74,26 +77,24 @@ wall-clock changes.
 
 Python toolkit commands (mechanical only):
 
-| Command                  | Alias      | Purpose                                                            |
-| ------------------------ | ---------- | ------------------------------------------------------------------ |
-| `sizing`                 | —          | Tier (S / M / L) + subagent budget                                 |
-| `evidence`               | `scan`     | Deterministic fact extraction (JSON / human)                       |
-| `verify-claim <json>`    | —          | Verify one or many Claims against the codebase                     |
-| `verify-model <json>`    | —          | Schema + evidence-ref validation for a SemanticModel               |
-| `verify-docs <target>`   | `verify`   | Unified L0 - L5 verification + Quality Gate + exit code            |
-| `parity <target>`        | —          | L4 exact-block parity + aligned passages                           |
-| `review <wiki_dir>`      | —          | Standalone cross-language review (runs `CrossLanguageReviewer`)    |
-| `semantic-review <dir>`  | —          | Aligned passages for LLM cross-language review                     |
-| `validate <wiki_dir>`    | —          | Markdown structure & link validation                               |
-| `build-site <wiki_dir>`  | —          | Compile Markdown into offline SPA HTML site                        |
-| `export <wiki_dir>`      | —          | `--format html                                                     | epub | all`; **rejects pdf** |
-| `sync-bundle <wiki_dir>` | `sync`     | Prepare Confluence / Notion bundles; does NOT publish              |
-| `init-config <target>`   | —          | Generate default `makewiki.config.yaml`                            |
-| `rebattle-diff <files>`  | —          | Deterministic dispute organizer over multiple ClaimSets            |
-| `legacy-generate`        | `generate` | Mechanical scaffold only (deprecated) — NOT the authoritative flow |
+| Command                  | Alias    | Purpose                                                                                                         |
+| ------------------------ | -------- | --------------------------------------------------------------------------------------------------------------- |
+| `census`                 | `sizing` | Raw verifiable repo traits census (file counts, langs, manifests)                                               |
+| `evidence`               | `scan`   | Deterministic fact extraction (JSON / human)                                                                    |
+| `coverage <target>`      | —        | Discovery coverage report: files/tests/configs/manifests discovered vs read, pruned paths, uncovered ecosystems |
+| `verify-claim <json>`    | —        | Verify one or many Claims against the codebase                                                                  |
+| `verify-model <json>`    | —        | Schema + evidence-ref validation for a SemanticModel                                                            |
+| `verify-docs <target>`   | `verify` | Unified L0 - L5 verification + Quality Gate + exit code                                                         |
+| `parity <target>`        | —        | L4 exact-block parity + aligned passages                                                                        |
+| `review <wiki_dir>`      | —        | Standalone cross-language review (runs `CrossLanguageReviewer`)                                                 |
+| `semantic-review <dir>`  | —        | Aligned passages for LLM cross-language review                                                                  |
+| `validate <wiki_dir>`    | —        | Markdown structure & link validation                                                                            |
+| `build-site <wiki_dir>`  | —        | Compile Markdown into offline SPA HTML site                                                                     |
+| `export <wiki_dir>`      | —        | `--format html                                                                                                  | epub | all`; **rejects pdf** |
+| `sync-bundle <wiki_dir>` | `sync`   | Prepare Confluence / Notion bundles; does NOT publish                                                           |
+| `init-config <target>`   | —        | Generate default `makewiki.config.yaml`                                                                         |
+| `rebattle-diff <files>`  | —        | Deterministic dispute organizer over multiple ClaimSets                                                         |
 
-`legacy-generate` (alias `generate`, deprecated) is the non-authoritative
-mechanical scaffold; the authoritative flow is `/makewiki` (LLM-orchestrated).
 `review` is a standalone command, not an alias of `parity`.
 
 ## Working notes
@@ -101,10 +102,10 @@ mechanical scaffold; the authoritative flow is `/makewiki` (LLM-orchestrated).
 - **Autonomous execution**: complete all phases end-to-end without pausing
 
   for intermediate confirmation.
-- **Subagent budget**: Tier S (1-2 agents), Tier M (3-5 agents),
+- **Dynamic subagent planning**: Main Agent dynamically synthesizes scouts from
 
-  Tier L (5-10 agents max). Honor host capability fallback.
-- **ReBattle cross-examination** before writing; mechanical dispute organizer
+  an Archetype Library within `agent.max_subagents` and host `max_parallelism`.
+- **ReBattle cross-examination** on real conflicts; mechanical dispute organizer
 
   (`rebattle-diff`) is optional.
 - **Natural human engineer tone**: ban AI clichés (`不是……而是……`, `收敛`,

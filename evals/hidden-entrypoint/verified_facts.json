@@ -1,0 +1,23 @@
+[
+  {
+    "id": "vf_env_file",
+    "fact_type": "config_file",
+    "value": ".env",
+    "source": ".env",
+    "note": "dot-file environment config"
+  },
+  {
+    "id": "vf_config_dir",
+    "fact_type": "config_file",
+    "value": ".config/app.yml",
+    "source": ".config/app.yml",
+    "note": "hidden directory app config"
+  },
+  {
+    "id": "vf_ci_workflow",
+    "fact_type": "ci_file",
+    "value": ".github/workflows/ci.yml",
+    "source": ".github/workflows/ci.yml",
+    "note": "GitHub Actions workflow"
+  }
+]

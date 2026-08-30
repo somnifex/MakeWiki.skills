@@ -3,7 +3,7 @@
 ## Summary
 
 - **Project**: `{project_name}`
-- **Assessed Tier**: `{tier}` ({recommended_subagents} subagents)
+- **Census & Traits**: `{repo_traits}` ({subagents_deployed} subagents, mode: `{host_mode}`)
 - **Languages Generated**: `{languages}`
 - **Total Pages**: `{total_pages}`
 

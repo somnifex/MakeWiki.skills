@@ -1,0 +1,9 @@
+[
+  {
+    "id": "vf_modern_name",
+    "fact_type": "identity",
+    "value": "modern-lib",
+    "source": "pyproject.toml:name",
+    "note": "current fork name"
+  }
+]

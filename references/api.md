@@ -1,5 +1,6 @@
 # Internal Toolkit CLI API Reference
 
+
 The toolkit CLI is mechanical only. All comprehension and authoring decisions
 are made by the LLM-driven `/makewiki` Skill layer; this CLI returns `UNKNOWN`
 rather than guessing whenever something cannot be proven from source.
@@ -11,7 +12,7 @@ The first-party console script is `makewiki` (also reachable via
 
 | Command           | Arguments / Flags                                          | Description                                                                                                             |
 | ----------------- | ---------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
-| `sizing`          | `<target> [--format json\                                  | human]`                                                                                                                 | Estimate project tier (S/M/L) and recommended subagent budget. |
+| `census`          | `<target> [--format json\                                  | human]`                                                                                                                 | Extract raw verifiable repository traits (file counts, languages, manifests, entrypoints). |
 | `evidence`        | `<target> [--format json\                                  | human]`                                                                                                                 | Extract structured evidence **facts** (commands, config keys, paths). No interpretation. |
 | `coverage`        | `<target> [--format json\                                  | human]`                                                                                                                 | Deterministic mechanical coverage of a discovery pass: files discovered vs inspected vs skipped vs ignored, entrypoints/configs/tests/manifests found, `uncovered_categories`, `low_confidence_facts`. Pure bookkeeping; the LLM resolves the gaps. |
 | `verify-claim`    | `<claim.json> [...]`                                       | Verify one or many Claims against the codebase → per-claim L0–L5 status.                                                |
@@ -24,7 +25,6 @@ The first-party console script is `makewiki` (also reachable via
 | `build-site`      | `<wiki_dir> [--theme auto\                                 | light\                                                                                                                  | dark] [--output <dir>] [--title <t>]` | Compile Markdown docs into an offline SPA HTML site. |
 | `export`          | `<wiki_dir> [--format html\                                | epub\                                                                                                                   | all] [--lang <code>]` | Export single-file printable HTML and EPUB e-books. **PDF is intentionally not supported.** |
 | `sync-bundle`     | `<wiki_dir> [--target all\                                 | confluence\                                                                                                             | notion] [--lang <code>]` | Prepare Confluence Storage XML / Notion Block API bundles on disk. **Does NOT publish.** |
-| `legacy-generate` | `<target> [--lang ...] [--config <path>] [--output <dir>]` | Non-authoritative deterministic scaffold (mechanical tests only). `/makewiki` is authoritative.                         |
 | `init-config`     | `[target] [--lang ...]`                                    | Generate a default `makewiki.config.yaml` in the target directory.                                                      |
 | `rebattle-diff`   | `<claim_set_1.json> <claim_set_2.json> [...]`              | Deterministic dispute organizer: diff two or more ClaimSets into a discrepancy matrix.                                  |
 
@@ -32,15 +32,13 @@ The first-party console script is `makewiki` (also reachable via
 
 | Alias      | Refers to         | Notes                                                                  |
 | ---------- | ----------------- | ---------------------------------------------------------------------- |
-| `generate` | `legacy-generate` | Non-authoritative scaffold path; `/makewiki` remains authoritative.    |
+| `sizing`   | `census`          | Deprecated alias; outputs the same facts-only repo census.             |
 | `scan`     | `evidence`        | Legacy name; outputs the same facts-only evidence bundle.              |
 | `verify`   | `verify-docs`     | Same unified L0–L5 + Quality Gate run.                                 |
 | `sync`     | `sync-bundle`     | Bundle-prep only; the old name implied publishing, which it never did. |
 
 `parity` has no alias. `review` is a **standalone command** (not an alias): it
-runs `CrossLanguageReviewer` over existing makewiki output on disk. `generate`
-is the deprecated alias of `legacy-generate` (the non-authoritative mechanical
-scaffold).
+runs `CrossLanguageReviewer` over existing makewiki output on disk.
 
 ## Notes
 

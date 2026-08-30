@@ -235,9 +235,11 @@ class EvidenceTool:
         return facts
 
     def extract_config_keys(
-        self, data: dict[str, Any], source_path: str, prefix: str = ""
+        self, data: Any, source_path: str, prefix: str = ""
     ) -> list[EvidenceFact]:
         facts: list[EvidenceFact] = []
+        if not isinstance(data, dict):
+            return facts
 
         # Special handling for Docker Compose files: extract clean environment variables and ports
         if prefix == "" and "services" in data and isinstance(data["services"], dict):

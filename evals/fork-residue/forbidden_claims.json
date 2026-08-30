@@ -1,0 +1,9 @@
+[
+  {
+    "id": "fc_legacy_install",
+    "claim_type": "command",
+    "semantic_key": "install.command",
+    "forbidden_assertion": "pip install legacy-lib",
+    "value": "pip install legacy-lib"
+  }
+]

@@ -150,8 +150,17 @@ def _fixture_bundle(trap: str, run_dir: Path, *, seed: int, host: str) -> dict[s
         "misleading-readme": fixtures_bundles.MISLEADING_README,
         "ambiguous-install": fixtures_bundles.AMBIGUOUS_INSTALL,
         "hidden-entrypoints": fixtures_bundles.HIDDEN_ENTRYPOINTS,
+        "hidden-entrypoint": fixtures_bundles.HIDDEN_ENTRYPOINT,
+        "nested-monorepo": fixtures_bundles.NESTED_MONOREPO,
         "indirect-config": fixtures_bundles.INDIRECT_CONFIG,
+        "config-override": fixtures_bundles.CONFIG_OVERRIDE,
+        "tool-failure-recovery": fixtures_bundles.TOOL_FAILURE_RECOVERY,
+        "fork-residue": fixtures_bundles.FORK_RESIDUE,
+        "stale-example": fixtures_bundles.STALE_EXAMPLE,
         "stale-readme": fixtures_bundles.STALE_README,
+        "unsupported-claim": fixtures_bundles.UNSUPPORTED_CLAIM,
+        "multilingual-reorder": fixtures_bundles.MULTILINGUAL_REORDER,
+        "incomplete-scan": fixtures_bundles.INCOMPLETE_SCAN,
         "monorepo-discovery": fixtures_bundles.MONOREPO_DISCOVERY,
     }.get(trap)
 

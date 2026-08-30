@@ -1,15 +1,15 @@
 ---
 name: makewiki-scan
-description: "Scan a project and emit the evidence summary: project sizing tier (S/M/L), recommended subagent budget, detected commands, config keys, dependencies, and enterprise delivery brief. Use when: user wants to understand a project before generating docs, or wants to inspect what MakeWiki detects. Output is facts-only — Python never interprets what the repository means."
+description: "Scan a project and emit the evidence summary: repository traits census, detected commands, config keys, dependencies, and enterprise delivery brief. Use when: user wants to understand a project before generating docs, or wants to inspect what MakeWiki detects. Output is facts-only — Python never interprets what the repository means."
 version: "2.0.0"
 argument-hint: "[--format json|human]"
 license: MIT
 allowed-tools: Bash(python */scripts/bootstrap_toolkit.py) Bash(python */scripts/run_toolkit.py *) Read Glob Grep
 ---
 
-# MakeWiki Scan - Project Evidence & Sizing Discovery
+# MakeWiki Scan - Project Evidence & Fact Census Discovery
 
-Scan the current project, assess complexity (Tier S / M / L), and report
+Scan the current project, extract repository fact census, and report
 structured findings. The Python toolkit returns **facts only**; the LLM
 Skill layer is responsible for any interpretation, narrative, or "what does
 this mean for the user" reasoning.
@@ -27,11 +27,11 @@ python scripts/bootstrap_toolkit.py
 ```
 
 If the script prints a path, refer to it as `<makewiki_root>` and run the
-sizing and evidence tools (the toolkit authoritatively renames `scan` to
-`evidence`; `scan` remains as a deprecated alias):
+census and evidence tools (the toolkit authoritatively provides `census`;
+`sizing` remains as a deprecated alias):
 
 ```bash
-python <makewiki_root>/scripts/run_toolkit.py sizing .
+python <makewiki_root>/scripts/run_toolkit.py census .
 python <makewiki_root>/scripts/run_toolkit.py evidence . --format json
 python <makewiki_root>/scripts/run_toolkit.py coverage . --format json
 ```
@@ -51,6 +51,9 @@ the `evidence` JSON and adds:
 2. **Implementation Perspective**: Functions, AST arguments, unreleased features.
 3. **Deployment & Enterprise Perspective**: Compatibility requirements, environment variables, health check commands, error logs.
 
+If mechanical tools encounter errors or unparsed files, spawn a **Recovery Scout**
+for direct cognitive file inspection.
+
 The multi-perspective analysis must **directly inspect the tree** (Glob /
 Grep / Read / `ls` / `find` / `git ls-files`), not only read the Python
 bundle, and must annotate the `coverage` report's `uncovered_categories` and
@@ -65,15 +68,15 @@ prove.
 ### Step 3: Produce Project Brief
 
 The final project brief is **LLM-authored**, drawing only on facts surfaced
-by `evidence` / `sizing`:
+by `evidence` / `census`:
 
 ```yaml
 project_brief:
   name: ""
   version: ""
   purpose: ""                       # LLM-written, grounded in evidence
-  tier: "Tier S | Tier M | Tier L"
-  subagent_budget: 4
+  repo_traits: ""                   # Sourced from census facts
+  execution_topology: ""            # Dynamically synthesized scout roles
   target_users: []
   project_type: ""
 

@@ -1,0 +1,8 @@
+[
+  {
+    "id": "eu_telemetry",
+    "topic": "telemetry",
+    "field": "service.telemetry.endpoint",
+    "expected_treatment": "render UNKNOWN or leave unasserted"
+  }
+]

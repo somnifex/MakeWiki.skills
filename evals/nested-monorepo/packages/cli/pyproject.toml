@@ -1,0 +1,7 @@
+[project]
+name = "monorepo-cli"
+version = "0.1.0"
+dependencies = ["monorepo-core"]
+
+[project.scripts]
+mycli = "monorepo_cli.main:run"

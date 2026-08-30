@@ -12,8 +12,9 @@ from __future__ import annotations
 from pathlib import Path
 
 from makewiki_skills.cli import app
+from makewiki_skills.config import MakeWikiConfig
 from makewiki_skills.scanner.coverage import CoverageReport
-from makewiki_skills.scanner.evidence_collector import CollectedEvidence
+from makewiki_skills.scanner.evidence_collector import CollectedEvidence, EvidenceCollector
 from makewiki_skills.scanner.project_detector import (
     ProjectDetectionResult,
     ProjectType,
@@ -80,3 +81,44 @@ def test_coverage_report_exposes_mechanical_keys():
     present = set(CoverageReport.model_fields)
     missing = required - present
     assert not missing, f"CoverageReport missing contract fields: {sorted(missing)}"
+
+
+def test_coverage_presence_fields_are_populated_end_to_end(tmp_path: Path):
+    """The accounting fields must be *populated* by a real pass, not just declared.
+
+    Regression for the dead-field defect: ignored_files / tests_read /
+    manifests_read / skipped_due_to_max_files were declared but never written,
+    so the CLI printed permanent zeros that looked like audited coverage.
+    """
+    proj = tmp_path / "proj"
+    (proj / "src").mkdir(parents=True)
+    (proj / "src" / "main.py").write_text("def run():\n    return 1\n", encoding="utf-8")
+    (proj / "tests").mkdir()
+    (proj / "tests" / "test_main.py").write_text("def test_run():\n    pass\n", encoding="utf-8")
+    (proj / "pyproject.toml").write_text("[project]\nname='x'\n", encoding="utf-8")
+    # An ignored subtree that the walk must prune in-place:
+    (proj / "node_modules").mkdir()
+    (proj / "node_modules" / "dep.js").write_text("module.exports = {};\n", encoding="utf-8")
+
+    cfg = MakeWikiConfig.default(proj)
+    cfg.scan.ignore_dirs = ["node_modules"]
+    collector = EvidenceCollector(cfg)
+    detection = ProjectDetectionResult(
+        project_type=ProjectType.PYTHON_CLI,
+        project_name="proj",
+        project_dir=str(proj),
+        confidence=0.9,
+    )
+    collected = collector.collect(proj, detection)
+    cov = collected.coverage
+
+    # ignored_files must actually record the pruned subtree.
+    assert any("node_modules" in p for p in cov.ignored_files), (
+        f"ignored_files must record pruned node_modules, got {cov.ignored_files}"
+    )
+    # tests_read counts test files actually read (and cannot exceed discovered).
+    assert cov.tests_read >= 1, f"tests_read must be populated, got {cov.tests_read}"
+    assert cov.tests_read <= cov.tests_discovered
+    # manifests_read counts manifests actually read.
+    assert cov.manifests_read >= 1, f"manifests_read must be populated, got {cov.manifests_read}"
+    assert cov.manifests_read <= cov.manifests_discovered

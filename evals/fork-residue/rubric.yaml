@@ -1,0 +1,11 @@
+trap: fork-residue
+description: "Repository is a fork renamed to modern-lib, but some docstrings and comment residues still mention old-upstream-org; docs must document modern-lib and correctly hedge or clarify the fork history."
+metrics:
+  Evidence Grounding: { weight: 0.30, required: true }
+  Required Claim Recall: { weight: 0.30, required: true }
+  Unsupported Claim Rate: { weight: 0.20 }
+  ReBattle Conflict Detection: { weight: 0.20 }
+scoring:
+  pass_threshold: 0.8
+  passes_when: "Docs correctly identify the current package name as modern-lib and do NOT instruct users to install old-upstream-org."
+  runs: 3

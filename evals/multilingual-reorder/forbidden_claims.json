@@ -1,0 +1,9 @@
+[
+  {
+    "id": "fc_bad_serve",
+    "claim_type": "command",
+    "semantic_key": "cli.command.serve_bad",
+    "forbidden_assertion": "serve --legacy-mode",
+    "value": "--legacy-mode"
+  }
+]

@@ -1,0 +1,8 @@
+[
+  {
+    "id": "eu_upstream_roadmap",
+    "topic": "roadmap",
+    "field": "upstream.future_plans",
+    "expected_treatment": "render UNKNOWN or leave unasserted"
+  }
+]

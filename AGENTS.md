@@ -24,7 +24,7 @@ cognitive_plane:
 
 mechanical_plane:
   owner: "Python toolkit (run_toolkit.py)"
-  proves: "Sizing, evidence extraction, L0/L1/L2/L4-exact, schema, parity, site, export, sync-bundle"
+  proves: "Census, evidence extraction, L0/L1/L2/L4-exact, schema, parity, site, export, sync-bundle"
   forbidden: "Inventing narrative content (FAQ / troubleshooting / usage)"
 
 bridge:
@@ -39,13 +39,23 @@ cannot mechanically establish a fact, it MUST return UNKNOWN rather than
 guess. Python-generated semantic conclusions MUST NOT override LLM Agent
 adjudication in the authoritative `/makewiki` path.
 
-- Python MUST NOT invent semantic conclusions. When Python cannot prove
+- Python is an auditable evidence channel, not an infallible authority. If
 
-  something it returns `UNKNOWN`, never a guess.
-- LLM MUST trust Python's mechanical proofs and only add semantic
+  Python evidence conflicts with direct source inspection, the Main Agent
+  must investigate directly via inspection tools (`Glob`, `Grep`, `Read`) and
+  adjudicate based on direct codebase reality.
+- When Python cannot prove something mechanically, it returns `UNKNOWN`,
 
-  interpretation on top.
-- The Quality Gate is the single cross-plane decision point.
+  never a guess.
+- Mechanical tool failures (e.g. AST parsing errors or unhandled file formats)
+
+  produce degraded mechanical verification (`pending_mechanical_verification`),
+  never cognitive failure; the Main Agent may spawn a Recovery Scout for direct
+  codebase inspection.
+- The Quality Gate aggregates verification status and reports CI exit codes;
+
+  the Main Agent decides whether to iterate revisions, accept pending items,
+  or ship.
 
 ### Host Capability Fallback
 
@@ -68,9 +78,9 @@ one agent", not "MakeWiki cannot run."
 ```bash
 claude --plugin-dir /path/to/MakeWiki.skills
 
-/makewiki --lang en --lang zh-CN          # Full LLM-orchestrated flow: Sizing -> Scout -> ReBattle -> Writers -> Auditor -> Quality Gate -> Site
+/makewiki --lang en --lang zh-CN          # Full LLM-orchestrated flow: Census -> Scout -> ReBattle -> Writers -> Auditor -> Quality Gate -> Site
 /makewiki-site ./makewiki                 # Compile Markdown docs into offline static HTML website (mechanical)
-/makewiki-scan                            # Inspect evidence, assess Tier (S/M/L), and view project brief
+/makewiki-scan                            # Inspect evidence, repo fact census, and view project brief
 /makewiki-review                          # Cross-language parity + semantic review (mechanical pre-alignment + LLM judgment)
 /makewiki-validate ./makewiki             # Markdown structure & link validation
 /makewiki-init                            # Generate makewiki.config.yaml with agent, site, delivery, quality options
@@ -81,7 +91,7 @@ claude --plugin-dir /path/to/MakeWiki.skills
 The authoritative CLI commands (from the Python toolkit, mechanical only):
 
 ```bash
-python scripts/run_toolkit.py sizing <target>
+python scripts/run_toolkit.py census <target>                     # alias: sizing
 python scripts/run_toolkit.py evidence <target> --format json     # alias: scan
 python scripts/run_toolkit.py verify-docs <target>                # alias: verify
 python scripts/run_toolkit.py verify-claim <claim.json>
@@ -95,14 +105,11 @@ python scripts/run_toolkit.py export <wiki_dir> --format html|epub|all --lang <c
 python scripts/run_toolkit.py sync-bundle <wiki_dir> --target confluence|notion --lang <code>
 python scripts/run_toolkit.py rebattle-diff <claim_files...>
 python scripts/run_toolkit.py init-config <target>
-python scripts/run_toolkit.py legacy-generate <target>     # alias: generate (deprecated)
 ```
 
 `export` rejects `--format pdf`. `sync-bundle` prepares bundles on disk
-and does NOT publish. `legacy-generate` (alias `generate`, deprecated) is the
-mechanical scaffold only — it is **not** the authoritative `/makewiki` flow.
-`review` is a standalone command (runs `CrossLanguageReviewer`), not an alias
-of `parity`.
+and does NOT publish. `review` is a standalone command (runs
+`CrossLanguageReviewer`), not an alias of `parity`.
 
 ---
 
@@ -113,7 +120,7 @@ of `parity`.
    extraction, ReBattle debate, writing, and review are driven by
    autonomous **Subagents** using their LLM reasoning and inspection tools
    (`Glob`, `Grep`, `Read`, `Edit`). Python is strictly reserved as
-   mechanical proof tooling (sizing, evidence extraction, L0 / L1 / L2 / L4-
+   mechanical proof tooling (census, evidence extraction, L0 / L1 / L2 / L4-
    exact, parity, site, export, sync-bundle).
 2. **Cognitive Authority Boundary**: Python never invents FAQ / troubleshooting
 

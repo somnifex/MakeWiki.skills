@@ -1,0 +1,9 @@
+[
+  {
+    "id": "rc_real_entrypoint",
+    "claim_type": "entrypoint",
+    "semantic_key": "app.entrypoint.serve",
+    "assertion": "real_app.py provides start_server entrypoint on port 9000",
+    "must_state": "start_server in real_app.py"
+  }
+]

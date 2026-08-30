@@ -1,0 +1,8 @@
+[
+  {
+    "id": "eu_broken_features",
+    "topic": "broken_syntax",
+    "field": "broken.experimental_feature",
+    "expected_treatment": "render UNKNOWN or leave unasserted"
+  }
+]

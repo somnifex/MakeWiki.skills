@@ -672,3 +672,601 @@ MONOREPO_DISCOVERY = {
         ),
     },
 }
+
+
+# ---------------------------------------------------------------------------
+# hidden-entrypoint: alias/mirror of hidden-entrypoints
+# ---------------------------------------------------------------------------
+HIDDEN_ENTRYPOINT = dict(HIDDEN_ENTRYPOINTS)
+HIDDEN_ENTRYPOINT["trap"] = "hidden-entrypoint"
+HIDDEN_ENTRYPOINT["run_id"] = "fixture-hidden-entrypoint"
+
+
+# ---------------------------------------------------------------------------
+# nested-monorepo: multi-tier workspace with distinct package responsibilities
+# ---------------------------------------------------------------------------
+NESTED_MONOREPO = {
+    "trap": "nested-monorepo",
+    "run_id": "fixture-nested-monorepo",
+    "evidence": {
+        "facts": [
+            {"id": "core_pkg", "semantic_key": "monorepo.package.core", "value": "packages/core", "source": "packages/core/pyproject.toml"},
+            {"id": "cli_pkg", "semantic_key": "monorepo.package.cli", "value": "packages/cli", "source": "packages/cli/pyproject.toml"},
+            {"id": "web_pkg", "semantic_key": "monorepo.package.web", "value": "apps/web", "source": "apps/web/package.json"},
+        ],
+        "detected_packages": ["packages/core", "packages/cli", "apps/web"],
+    },
+    "agent_claims": {
+        "sets": [
+            {
+                "agent_id": "agent_structure",
+                "perspective": "structure",
+                "claims": [
+                    {"agent_id": "agent_structure", "claim_type": "package", "semantic_key": "monorepo.package.core",
+                     "assertion": "packages/core is shared base", "value": "packages/core", "confidence": "high", "evidence_refs": ["packages/core/pyproject.toml"]},
+                    {"agent_id": "agent_structure", "claim_type": "package", "semantic_key": "monorepo.package.cli",
+                     "assertion": "packages/cli is cli binary", "value": "packages/cli", "confidence": "high", "evidence_refs": ["packages/cli/pyproject.toml"]},
+                    {"agent_id": "agent_structure", "claim_type": "package", "semantic_key": "monorepo.package.web",
+                     "assertion": "apps/web is web frontend", "value": "apps/web", "confidence": "high", "evidence_refs": ["apps/web/package.json"]},
+                ],
+            }
+        ]
+    },
+    "rebattle": {"discrepancies": []},
+    "adjudications": {
+        "rulings": [
+            {"topic": "monorepo.package.core", "ruling": "accepted", "final_assertion": "packages/core", "verified_via_codebase": True, "evidence_refs": ["packages/core/pyproject.toml"]},
+            {"topic": "monorepo.package.cli", "ruling": "accepted", "final_assertion": "packages/cli", "verified_via_codebase": True, "evidence_refs": ["packages/cli/pyproject.toml"]},
+            {"topic": "monorepo.package.web", "ruling": "accepted", "final_assertion": "apps/web", "verified_via_codebase": True, "evidence_refs": ["apps/web/package.json"]},
+        ]
+    },
+    "semantic_model": {
+        "dotenv": [],
+        "user_tasks": [],
+        "troubleshooting": [],
+        "provenance": {"packages": "llm"},
+        "claims": [
+            {"semantic_key": "monorepo.package.core", "value": "packages/core", "claim_type": "package"},
+            {"semantic_key": "monorepo.package.cli", "value": "packages/cli", "claim_type": "package"},
+            {"semantic_key": "monorepo.package.web", "value": "apps/web", "claim_type": "package"},
+        ],
+    },
+    "semantic_audit": {
+        "auditor": "fake_llm_auditor",
+        "documents_digest": "fixture",
+        "verdicts": [
+            {"review_item_id": "L3:README.md:monorepo", "layer": "L3", "status": "passed"},
+            {"review_item_id": "L4b:README.md:packages", "layer": "L4b", "status": "passed"},
+            {"review_item_id": "L5:README.md", "layer": "L5", "status": "passed"},
+        ],
+        "rejected": False,
+        "rejection_reason": "",
+    },
+    "mechanical_report": {
+        "total_checks": 4,
+        "layers": [
+            {"layer": "L0", "name": "Structure", "verdict": "passed", "checks": []},
+            {"layer": "L1", "name": "Agents", "verdict": "passed", "checks": []},
+            {"layer": "L2", "name": "Interface", "verdict": "passed", "checks": []},
+            {"layer": "L4", "name": "Cross-lang", "verdict": "passed", "checks": [
+                {"layer": "L4", "claim_type": "l4a_mechanical", "status": "passed", "claim_text": "stable block parity", "detail": ""},
+            ]},
+        ],
+    },
+    "quality_gate": {
+        "verdict": "passed",
+        "ci_exit_code": 0,
+        "semantic_complete": True,
+        "pending_llm_layers": [],
+        "mechanical_passed": True,
+    },
+    "docs": {
+        "README.md": "# Monorepo\n\nPackages: packages/core, packages/cli, apps/web.\n",
+    },
+}
+
+
+# ---------------------------------------------------------------------------
+# config-override: DATABASE_URL env var overrides config.yaml
+# ---------------------------------------------------------------------------
+CONFIG_OVERRIDE = {
+    "trap": "config-override",
+    "run_id": "fixture-config-override",
+    "evidence": {
+        "facts": [
+            {"id": "db_env", "semantic_key": "config.db.env_override", "value": "DATABASE_URL", "source": "app.py"},
+            {"id": "db_yaml", "semantic_key": "config.db.default_host", "value": "localhost", "source": "config.yaml"},
+        ],
+        "detected_packages": [],
+    },
+    "agent_claims": {
+        "sets": [
+            {
+                "agent_id": "agent_config",
+                "perspective": "config",
+                "claims": [
+                    {"agent_id": "agent_config", "claim_type": "config", "semantic_key": "config.db.env_override",
+                     "assertion": "DATABASE_URL overrides config.yaml", "value": "DATABASE_URL", "confidence": "high", "evidence_refs": ["app.py"]},
+                    {"agent_id": "agent_config", "claim_type": "config", "semantic_key": "config.db.default_host",
+                     "assertion": "default is localhost", "value": "localhost", "confidence": "high", "evidence_refs": ["config.yaml"]},
+                ],
+            }
+        ]
+    },
+    "rebattle": {"discrepancies": []},
+    "adjudications": {
+        "rulings": [
+            {"topic": "config.db.env_override", "ruling": "accepted", "final_assertion": "DATABASE_URL", "verified_via_codebase": True, "evidence_refs": ["app.py"]},
+            {"topic": "config.db.default_host", "ruling": "accepted", "final_assertion": "localhost", "verified_via_codebase": True, "evidence_refs": ["config.yaml"]},
+        ]
+    },
+    "semantic_model": {
+        "dotenv": [],
+        "user_tasks": [],
+        "troubleshooting": [],
+        "provenance": {"config": "llm"},
+        "claims": [
+            {"semantic_key": "config.db.env_override", "value": "DATABASE_URL", "claim_type": "config"},
+            {"semantic_key": "config.db.default_host", "value": "localhost", "claim_type": "config"},
+        ],
+    },
+    "semantic_audit": {
+        "auditor": "fake_llm_auditor",
+        "documents_digest": "fixture",
+        "verdicts": [
+            {"review_item_id": "L3:README.md:config", "layer": "L3", "status": "passed"},
+            {"review_item_id": "L4b:README.md:config", "layer": "L4b", "status": "passed"},
+            {"review_item_id": "L5:README.md", "layer": "L5", "status": "passed"},
+        ],
+        "rejected": False,
+        "rejection_reason": "",
+    },
+    "mechanical_report": {
+        "total_checks": 3,
+        "layers": [
+            {"layer": "L0", "name": "Structure", "verdict": "passed", "checks": []},
+            {"layer": "L1", "name": "Agents", "verdict": "passed", "checks": []},
+            {"layer": "L2", "name": "Interface", "verdict": "passed", "checks": []},
+        ],
+    },
+    "quality_gate": {
+        "verdict": "passed",
+        "ci_exit_code": 0,
+        "semantic_complete": True,
+        "pending_llm_layers": [],
+        "mechanical_passed": True,
+    },
+    "docs": {
+        "README.md": "# Config\n\nDATABASE_URL environment variable overrides config.yaml host (default localhost).\n",
+    },
+}
+
+
+# ---------------------------------------------------------------------------
+# tool-failure-recovery: AST parser recovery on syntax error
+# ---------------------------------------------------------------------------
+TOOL_FAILURE_RECOVERY = {
+    "trap": "tool-failure-recovery",
+    "run_id": "fixture-tool-failure-recovery",
+    "evidence": {
+        "facts": [
+            {"id": "serve_entry", "semantic_key": "app.entrypoint.serve", "value": "start_server", "source": "real_app.py"},
+        ],
+        "detected_packages": [],
+    },
+    "agent_claims": {
+        "sets": [
+            {
+                "agent_id": "agent_recovery",
+                "perspective": "recovery_scout",
+                "claims": [
+                    {"agent_id": "agent_recovery", "claim_type": "entrypoint", "semantic_key": "app.entrypoint.serve",
+                     "assertion": "start_server in real_app.py", "value": "start_server", "confidence": "high", "evidence_refs": ["real_app.py"]},
+                ],
+            }
+        ]
+    },
+    "rebattle": {"discrepancies": []},
+    "adjudications": {
+        "rulings": [
+            {"topic": "app.entrypoint.serve", "ruling": "accepted", "final_assertion": "start_server", "verified_via_codebase": True, "evidence_refs": ["real_app.py"]},
+        ]
+    },
+    "semantic_model": {
+        "dotenv": [],
+        "user_tasks": [],
+        "troubleshooting": [],
+        "provenance": {"app": "llm"},
+        "claims": [
+            {"semantic_key": "app.entrypoint.serve", "value": "start_server", "claim_type": "entrypoint"},
+        ],
+    },
+    "semantic_audit": {
+        "auditor": "fake_llm_auditor",
+        "documents_digest": "fixture",
+        "verdicts": [
+            {"review_item_id": "L3:README.md:app", "layer": "L3", "status": "passed"},
+            {"review_item_id": "L4b:README.md:app", "layer": "L4b", "status": "passed"},
+            {"review_item_id": "L5:README.md", "layer": "L5", "status": "passed"},
+        ],
+        "rejected": False,
+        "rejection_reason": "",
+    },
+    "mechanical_report": {
+        "total_checks": 3,
+        "layers": [
+            {"layer": "L0", "name": "Structure", "verdict": "passed", "checks": []},
+            {"layer": "L1", "name": "Agents", "verdict": "passed", "checks": []},
+            {"layer": "L2", "name": "Interface", "verdict": "passed", "checks": []},
+        ],
+    },
+    "quality_gate": {
+        "verdict": "passed",
+        "ci_exit_code": 0,
+        "semantic_complete": True,
+        "pending_llm_layers": [],
+        "mechanical_passed": True,
+    },
+    "docs": {
+        "README.md": "# Tool Failure Recovery\n\nstart_server runs on port 9000 per real_app.py.\n",
+    },
+}
+
+
+# ---------------------------------------------------------------------------
+# fork-residue: renamed fork cleanly identified
+# ---------------------------------------------------------------------------
+FORK_RESIDUE = {
+    "trap": "fork-residue",
+    "run_id": "fixture-fork-residue",
+    "evidence": {
+        "facts": [
+            {"id": "pkg_name", "semantic_key": "package.name", "value": "modern-lib", "source": "pyproject.toml"},
+        ],
+        "detected_packages": [],
+    },
+    "agent_claims": {
+        "sets": [
+            {
+                "agent_id": "agent_fork",
+                "perspective": "fork_provenance",
+                "claims": [
+                    {"agent_id": "agent_fork", "claim_type": "identity", "semantic_key": "package.name",
+                     "assertion": "package name is modern-lib", "value": "modern-lib", "confidence": "high", "evidence_refs": ["pyproject.toml"]},
+                ],
+            }
+        ]
+    },
+    "rebattle": {"discrepancies": []},
+    "adjudications": {
+        "rulings": [
+            {"topic": "package.name", "ruling": "accepted", "final_assertion": "modern-lib", "verified_via_codebase": True, "evidence_refs": ["pyproject.toml"]},
+        ]
+    },
+    "semantic_model": {
+        "dotenv": [],
+        "user_tasks": [],
+        "troubleshooting": [],
+        "provenance": {"package": "llm"},
+        "claims": [
+            {"semantic_key": "package.name", "value": "modern-lib", "claim_type": "identity"},
+        ],
+    },
+    "semantic_audit": {
+        "auditor": "fake_llm_auditor",
+        "documents_digest": "fixture",
+        "verdicts": [
+            {"review_item_id": "L3:README.md:identity", "layer": "L3", "status": "passed"},
+            {"review_item_id": "L4b:README.md:identity", "layer": "L4b", "status": "passed"},
+            {"review_item_id": "L5:README.md", "layer": "L5", "status": "passed"},
+        ],
+        "rejected": False,
+        "rejection_reason": "",
+    },
+    "mechanical_report": {
+        "total_checks": 3,
+        "layers": [
+            {"layer": "L0", "name": "Structure", "verdict": "passed", "checks": []},
+            {"layer": "L1", "name": "Agents", "verdict": "passed", "checks": []},
+            {"layer": "L2", "name": "Interface", "verdict": "passed", "checks": []},
+        ],
+    },
+    "quality_gate": {
+        "verdict": "passed",
+        "ci_exit_code": 0,
+        "semantic_complete": True,
+        "pending_llm_layers": [],
+        "mechanical_passed": True,
+    },
+    "docs": {
+        "README.md": "# modern-lib\n\nInstall via `pip install modern-lib`.\n",
+    },
+}
+
+
+# ---------------------------------------------------------------------------
+# stale-example: API signature update (tls_mode vs secure)
+# ---------------------------------------------------------------------------
+STALE_EXAMPLE = {
+    "trap": "stale-example",
+    "run_id": "fixture-stale-example",
+    "evidence": {
+        "facts": [
+            {"id": "connect_api", "semantic_key": "api.connect.param.tls_mode", "value": "tls_mode", "source": "src/client.py"},
+        ],
+        "detected_packages": [],
+    },
+    "agent_claims": {
+        "sets": [
+            {
+                "agent_id": "agent_api",
+                "perspective": "ast_truth",
+                "claims": [
+                    {"agent_id": "agent_api", "claim_type": "api", "semantic_key": "api.connect.param.tls_mode",
+                     "assertion": "client.connect requires tls_mode", "value": "tls_mode", "confidence": "high", "evidence_refs": ["src/client.py"]},
+                ],
+            }
+        ]
+    },
+    "rebattle": {"discrepancies": []},
+    "adjudications": {
+        "rulings": [
+            {"topic": "api.connect.param.tls_mode", "ruling": "accepted", "final_assertion": "tls_mode", "verified_via_codebase": True, "evidence_refs": ["src/client.py"]},
+        ]
+    },
+    "semantic_model": {
+        "dotenv": [],
+        "user_tasks": [],
+        "troubleshooting": [],
+        "provenance": {"api": "llm"},
+        "claims": [
+            {"semantic_key": "api.connect.param.tls_mode", "value": "tls_mode", "claim_type": "api"},
+        ],
+    },
+    "semantic_audit": {
+        "auditor": "fake_llm_auditor",
+        "documents_digest": "fixture",
+        "verdicts": [
+            {"review_item_id": "L3:README.md:api", "layer": "L3", "status": "passed"},
+            {"review_item_id": "L4b:README.md:api", "layer": "L4b", "status": "passed"},
+            {"review_item_id": "L5:README.md", "layer": "L5", "status": "passed"},
+        ],
+        "rejected": False,
+        "rejection_reason": "",
+    },
+    "mechanical_report": {
+        "total_checks": 3,
+        "layers": [
+            {"layer": "L0", "name": "Structure", "verdict": "passed", "checks": []},
+            {"layer": "L1", "name": "Agents", "verdict": "passed", "checks": []},
+            {"layer": "L2", "name": "Interface", "verdict": "passed", "checks": []},
+        ],
+    },
+    "quality_gate": {
+        "verdict": "passed",
+        "ci_exit_code": 0,
+        "semantic_complete": True,
+        "pending_llm_layers": [],
+        "mechanical_passed": True,
+    },
+    "docs": {
+        "README.md": "# Client\n\n```python\nclient.connect(tls_mode='strict')\n```\n",
+    },
+}
+
+
+# ---------------------------------------------------------------------------
+# unsupported-claim: unprovable feature properly hedged or dropped
+# ---------------------------------------------------------------------------
+UNSUPPORTED_CLAIM = {
+    "trap": "unsupported-claim",
+    "run_id": "fixture-unsupported-claim",
+    "evidence": {
+        "facts": [
+            {"id": "real_fn", "semantic_key": "feature.basic", "value": "ping", "source": "scratch/core.py"},
+        ],
+        "detected_packages": [],
+    },
+    "agent_claims": {
+        "sets": [
+            {
+                "agent_id": "agent_audit",
+                "perspective": "epistemic_audit",
+                "claims": [
+                    {"agent_id": "agent_audit", "claim_type": "feature", "semantic_key": "feature.basic",
+                     "assertion": "ping helper exists in scratch/core.py", "value": "ping", "confidence": "high", "evidence_refs": ["scratch/core.py"]},
+                ],
+            }
+        ]
+    },
+    "rebattle": {"discrepancies": []},
+    "adjudications": {
+        "rulings": [
+            {"topic": "feature.basic", "ruling": "accepted", "final_assertion": "ping", "verified_via_codebase": True, "evidence_refs": ["scratch/core.py"]},
+        ]
+    },
+    "semantic_model": {
+        "dotenv": [],
+        "user_tasks": [],
+        "troubleshooting": [],
+        "provenance": {"feature": "llm"},
+        "claims": [
+            {"semantic_key": "feature.basic", "value": "ping", "claim_type": "feature"},
+        ],
+    },
+    "semantic_audit": {
+        "auditor": "fake_llm_auditor",
+        "documents_digest": "fixture",
+        "verdicts": [
+            {"review_item_id": "L3:README.md:feature", "layer": "L3", "status": "passed"},
+            {"review_item_id": "L4b:README.md:feature", "layer": "L4b", "status": "passed"},
+            {"review_item_id": "L5:README.md", "layer": "L5", "status": "passed"},
+        ],
+        "rejected": False,
+        "rejection_reason": "",
+    },
+    "mechanical_report": {
+        "total_checks": 3,
+        "layers": [
+            {"layer": "L0", "name": "Structure", "verdict": "passed", "checks": []},
+            {"layer": "L1", "name": "Agents", "verdict": "passed", "checks": []},
+            {"layer": "L2", "name": "Interface", "verdict": "passed", "checks": []},
+        ],
+    },
+    "quality_gate": {
+        "verdict": "passed",
+        "ci_exit_code": 0,
+        "semantic_complete": True,
+        "pending_llm_layers": [],
+        "mechanical_passed": True,
+    },
+    "docs": {
+        "README.md": "# App\n\nProvides basic_feature.\n",
+    },
+}
+
+
+# ---------------------------------------------------------------------------
+# multilingual-reorder: identical block IDs across reordered sections
+# ---------------------------------------------------------------------------
+MULTILINGUAL_REORDER = {
+    "trap": "multilingual-reorder",
+    "run_id": "fixture-multilingual-reorder",
+    "evidence": {
+        "facts": [
+            {"id": "serve_cmd", "semantic_key": "cli.command.serve", "value": "service serve", "source": "src/service.py"},
+        ],
+        "detected_packages": [],
+    },
+    "agent_claims": {
+        "sets": [
+            {
+                "agent_id": "agent_writer",
+                "perspective": "multilingual",
+                "claims": [
+                    {"agent_id": "agent_writer", "claim_type": "command", "semantic_key": "cli.command.serve",
+                     "assertion": "service serve starts the server", "value": "service serve", "confidence": "high", "evidence_refs": ["src/service.py"]},
+                ],
+            }
+        ]
+    },
+    "rebattle": {"discrepancies": []},
+    "adjudications": {
+        "rulings": [
+            {"topic": "cli.command.serve", "ruling": "accepted", "final_assertion": "service serve", "verified_via_codebase": True, "evidence_refs": ["src/service.py"]},
+        ]
+    },
+    "semantic_model": {
+        "dotenv": [],
+        "user_tasks": [],
+        "troubleshooting": [],
+        "provenance": {"cli": "llm"},
+        "claims": [
+            {"semantic_key": "cli.command.serve", "value": "service serve", "claim_type": "command"},
+        ],
+    },
+    "semantic_audit": {
+        "auditor": "fake_llm_auditor",
+        "documents_digest": "fixture",
+        "verdicts": [
+            {"review_item_id": "L3:README.md:serve", "layer": "L3", "status": "passed"},
+            {"review_item_id": "L4b:README.md:serve", "layer": "L4b", "status": "passed"},
+            {"review_item_id": "L5:README.md", "layer": "L5", "status": "passed"},
+        ],
+        "rejected": False,
+        "rejection_reason": "",
+    },
+    "mechanical_report": {
+        "total_checks": 4,
+        "layers": [
+            {"layer": "L0", "name": "Structure", "verdict": "passed", "checks": []},
+            {"layer": "L1", "name": "Agents", "verdict": "passed", "checks": []},
+            {"layer": "L2", "name": "Interface", "verdict": "passed", "checks": []},
+            {"layer": "L4", "name": "Cross-lang", "verdict": "passed", "checks": [
+                {"layer": "L4", "claim_type": "l4a_mechanical", "status": "passed", "claim_text": "stable block parity", "detail": ""},
+            ]},
+        ],
+    },
+    "quality_gate": {
+        "verdict": "passed",
+        "ci_exit_code": 0,
+        "semantic_complete": True,
+        "pending_llm_layers": [],
+        "mechanical_passed": True,
+    },
+    "docs": {
+        "README.md": "# Service\n\n```bash\n[[id:service_serve]]\nservice serve\n```\n",
+    },
+}
+
+
+# ---------------------------------------------------------------------------
+# incomplete-scan: dynamic deepening discovers secondary plugins
+# ---------------------------------------------------------------------------
+INCOMPLETE_SCAN = {
+    "trap": "incomplete-scan",
+    "run_id": "fixture-incomplete-scan",
+    "evidence": {
+        "facts": [
+            {"id": "auth_plug", "semantic_key": "plugin.auth.custom", "value": "CustomAuthPlugin", "source": "src/plugins/custom_auth.py"},
+        ],
+        "detected_packages": [],
+    },
+    "agent_claims": {
+        "sets": [
+            {
+                "agent_id": "agent_plugins",
+                "perspective": "plugins",
+                "claims": [
+                    {"agent_id": "agent_plugins", "claim_type": "plugin", "semantic_key": "plugin.auth.custom",
+                     "assertion": "CustomAuthPlugin provides custom authentication", "value": "CustomAuthPlugin", "confidence": "high", "evidence_refs": ["src/plugins/custom_auth.py"]},
+                ],
+            }
+        ]
+    },
+    "rebattle": {"discrepancies": []},
+    "adjudications": {
+        "rulings": [
+            {"topic": "plugin.auth.custom", "ruling": "accepted", "final_assertion": "CustomAuthPlugin", "verified_via_codebase": True, "evidence_refs": ["src/plugins/custom_auth.py"]},
+        ]
+    },
+    "semantic_model": {
+        "dotenv": [],
+        "user_tasks": [],
+        "troubleshooting": [],
+        "provenance": {"plugins": "llm"},
+        "claims": [
+            {"semantic_key": "plugin.auth.custom", "value": "CustomAuthPlugin", "claim_type": "plugin"},
+        ],
+    },
+    "semantic_audit": {
+        "auditor": "fake_llm_auditor",
+        "documents_digest": "fixture",
+        "verdicts": [
+            {"review_item_id": "L3:README.md:plugins", "layer": "L3", "status": "passed"},
+            {"review_item_id": "L4b:README.md:plugins", "layer": "L4b", "status": "passed"},
+            {"review_item_id": "L5:README.md", "layer": "L5", "status": "passed"},
+        ],
+        "rejected": False,
+        "rejection_reason": "",
+    },
+    "mechanical_report": {
+        "total_checks": 3,
+        "layers": [
+            {"layer": "L0", "name": "Structure", "verdict": "passed", "checks": []},
+            {"layer": "L1", "name": "Agents", "verdict": "passed", "checks": []},
+            {"layer": "L2", "name": "Interface", "verdict": "passed", "checks": []},
+        ],
+    },
+    "quality_gate": {
+        "verdict": "passed",
+        "ci_exit_code": 0,
+        "semantic_complete": True,
+        "pending_llm_layers": [],
+        "mechanical_passed": True,
+    },
+    "docs": {
+        "README.md": "# App Plugins\n\nCustomAuthPlugin in src/plugins/custom_auth.py.\n",
+    },
+}
+

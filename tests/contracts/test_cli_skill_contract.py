@@ -39,20 +39,14 @@ REGISTERED_COMMANDS: set[str] = {
 # Aliases are also registered Typer commands but should appear in docs as
 # "deprecated alias of X", not as authoritative entries.
 DEPRECATED_ALIASES: dict[str, str] = {
-    "generate": "legacy-generate",
     "scan": "evidence",
     "verify": "verify-docs",
     "sync": "sync-bundle",
+    "sizing": "census",
 }
 
-# The non-authoritative, deterministic-scaffold family. ``legacy-generate`` is
-# the canonical (but mechanical-only) command; ``generate`` is its deprecated
-# alias. Neither is the authoritative ``/makewiki`` LLM path. They are exempt
-# from the "must be named in prose docs" presence check — the docs are not
-# required to advertise the mechanical fallback — but they must NEVER be
-# documented as authoritative (guarded by
-# ``test_legacy_family_never_presented_as_authoritative``).
-NON_AUTHORITATIVE_COMMANDS: set[str] = {"legacy-generate", "generate"}
+# Non-authoritative / deleted commands
+NON_AUTHORITATIVE_COMMANDS: set[str] = set()
 
 
 def _read(path: Path) -> str:
@@ -204,31 +198,9 @@ def test_documented_cli_commands_resolve_to_registered_typer():
 
 
 def test_legacy_family_never_presented_as_authoritative():
-    """Neither `legacy-generate` nor its `generate` alias may be presented as
-    the authoritative command.
-
-    The deterministic scaffold is the non-authoritative, mechanical-only
-    regression path. The authoritative flow is the LLM-driven `/makewiki`.
-    This guards against the split-brain that Phase-2 deleted: a "generate"
-    path that quietly ran the deterministic scaffold instead of the
-    LLM-orchestrated flow.
-    """
-    for cmd in sorted(NON_AUTHORITATIVE_COMMANDS):
-        forbidden_patterns = [
-            re.compile(r"`" + re.escape(cmd) + r"`\s+is\s+the\s+authoritative", re.IGNORECASE),
-            re.compile(r"run\s+`" + re.escape(cmd) + r"`", re.IGNORECASE),
-            re.compile(r"`" + re.escape(cmd) + r"`\s+command\s+is\s+authoritative", re.IGNORECASE),
-            re.compile(r"`" + re.escape(cmd) + r"`\s+as\s+the\s+authoritative", re.IGNORECASE),
-        ]
-        violations: list[str] = []
-        for doc in _all_documentation_files():
-            text = _read(doc)
-            for pattern in forbidden_patterns:
-                if pattern.search(text):
-                    violations.append(f"{doc.relative_to(PROJECT_ROOT)}: {pattern.pattern}")
-        assert not violations, (
-            f"`{cmd}` must never be presented as authoritative:\n" + "\n".join(violations)
-        )
+    """Neither `legacy-generate` nor `generate` exists on the CLI app."""
+    assert "legacy-generate" not in REGISTERED_COMMANDS
+    assert "generate" not in REGISTERED_COMMANDS
 
 
 def test_deprecated_aliases_are_listed_in_api_md():
@@ -270,15 +242,6 @@ def test_authoritative_cli_table_in_claude_md_is_fully_registered():
         "CLAUDE.md authoritative CLI table names commands that are not registered: "
         + ", ".join(sorted(unregistered))
     )
-
-    # The authoritative table must also name every registered non-authoritative
-    # command, so the legacy scaffold family is visible (and marked non-auth)
-    # rather than silently hidden.
-    for cmd in sorted(NON_AUTHORITATIVE_COMMANDS):
-        assert f"`{cmd}`" in section, (
-            f"CLAUDE.md authoritative CLI table must list `{cmd}` (marked "
-            "non-authoritative)"
-        )
 
 
 def test_doc_scan_scope_covers_required_paths():

@@ -2,6 +2,7 @@
 
 
 
+
 <p align="center">
   <strong>LLM-first, Evidence-backed, Multi-Agent Documentation Compiler for AI Coding Assistants</strong>
 </p>
@@ -23,9 +24,39 @@
 
 ---
 
-MakeWiki is an open-source multi-agent skill plugin and Python toolkit designed for AI coding assistants (Claude Code, Codex, agentic IDEs). It follows an **LLM-first architecture**: LLM subagents own all comprehension, reasoning, and writing; the Python toolkit only proves what can be mechanically proven. The result is **evidence-backed**, multilingual Markdown documentation, compiled into an offline static wiki, HTML print guides, EPUB e-books, and Confluence / Notion sync payloads.
+MakeWiki is an open-source multi-agent skill plugin and Python toolkit designed for AI coding assistants (Claude Code, Codex, agentic IDEs). It follows an **LLM-first architecture**: LLM subagents own comprehension, reasoning, and writing; the Python toolkit only proves what can be mechanically proven. The result is **evidence-backed**, multilingual Markdown documentation — compiled into an offline static wiki, HTML print guides, EPUB e-books, and Confluence / Notion sync payloads — where every fact traces back to the repository source and is backed by L0–L5 layered verification and a four-state Quality Gate, instead of unverifiable AI filler.
 
 > **Cognitive Authority Boundary**: the LLM decides what the repository means; Python only proves what can be proven mechanically. When it cannot prove something, Python returns `UNKNOWN` — it never guesses.
+
+---
+
+## 📖 Table of Contents
+
+- [Why MakeWiki](#-why-makewiki)
+- [Quick Start](#-quick-start)
+- [Skills & CLI Surface](#-skills--cli-surface)
+- [Output Structure](#-output-structure)
+- [Two-Plane Architecture & Authority Boundary](#-two-plane-architecture--authority-boundary)
+- [Grounding: Evidence-Backed with Layered Verification](#-grounding-evidence-backed-with-layered-verification)
+- [Configuration](#-configuration-makewikiconfigyaml)
+- [Local Development & Testing](#-local-development--testing)
+
+---
+
+## ✨ Why MakeWiki
+
+Typical AI doc tools generate a README that *looks* right but **can't be proven right**: it references commands that don't exist, config keys that are stale, and praise that's unverifiable — users follow it and it breaks. MakeWiki turns "AI writes docs" from a **black-box generation** into an **auditable engineering pipeline**:
+
+| Pain point                        | How MakeWiki solves it                                                        |
+| --------------------------------- | ---------------------------------------------------------------------------- |
+| **Docs that can't be verified**   | Every fact is a source-traceable Claim proven mechanically by Python; unprovable facts return `UNKNOWN`, never fabrication       |
+| **AI hallucination / filler**     | L0–L5 layered verification + a four-state Quality Gate (`passed` / `pending_*` / `failed`) give an honest verdict, not fake perfection |
+| **Stale commands / config**       | The L2 interface layer checks CLI args, config keys, and env vars against source; when code changes, docs light up red            |
+| **Out-of-sync multilingual docs** | Stable block IDs enforce 100% cross-language code-block parity; each language is written natively, never machine-translated           |
+| **Docs nobody reads**             | Diátaxis organization (Tutorial / How-To / Reference / Explanation) mapped to the real user journey                                  |
+| **Single-consumer output**        | One Markdown source packages to multiple targets: static wiki, HTML, EPUB, Confluence / Notion sync bundles                          |
+
+In one sentence: **the LLM understands, Python verifies, and the Quality Gate gates** — three layers, each with a crisp, non-overlapping responsibility.
 
 ---
 
@@ -43,7 +74,7 @@ claude --plugin-dir /path/to/MakeWiki.skills
 /makewiki --lang en --lang zh-CN
 ```
 
-The orchestrator runs the authoritative pipeline — Sizing → Scout → ReBattle → Judge → Semantic Model → Parallel Writers → Auditor → Semantic Revision — and consults the Python toolkit for evidence extraction, L0–L5 verification, and the Quality Gate. Output lands under `<project>/makewiki/`.
+The orchestrator runs the authoritative pipeline — Census → Scout → ReBattle → Judge → Semantic Model → Parallel Writers → Auditor → Semantic Revision — and consults the Python toolkit for evidence extraction, L0–L5 verification, and the Quality Gate. Output lands under `<project>/makewiki/`.
 
 ---
 
@@ -53,13 +84,13 @@ The CLI surface is designed around authoritative names with backward-compatible 
 
 | Plane                           | Authority                              | Aliases             | Role                                                                 |
 | ------------------------------- | -------------------------------------- | ------------------- | -------------------------------------------------------------------- |
-| Full Skill                      | `/makewiki`                            | —                   | Full pipeline: Sizing → Scout → ReBattle → Writer → Review → Compile |
+| Full Skill                      | `/makewiki`                            | —                   | Full pipeline: Census → Scout → ReBattle → Writer → Review → Compile |
 | Site                            | `/makewiki-site`                       | —                   | Compile Markdown into offline static Wiki                            |
 | Validation                      | `/makewiki-validate`                   | —                   | Markdown structure & link integrity                                  |
 | Quality Review                  | `/makewiki-review`                     | `semantic-review`   | Extract cross-language alignments + behavior evidence                |
-| Project Sizing                  | `/makewiki-scan`                       | —                   | Tier assessment + fact extraction (calls `evidence`)                 |
+| Project Fact Census             | `/makewiki-scan`                       | —                   | Repo traits census + fact extraction (calls `census` & `evidence`)   |
 | Config Init                     | `/makewiki-init`                       | —                   | Generate default `makewiki.config.yaml`                              |
-| Toolkit: Sizing                 | `makewiki sizing <path>`               | —                   | Tier S/M/L classification                                            |
+| Toolkit: Fact Census            | `makewiki census <path>`               | `makewiki sizing`   | Raw verifiable repository traits census                              |
 | Toolkit: Evidence               | `makewiki evidence <path>`             | `makewiki scan`     | Fact JSON (no interpretation)                                        |
 | Toolkit: Coverage               | `makewiki coverage <path>`             | —                   | Mechanical coverage report: discovered vs scanned vs skipped vs ignored, uncovered categories, low-confidence facts |
 | Toolkit: Verify                 | `makewiki verify-docs <path>`          | `makewiki verify`   | L0–L5 + QualityGate → four-state verdict (`passed` / `pending_semantic_review` / `pending_mechanical_verification` / `failed`) + CI exit code |
@@ -70,7 +101,6 @@ The CLI surface is designed around authoritative names with backward-compatible 
 | Toolkit: Site                   | `makewiki build-site <path>`           | —                   | Compile offline static site                                          |
 | Toolkit: Export                 | `makewiki export <path> --format html\|epub\|all` | — | Single-file export (rejects `pdf`) |
 | Toolkit: Sync bundle            | `makewiki sync-bundle <path>`          | `makewiki sync`     | Prepare Confluence/Notion bundles (no publish)                       |
-| Toolkit: Deterministic scaffold | `makewiki legacy-generate <path>`      | `makewiki generate` | **Non-authoritative**, regression only                               |
 | Toolkit: Config init            | `makewiki init-config`                 | —                   | Generate default `makewiki.config.yaml`                              |
 
 ---
@@ -104,10 +134,10 @@ MakeWiki v2 splits cleanly into two planes and codifies a **Cognitive Authority 
 ```mermaid
 flowchart LR
     subgraph Cognitive["Cognitive Plane (LLM Subagents)"]
-        Sizing["Sizing<br/>Tier S/M/L"]
-        Scout["Scouts<br/>structure / surface / on-demand"]
+        Census["Census<br/>traits census"]
+        Scout["Scout Archetypes<br/>structure / surface / recovery"]
         Claims["Claim formulation"]
-        ReB["ReBattle<br/>Red vs Blue vs Green"]
+        ReB["Dynamic ReBattle<br/>dispute-driven cross-examination"]
         Judge["Judge arbitration"]
         Model["SemanticModel"]
         Writers["Parallel native writers"]
@@ -132,8 +162,8 @@ flowchart LR
 ```
 
 - **Cognitive Plane**: LLM subagents own all comprehension, reasoning, debate, writing, and auditing. Host capabilities select parallel / sequential / main-agent fallback.
-- **Mechanical Plane**: Python only proves what can be proven — fact harvesting, AST/CLI/config parsing, L0/L1/L2, exact-match block parity via stable block IDs, `UNKNOWN` fallbacks, and Quality Gate aggregation.
-- **Cognitive Authority Boundary**: when Python cannot prove something, it returns `UNKNOWN`. It never invents `faq`, `troubleshooting`, `usage_examples`, `user_tasks`, or `platform_notes` — those fields are LLM-injected.
+- **Mechanical Plane**: Python only proves what can be proven — fact census, fact harvesting, AST/CLI/config parsing, L0/L1/L2, exact-match block parity via stable block IDs, `UNKNOWN` fallbacks, and Quality Gate aggregation.
+- **Cognitive Authority Boundary**: Python is an auditable evidence channel, not an infallible authority. If Python evidence conflicts with direct source inspection, the Main Agent must investigate directly; mechanical tool failures produce degraded mechanical verification (`pending_mechanical_verification`), never cognitive failure, and the Main Agent may spawn a Recovery Scout for direct codebase inspection.
 - **Host Capability fallback**: when the host has no subagent API, the main agent takes each role in sequence; when parallelism is unavailable, it degrades to sequential execution. "No subagent API" never means "MakeWiki cannot run."
 
 ---
@@ -156,38 +186,48 @@ MakeWiki no longer claims "zero hallucinations." It delivers **verifiable, evide
 
 ## ⚙️ Configuration (`makewiki.config.yaml`)
 
-Optional config file at the project root. Fields fall into four classes:
+Optional config file at the project root. Fields fall into three classes:
 
-- **LLM-only** — read by the Skill orchestrator / writers (`agent.*`, `delivery.*`, `content_depth.*`, `language_profiles.*`, and the other `documentation_policy.*` fields besides the two Shared ones below).
+- **LLM-only** — read by the Skill orchestrator / writers (`agent.*`, `delivery.*`, `content_depth.*`, `language_profiles.*`, and all of `documentation_policy.*`).
 - **Python-only** — read by the authoritative mechanical CLI (`scan.*`, `review.*` (only `enable_review_pair_generation` and `min_page_alignment_ratio`), `quality.*`, `output_dir`, `languages`, `default_language`).
-- **Shared** — read by Python for mechanical enforcement AND by the LLM writer as guidance (`documentation_policy.forbid_unfounded_praise` and `documentation_policy.banned_descriptors`).
-- **Legacy-only** — semantic scaffolding fields consumed ONLY by the deprecated `legacy-generate` / `generate` scaffold (`generate_faq`, `generate_troubleshooting`, `generate_env_vars_page`, `emit_uncertainty_notes`, `strict_grounding`, `overwrite`, `delete_stale_files`, the whole `revision.*` block, the whole `site.*` block, and the `review.enable_cross_language_review` / `enable_code_grounding_verification` / `enable_codebase_verification` toggles — all read only by the deprecated Pipeline). In the authoritative `/makewiki` flow the LLM writers decide page composition and hedging; Python never treats these as mechanical authority.
+- **Shared** — none currently: the mechanical validator no longer judges prose quality, so the formerly-Shared `documentation_policy.forbid_unfounded_praise` and `documentation_policy.banned_descriptors` are now LLM-only.
 
 ```yaml
-output_dir: makewiki
-languages:
+output_dir: makewiki                  # Python-consumed
+languages:                            # Python-consumed
   - en
   - zh-CN
-default_language: en
-overwrite: true
+default_language: en                  # Python-consumed
 
-agent:                       # LLM-consumed
+agent:                                # LLM-consumed (resource bounds and safety ceilings)
   max_subagents: 10
-  rebattle_rounds: 2
-  max_audit_rounds: 3
-  tier_override: auto
+  max_parallelism: 10
+  max_audit_rounds: 3                 # authoritative /makewiki Auditor loop budget
+  safety_max_rounds: 3
 
-site:                        # Python-consumed
-  compile: true
-  theme: auto
-  include_search: true
-
-delivery:                    # LLM-consumed
+delivery:                             # LLM-consumed (delivery scope sections)
   audience: dual
   include_deployment_runbook: true
   include_compatibility_matrix: true
+  include_health_checks: true
 
-quality:                     # Quality Gate thresholds
+documentation_policy:                 # LLM-consumed (writer constraints; Python never reads)
+  audience: end-user
+  forbid_unfounded_praise: true
+  banned_descriptors:
+    - powerful
+    - robust
+    - seamless
+
+scan:                                 # Python-consumed
+  mode: auto
+  ignore_dirs: [node_modules, dist, build, .git, __pycache__]
+
+review:                               # Python-consumed (semantic-review prep switches)
+  enable_review_pair_generation: true
+
+quality:                              # Quality Gate thresholds
+  allow_pending_llm_layers: true
   min_grounding_score: 1.0
 ```
 

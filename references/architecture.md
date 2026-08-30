@@ -32,7 +32,7 @@ two_plane_architecture:
   mechanical_plane:
     owner: "Python toolkit"
     responsibilities:
-      - "Sizing (Tier S / M / L) and source census"
+      - "Repository fact census (traits, file counts, languages, manifests, entrypoints)"
       - "Evidence extraction (commands, configs, paths, versions, env vars)"
       - "AST / CLI / config / manifest parsing"
       - "L0 syntax, L1 existence, L2 interface, L4 exact-block parity"
@@ -46,7 +46,7 @@ two_plane_architecture:
   bridge:
     - "Skill calls Python only for mechanical proof steps"
     - "Python returns structured facts, never interpretations"
-    - "Quality Gate is the only cross-plane decision point"
+    - "Quality Gate aggregates layer statuses; Main Agent decides workflow progression"
 ```
 
 ## Cognitive Authority Boundary
@@ -57,9 +57,8 @@ cannot mechanically establish a fact, it MUST return UNKNOWN rather than
 guess. Python-generated semantic conclusions MUST NOT override LLM Agent
 adjudication in the authoritative `/makewiki` path.
 
-The final truth value of any documentation decision lives in the cognitive
-plane; the final proof value of any mechanical check lives in the mechanical
-plane. The two never overlap.
+Main Agent LLM is the sole runtime orchestrator. Python is an auditable
+evidence channel, not an infallible authority.
 
 ```yaml
 cognitive_authority_boundary:
@@ -74,20 +73,13 @@ cognitive_authority_boundary:
     fallback: "Return UNKNOWN; emit an explicit UNKNOWN marker in the scaffold"
 
   rule_2:
-    statement: "LLM MUST NOT bypass Python for provable mechanical steps"
-    examples_required:
-      - "File existence (L1)"
-      - "CLI flag names, env var keys, defaults (L2)"
-      - "Exact code-block parity across languages (L4 exact)"
-      - "Schema validation"
-    fallback: "Read Python's evidence and trust it; do not re-derive"
+    statement: "Python is an auditable evidence channel, not an infallible authority"
+    clarification: "If Python evidence conflicts with direct source inspection, the Main Agent must investigate directly via Glob/Grep/Read"
+    tool_failure_rule: "Mechanical tool failure -> degraded mechanical verification (pending_mechanical_verification), never cognitive failure; spawn Recovery Scout"
 
   rule_3:
-    statement: "Quality Gate is the only cross-plane decision"
-    ownership: "mechanical_plane aggregates, cognitive_plane judges pending"
-    failure_modes:
-      - "Failing mechanical layer -> Python fixes via revision loop"
-      - "Pending LLM layer -> Auditor reasons over the evidence list"
+    statement: "Quality Gate is the only cross-plane aggregation point"
+    ownership: "mechanical_plane aggregates status, Main Agent decides workflow transitions (ship, revise, recover, accept)"
 ```
 
 ## Authoritative Pipeline (LLM-Orchestrated)
@@ -95,25 +87,23 @@ cognitive_authority_boundary:
 ```yaml
 authoritative_pipeline:
 
-  phase_0_sizing:
-    cognitive: "Main Agent (orchestrator)"
-    mechanical: "run_toolkit.py sizing <target>  # Tier S / M / L"
-    output: "tier + subagent budget + capability map"
+  phase_0_census:
+    cognitive: "Main Agent (orchestrator: dynamic topology & subagent planning)"
+    mechanical: "run_toolkit.py census <target>  # raw repository facts"
+    output: "Repository Fact Census + dynamic subagent topology plan"
 
   phase_1_scout:
     cognitive_subagents:
-      - "Scout-Structure: manifests, build scripts, CI, top-level layout"
-      - "Scout-Surface: CLI entrypoints, flags, routes, .env.example"
-      - "Dynamic specialized scouts (FFI, monorepo, plugins)"
+      - "Dynamic scouts synthesized from Archetype Library (Structure, Runtime, CLI, Config, Tests, Deploy, Docs, Deps)"
+      - "Recovery Scout dispatched on tool failure or degraded output"
+      - "Dynamic specialized scouts (Fork Scout, Plugin Scout, ABI/FFI Scout)"
     mechanical: "run_toolkit.py evidence <target>  # fact extraction only"
     output: "evidence_bundle.json + LLM semantic observations"
 
   phase_2_rebattle:
-    cognitive_subagents:
-      - "Agent Red (User / DX)"
-      - "Agent Blue (Code AST / Truth)"
-      - "Agent Green (Ops / Delivery)"
+    cognitive_subagents: "Targeted debater archetypes (DX, AST Truth, Ops) focusing on disputed semantic_keys"
     mechanical_helper: "run_toolkit.py rebattle-diff <claim-files>"
+    interaction: "0-round fast path on consensus; dynamic convergence bounded by safety_max_rounds"
     output: "adjudicated SemanticModel + LLM-authored ClaimSet"
 
   phase_3_writers:
@@ -126,8 +116,7 @@ authoritative_pipeline:
   phase_4_audit_and_revise:
     cognitive_subagents: "Auditor (LLM) — L3, L4-prose, L5"
     mechanical_helper: "run_toolkit.py verify-docs <target>"
-    mechanical_revision: "MechanicalRepairEngine (module makewiki_skills.revision) applies MECHANICAL repairs only: cross-language code-block parity by stable [[id:...]] block ID and canned UNKNOWN evidence caveats."
-    revision_loop: "Auditor edits Markdown in place until Quality Gate passes"
+    revision_loop: "Auditor edits Markdown in place until Quality Gate passes (bounded by agent.max_audit_rounds)"
     anti_cliche: "Anti-cliché prose rewriting is the LLM Auditor's job, never a mechanical rewrite"
 
   phase_5_site:
@@ -159,7 +148,7 @@ host_capability_fallback:
       strategy: "Run subagents one after another; budget identical, wall-clock linear"
     solo:
       when: "NOT supports_subagents"
-      strategy: "Main Agent assumes Scout -> Red -> Blue -> Green -> Judge -> per-language writers -> Auditor sequentially"
+      strategy: "Main Agent assumes Census/Scout -> Discrepancy Evaluation -> (Optional Debate) -> Judge Synthesis -> per-language writers -> Auditor sequentially"
 
   invariant: "No MakeWiki semantics are lost on fallback; only wall-clock changes."
 ```

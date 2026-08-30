@@ -1,0 +1,8 @@
+[
+  {
+    "id": "eu_prod_secrets",
+    "topic": "secrets",
+    "field": "config.production_secret_manager",
+    "expected_treatment": "render UNKNOWN or leave unasserted"
+  }
+]

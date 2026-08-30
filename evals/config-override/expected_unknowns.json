@@ -1,0 +1,8 @@
+[
+  {
+    "id": "eu_remote_cert",
+    "topic": "tls",
+    "field": "config.tls.certificate_path",
+    "expected_treatment": "render UNKNOWN or leave unasserted"
+  }
+]

@@ -23,7 +23,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from makewiki_skills.generator.language_generator import GeneratedDocument
+from makewiki_skills.model.document_artifact import GeneratedDocument
 from makewiki_skills.verification.orchestrator import VerificationOrchestrator
 from makewiki_skills.verification.quality_gate import evaluate_quality_gate
 from makewiki_skills.verification.report import (

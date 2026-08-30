@@ -1,0 +1,9 @@
+[
+  {
+    "id": "fc_monolith",
+    "claim_type": "package",
+    "semantic_key": "monorepo.single_package",
+    "forbidden_assertion": "Project is a single standalone flat package",
+    "value": "single_package"
+  }
+]

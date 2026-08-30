@@ -32,9 +32,8 @@ python scripts/run_toolkit.py init-config <target>
 `<target>` is the directory where `makewiki.config.yaml` should be created
 (omit or pass `.` for the current directory). This emits the full config
 derived from `MakeWikiConfig` (`src/makewiki_skills/config.py`), covering every
-field — including the `revision:` block, `documentation_policy.*` writer
-decision fields, `scan.mode`, `language_profiles`, and
-`generate_*` flags.
+field — including `agent.*` resource limits, `documentation_policy.*` writer
+guidance, `delivery.*`, `quality.*`, and `scan.*` options.
 
 If the user wants to hand-edit a config, point them at the checked-in reference
 template: `templates/config.yaml` (mirrored at

@@ -1,6 +1,7 @@
 # MakeWiki.skills
 
 
+
 <p align="center">
   <strong>面向 AI Coding Assistant 的 LLM-first、证据驱动、多智能体文档编译器</strong>
 </p>
@@ -22,9 +23,39 @@
 
 ---
 
-MakeWiki 是一个开源的多智能体技能插件与 Python 工具包，专为 Claude Code、Codex 等 AI 编程助手设计。它采用 **LLM-first 架构**——由 LLM 子代理全权负责理解、推理与写作，由 Python 工具链完成确定性的证据提取与验证——为软件项目自动生成**证据驱动（evidence-backed）**的多语言 Markdown 技术文档，并一键编译为离线单页静态 Wiki、HTML 打印指南、EPUB 电子书与 Confluence / Notion 同步载荷。
+MakeWiki 是一个开源的多智能体技能插件与 Python 工具包，专为 Claude Code、Codex 等 AI 编程助手设计。它采用 **LLM-first 架构**——LLM 子代理负责理解、推理与写作，Python 工具链做确定性的证据提取与验证——为软件项目自动生成**证据驱动（evidence-backed）**的多语言 Markdown 技术文档，并一键编译为离线单页静态 Wiki、HTML 打印指南、EPUB 电子书与 Confluence / Notion 同步载荷。文档里的每一条事实都可追溯到仓库源码，可被 L0–L5 分层验证与四态质量门禁背书，而非不可验证的"AI 臆测"。
 
 > **Cognitive Authority Boundary**：LLM 决定仓库的含义，Python 只证明能被机械证明的东西；当无法证明时，Python 返回 `UNKNOWN`，绝不猜测。
+
+---
+
+## 📖 目录
+
+- [为什么用 MakeWiki](#-为什么用-makewiki)
+- [快速使用](#-快速使用)
+- [Skills 技能与 CLI 工具表面](#-skills-技能与-cli-工具表面)
+- [文档与站点输出](#-文档与站点输出)
+- [双平面架构与权威边界](#-双平面架构与权威边界)
+- [接地策略：证据驱动 + 分层自动验证](#-接地策略证据驱动--分层自动验证)
+- [配置文件](#-配置文件-makewikiconfigyaml)
+- [本地开发与测试](#-本地开发与测试)
+
+---
+
+## ✨ 为什么用 MakeWiki
+
+普通 AI 文档工具生成的 README "看起来对"，但**无法证明对**：引用了不存在的命令、过期的配置键、夸大的形容词——用户照着做就翻车。MakeWiki 把"AI 写文档"从**黑盒生成**变成**可审计的工程流程**：
+
+| 痛点                          | MakeWiki 的做法                                                          |
+| ---------------------------- | --------------------------------------------------------------------- |
+| **文档不可验证**                 | 每条事实都是可追溯到源码的 Claim，由 Python 机械证明；无法证明就返回 `UNKNOWN`，绝不编造        |
+| **AI 臆测 / 幻觉**              | L0–L5 分层验证 + 四态质量门禁（`passed`/`pending_*`/`failed`）给出诚实裁决，而不是假装完美     |
+| **命令 / 配置过期**              | L2 接口层核对 CLI 参数、配置键、环境变量与源码声明一致；代码变了文档就会亮红灯                    |
+| **多语言不同步**                 | 用稳定块 ID 做跨语言 100% 码块对齐，各语言独立母语写作，绝不机翻                              |
+| **写出来没人看**                 | 按 Diátaxis 方法论组织（Tutorial / How-To / Reference / Explanation），面向真实用户旅程   |
+| **单点消费**                    | 一套 Markdown 打包输出：静态 Wiki、HTML、EPUB、Confluence / Notion 同步载荷                |
+
+核心原则一句话：**LLM 负责"懂"，Python 负责"证"，质量门禁负责"把关"** —— 三层各司其职，边界清晰。
 
 ---
 
@@ -42,7 +73,7 @@ claude --plugin-dir /path/to/MakeWiki.skills
 /makewiki --lang en --lang zh-CN
 ```
 
-主代理会按 Sizing → Scout → ReBattle → Judge → Semantic Model → 并行写作 → 审计 → 语义修订 的**权威流程**调度 LLM 子代理，由 Python 工具链提供证据提取、L0–L5 验证与质量门禁；最终在 `<项目>/makewiki/` 输出结构化文档、静态站点、HTML/EPUB 导出包与同步数据。
+主代理会按 Census → Scout → ReBattle → Judge → Semantic Model → 并行写作 → 审计 → 语义修订 的**权威流程**调度 LLM 子代理，由 Python 工具链提供证据提取、L0–L5 验证与质量门禁；最终在 `<项目>/makewiki/` 输出结构化文档、静态站点、HTML/EPUB 导出包与同步数据。
 
 ---
 
@@ -52,13 +83,13 @@ CLI 表面按权威名 + 向后兼容别名设计，Python 部分严格只做机
 
 | 类别                   | 权威命令                                     | 别名                  | 平面      | 角色                                                          |
 | -------------------- | ---------------------------------------- | ------------------- | ------- | ----------------------------------------------------------- |
-| 全流程 Skill            | `/makewiki`                              | —                   | 认知      | 完整流水线：Sizing → Scout → ReBattle → Writer → Review → Compile |
+| 全流程 Skill            | `/makewiki`                              | —                   | 认知      | 完整流水线：Census → Scout → ReBattle → Writer → Review → Compile |
 | 站点编译                 | `/makewiki-site`                         | —                   | 机械      | 将既有 Markdown 编译为离线静态 Wiki                                   |
 | 文档质量门禁               | `/makewiki-validate`                     | —                   | 机械      | Markdown 结构与死链校验                                            |
 | 文档质量复核               | `/makewiki-review`                       | `semantic-review`   | 机械      | 提取跨语言对齐段落 + 行为证据                                            |
-| 项目测绘                 | `/makewiki-scan`                         | —                   | 认知 + 机械 | 评估规模与提取事实（调用 `evidence`）                                    |
+| 项目测绘                 | `/makewiki-scan`                         | —                   | 认知 + 机械 | 提取代码库特征普查与事实（调用 `census` 与 `evidence`）               |
 | 配置生成                 | `/makewiki-init`                         | —                   | —       | 生成默认 `makewiki.config.yaml`                                 |
-| Toolkit: 尺寸          | `makewiki sizing <path>`                 | —                   | 机械      | 评估 Tier S/M/L                                               |
+| Toolkit: 事实普查        | `makewiki census <path>`                 | `makewiki sizing`   | 机械      | 提取代码库原始事实（文件数、语言、清单、入口、单体/多包等）                 |
 | Toolkit: 证据          | `makewiki evidence <path>`               | `makewiki scan`     | 机械      | 输出事实 JSON（不解读）                                              |
 | Toolkit: 覆盖率         | `makewiki coverage <path>`               | —                   | 机械      | 机械覆盖报告：发现/扫描/跳过/忽略、未覆盖类别、低置信度事实                               |
 | Toolkit: 验证          | `makewiki verify-docs <path>`            | `makewiki verify`   | 机械      | L0–L5 + QualityGate → 四态裁决（passed / pending_semantic_review / pending_mechanical_verification / failed）+ CI exit code |
@@ -69,7 +100,6 @@ CLI 表面按权威名 + 向后兼容别名设计，Python 部分严格只做机
 | Toolkit: 站点          | `makewiki build-site <path>`             | —                   | 机械      | 编译离线静态站点                                                    |
 | Toolkit: 导出          | `makewiki export <path> --format html\|epub\|all` | — | 机械 | 单文件导出（拒绝 `pdf`） |
 | Toolkit: 同步载荷        | `makewiki sync-bundle <path>`            | `makewiki sync`     | 机械      | 仅准备 Confluence/Notion 同步包，不发布                               |
-| Toolkit: 确定性脚手架      | `makewiki legacy-generate <path>` | `makewiki generate` | 机械      | **非权威路径**，仅用于回归测试                                           |
 | Toolkit: 配置生成        | `makewiki init-config`                   | —                   | —       | 生成默认 `makewiki.config.yaml`                                 |
 
 ---
@@ -103,10 +133,10 @@ MakeWiki v2 显式划分为两个平面，并定义**认知权威边界**：
 ```mermaid
 flowchart LR
     subgraph Cognitive["认知平面 (LLM 子代理)"]
-        Sizing["Sizing<br/>Tier S/M/L"]
-        Scout["Scouts<br/>结构/表面/动态合成"]
+        Census["Census<br/>特征普查"]
+        Scout["Scout Archetypes<br/>结构/运行时/CLI/配置/Recovery"]
         Claims["Claim 构造"]
-        ReB["ReBattle<br/>Red vs Blue vs Green"]
+        ReB["Dynamic ReBattle<br/>冲突驱动对抗"]
         Judge["Judge 仲裁"]
         Model["SemanticModel"]
         Writers["并行母语写作"]
@@ -131,8 +161,8 @@ flowchart LR
 ```
 
 - **认知平面（Cognitive Plane）**：由 LLM 子代理承担所有理解、推理、对抗、写作与审计；可借助 Host Capability 选择并行 / 串行 / 主代理降级策略。
-- **机械平面（Mechanical Plane）**：Python 工具链只做能机械证明的事情——事实提取、AST/CLI/配置解析、L0/L1/L2、L4 块 ID 完全相同比较、`UNKNOWN` 兜底、Quality Gate 汇总。
-- **认知权威边界（Cognitive Authority Boundary）**：当 Python 无法机械证明时返回 `UNKNOWN`；绝不在 `faq`/`troubleshooting`/`usage_examples`/`user_tasks`/`platform_notes` 等认知字段中编造内容，这些字段只能由 LLM 注入。
+- **机械平面（Mechanical Plane）**：Python 工具链只做能机械证明的事情——事实普查、事实提取、AST/CLI/配置解析、L0/L1/L2、L4 块 ID 完全相同比较、`UNKNOWN` 兜底、Quality Gate 汇总。
+- **认知权威边界（Cognitive Authority Boundary）**：Python 是可审计证据通道，而非绝对权威。当 Python 证据与源码直接阅读冲突时，主代理必须深入调查；机械工具失败时进入降级状态（`pending_mechanical_verification`），绝不导致认知流程终止，主代理可启动 Recovery Scout 开展代码直读。
 - **Host Capability fallback**：当宿主不支持子代理时，主代理按顺序承担各角色；当不支持并行时降级为串行；不存在"没有子代理 API 就不能跑 MakeWiki"的情况。
 
 ---
@@ -155,38 +185,48 @@ MakeWiki 不再宣称"零幻觉"，而提供**可验证的证据驱动文档**�
 
 ## ⚙️ 配置文件 (`makewiki.config.yaml`)
 
-如需自定义生成行为，可在项目根目录放置配置文件（可选）。配置字段分为四类：
+如需自定义生成行为，可在项目根目录放置配置文件（可选）。配置字段分为三类：
 
-- **LLM-only**：被 Skill 编排器 / 写作者读取（`agent.*`、`delivery.*`、`content_depth.*`、`language_profiles.*` 及除下方两条外的 `documentation_policy.*`）。
+- **LLM-only**：被 Skill 编排器 / 写作者读取（`agent.*`、`delivery.*`、`content_depth.*`、`language_profiles.*` 及全部 `documentation_policy.*`）。
 - **Python-only**：被权威机械 CLI 读取（`scan.*`、`review.*`（仅 `enable_review_pair_generation` 与 `min_page_alignment_ratio`）、`quality.*`、`output_dir`、`languages`、`default_language`）。
-- **Shared**：Python 用于机械执行、LLM 作为写作约束（`documentation_policy.forbid_unfounded_praise` 与 `documentation_policy.banned_descriptors`）。
-- **Legacy-only**：仅被已废弃的 `legacy-generate` / `generate` 脚手架读取的语义搭建字段（`generate_faq`、`generate_troubleshooting`、`generate_env_vars_page`、`emit_uncertainty_notes`、`strict_grounding`、`overwrite`、`delete_stale_files`、整个 `revision.*` 块、整个 `site.*` 块，以及 `review.enable_cross_language_review` / `enable_code_grounding_verification` / `enable_codebase_verification` 三个开关——均只被已废弃的 Pipeline 读取）。在权威 `/makewiki` 流程中，页面构成与规避措辞由 LLM 写作者决定，Python 绝不将其视为机械权威。
+- **Shared**：当前无 —— 机械校验器不再评判散文质量，因此原 Shared 的 `documentation_policy.forbid_unfounded_praise` 与 `documentation_policy.banned_descriptors` 现已划为 LLM-only。
 
 ```yaml
-output_dir: makewiki
-languages:
+output_dir: makewiki                  # Python-consumed
+languages:                            # Python-consumed
   - en
   - zh-CN
-default_language: en
-overwrite: true
+default_language: en                  # Python-consumed
 
-agent:                       # LLM-consumed
+agent:                                # LLM-consumed (资源上限与安全上限)
   max_subagents: 10
-  rebattle_rounds: 2
-  max_audit_rounds: 3
-  tier_override: auto
+  max_parallelism: 10
+  max_audit_rounds: 3                 # 权威 /makewiki Auditor 循环预算
+  safety_max_rounds: 3
 
-site:                        # Python-consumed
-  compile: true
-  theme: auto
-  include_search: true
-
-delivery:                    # LLM-consumed
+delivery:                             # LLM-consumed (交付范围章节)
   audience: dual
   include_deployment_runbook: true
   include_compatibility_matrix: true
+  include_health_checks: true
 
-quality:                     # Quality Gate 阈值
+documentation_policy:                 # LLM-consumed (写作约束，Python 不读取)
+  audience: end-user
+  forbid_unfounded_praise: true
+  banned_descriptors:
+    - powerful
+    - robust
+    - seamless
+
+scan:                                 # Python-consumed
+  mode: auto
+  ignore_dirs: [node_modules, dist, build, .git, __pycache__]
+
+review:                               # Python-consumed (semantic-review 准备开关)
+  enable_review_pair_generation: true
+
+quality:                              # Quality Gate 阈值
+  allow_pending_llm_layers: true
   min_grounding_score: 1.0
 ```
 

@@ -1,6 +1,6 @@
 """Unit tests for L5 Epistemic Verifier."""
 
-from makewiki_skills.generator.language_generator import GeneratedDocument
+from makewiki_skills.model.document_artifact import GeneratedDocument
 from makewiki_skills.verification.l5_epistemic import L5EpistemicVerifier
 
 

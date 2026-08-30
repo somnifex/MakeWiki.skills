@@ -1,6 +1,6 @@
 """Unit tests for L4 Cross-Language Verifier."""
 
-from makewiki_skills.generator.language_generator import GeneratedDocument
+from makewiki_skills.model.document_artifact import GeneratedDocument
 from makewiki_skills.review.section_parser import parse_document_sections
 from makewiki_skills.verification.l4_cross_language import (
     L4CrossLanguageVerifier,

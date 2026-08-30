@@ -1,0 +1,8 @@
+[
+  {
+    "id": "eu_cloud_deploy",
+    "topic": "deployment",
+    "field": "deployment.cloud_provider",
+    "expected_treatment": "render UNKNOWN or leave unasserted"
+  }
+]

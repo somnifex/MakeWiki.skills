@@ -2,7 +2,7 @@
 
 from pathlib import Path
 
-from makewiki_skills.generator.language_generator import GeneratedDocument
+from makewiki_skills.model.document_artifact import GeneratedDocument
 from makewiki_skills.verification.l3_behavior import L3BehaviorVerifier
 
 

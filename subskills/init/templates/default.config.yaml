@@ -1,42 +1,23 @@
-output_dir: makewiki              # Python-consumed (pipeline.output_dir)
-languages:                         # Python-consumed (Pipeline.languages)
+output_dir: makewiki              # Python-consumed
+languages:                         # Python-consumed
   - en
   - zh-CN
-default_language: en               # Python-consumed (Pipeline.default_language)
-# Legacy-consumed: these fields ONLY drive the deprecated `legacy-generate` /
-# `generate` scaffold (LegacyDeterministicRenderer + legacy Pipeline +
-# MechanicalRepairEngine). The authoritative /makewiki flow never reads them —
-# the LLM writers decide page composition and hedging.
-overwrite: true                    # Legacy-consumed (legacy OutputManager.overwrite)
-delete_stale_files: false          # Legacy-consumed (legacy OutputManager.delete_stale_files)
-generate_faq: true                  # Legacy-consumed (LegacyDeterministicRenderer); emits faq.md slot (LLM-populated; UNKNOWN if empty)
-generate_troubleshooting: true      # Legacy-consumed (LegacyDeterministicRenderer); emits troubleshooting.md slot (LLM-populated; UNKNOWN if empty)
-generate_env_vars_page: true        # Legacy-consumed (LegacyDeterministicRenderer); emits env-vars.md slot
-strict_grounding: true              # Legacy-consumed (legacy CodeGroundingVerifier.strict)
-emit_uncertainty_notes: true        # Legacy-consumed (LegacyDeterministicRenderer uncertainty notes)
+default_language: en               # Python-consumed
 
-# LLM-consumed: read by the Skill orchestrator / Writers (subagent budget + tier).
+# LLM-consumed: read by the Skill orchestrator / writers (resource limits and safety caps).
 agent:
   max_subagents: 10                # LLM-consumed
-  rebattle_rounds: 2               # LLM-consumed
+  max_parallelism: 10              # LLM-consumed
+  max_total_agent_calls: null      # LLM-consumed
+  cost_budget: null                # LLM-consumed
   max_audit_rounds: 3              # LLM-consumed (authoritative Auditor loop budget)
-  tier_override: auto              # LLM-consumed
+  safety_max_rounds: 3             # LLM-consumed
 
-# Legacy-consumed (read only by the deprecated deterministic Pipeline, pipeline.py).
-site:
-  compile: true                    # Legacy-consumed
-  theme: auto                      # Legacy-consumed
-  include_search: true             # Legacy-consumed
-  output_subdir: site              # Legacy-consumed
-
-# LLM-consumed: delivery scope sections chosen by the Writers.
+# LLM-consumed: delivery scope sections chosen by the writers.
 delivery:                          # LLM-consumed
   include_deployment_runbook: true # LLM-consumed
   include_compatibility_matrix: true # LLM-consumed
   include_health_checks: true      # LLM-consumed
-# NOTE: `delivery.audience` (config.py) is redundant with
-# `documentation_policy.audience` below — the single canonical
-# "who the docs are for" field. It is omitted here to avoid the ambiguity.
 
 # Python-consumed (evidence collector / scanner).
 scan:
@@ -56,44 +37,30 @@ scan:
   source_intelligence_max_files: 50 # Python-consumed
   recursive_docs: true             # Python-consumed
 
-# The three enable_* toggles gate the deprecated Pipeline (Legacy-consumed);
-# enable_review_pair_generation / min_page_alignment_ratio are Python-consumed.
+# Python-consumed: semantic review preparation switches.
 review:
-  enable_cross_language_review: true        # Legacy-consumed
-  enable_code_grounding_verification: true  # Legacy-consumed
-  enable_codebase_verification: true        # Legacy-consumed
-  enable_review_pair_generation: true         # Python-consumed
-  min_page_alignment_ratio: 0.9             # Python-consumed
-
-# Legacy-consumed: the whole revision block only drives the deprecated
-# `legacy-generate` / `generate` MechanicalRepairEngine (auto-hedge /
-# auto-harmonize). The authoritative /makewiki flow never reads it.
-revision:                           # Legacy-consumed
-  enabled: true                            # Legacy-consumed
-  max_rounds: 2                            # Legacy-consumed
-  auto_hedge_ungrounded: true              # Legacy-consumed
-  auto_harmonize_code_blocks: true         # Legacy-consumed
-  stop_on_no_progress: true                # Legacy-consumed
+  enable_review_pair_generation: true         # Python-consumed (semantic-review CLI)
+  min_page_alignment_ratio: 0.9             # Python-consumed (semantic-review CLI)
 
 # LLM-consumed: writer depth decisions.
 content_depth:
-  mode: auto                       # LLM-consumed
-  max_faq_items: 20                # LLM-consumed
-  max_usage_examples: 8            # LLM-consumed
-  max_troubleshooting_items: 8     # LLM-consumed
-  split_usage_threshold: 6         # LLM-consumed
+  mode: auto                              # LLM-consumed
+  max_faq_items: 20                       # LLM-consumed
+  max_usage_examples: 8                   # LLM-consumed
+  max_troubleshooting_items: 8            # LLM-consumed
+  split_usage_threshold: 6                # LLM-consumed
 
-# Mixed: forbid_unfounded_praise + banned_descriptors feed the Python validator;
-# the rest is LLM-consumed (writer decisions).
-documentation_policy:
+# documentation_policy.* is entirely LLM-consumed (writer decisions). The
+# former mechanical validator prose check was removed: Python never reads these.
+documentation_policy:                              # LLM-consumed
   audience: end-user                              # LLM-consumed
   structure_strategy: user-journey                # LLM-consumed
   prefer_task_oriented_sections: true             # LLM-consumed
   include_architecture_analysis: false            # LLM-consumed
   include_directory_overview: false               # LLM-consumed
   include_source_walkthroughs: false              # LLM-consumed
-  forbid_unfounded_praise: true                   # SHARED (Python validator + LLM writer)
-  banned_descriptors:                             # SHARED (Python validator + LLM writer)
+  forbid_unfounded_praise: true                   # LLM-consumed
+  banned_descriptors:                             # LLM-consumed
     - powerful
     - robust
     - flexible
@@ -110,8 +77,8 @@ documentation_policy:
 
 # Python-consumed: unified L0-L5 + Quality Gate thresholds.
 quality:
-  allow_pending_llm_layers: true        # Python-consumed (exit policy only)
-  min_grounding_score: 1.0              # Python-consumed (sole gate threshold)
+  allow_pending_llm_layers: true        # Python-consumed (QualityGate; exit policy only)
+  min_grounding_score: 1.0              # Python-consumed (QualityGate; sole gate threshold)
 
 # LLM-consumed: per-language writer tone overrides.
-language_profiles: {}                   # LLM-consumed
+language_profiles: {}                   # LLM-consumed (LanguageProfileConfig.tone)

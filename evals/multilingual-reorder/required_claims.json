@@ -1,0 +1,9 @@
+[
+  {
+    "id": "rc_serve_cmd",
+    "claim_type": "command",
+    "semantic_key": "cli.command.serve",
+    "assertion": "The CLI serve command starts the service",
+    "must_state": "serve command"
+  }
+]

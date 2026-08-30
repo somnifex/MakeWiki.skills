@@ -1,0 +1,11 @@
+trap: stale-example
+description: "The README has a stale code example using deprecated `secure=True`, while source code requires `tls_mode='strict'`; generated docs must provide the current working API signature."
+metrics:
+  Evidence Grounding: { weight: 0.30, required: true }
+  Required Claim Recall: { weight: 0.30, required: true }
+  Unsupported Claim Rate: { weight: 0.20 }
+  ReBattle Conflict Detection: { weight: 0.20 }
+scoring:
+  pass_threshold: 0.8
+  passes_when: "Code examples in generated docs use tls_mode='strict' and do not instruct users to pass deprecated secure=True."
+  runs: 3

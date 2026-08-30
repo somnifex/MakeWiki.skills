@@ -1,0 +1,9 @@
+[
+  {
+    "id": "fc_broken_parse",
+    "claim_type": "error",
+    "semantic_key": "app.parse.fatal",
+    "forbidden_assertion": "Project cannot be documented due to syntax error in broken_syntax.py",
+    "value": "fatal_syntax_error"
+  }
+]

@@ -1,0 +1,8 @@
+[
+  {
+    "id": "eu_custom_cipher",
+    "topic": "crypto",
+    "field": "api.connect.custom_cipher_suites",
+    "expected_treatment": "render UNKNOWN or leave unasserted"
+  }
+]

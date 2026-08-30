@@ -1,0 +1,9 @@
+[
+  {
+    "id": "fc_config_static",
+    "claim_type": "config",
+    "semantic_key": "config.db.static_only",
+    "forbidden_assertion": "DATABASE_URL is ignored and config.yaml is strictly unchangeable",
+    "value": "static_only"
+  }
+]

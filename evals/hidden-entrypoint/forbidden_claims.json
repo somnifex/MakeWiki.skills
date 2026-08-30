@@ -1,0 +1,16 @@
+[
+  {
+    "id": "fc_no_config",
+    "claim_type": "config",
+    "semantic_key": "config.absence",
+    "forbidden_assertion": "The repo has no configuration files",
+    "value": "no configuration"
+  },
+  {
+    "id": "fc_no_ci",
+    "claim_type": "command",
+    "semantic_key": "ci.absence",
+    "forbidden_assertion": "The repo has no CI or automation workflows",
+    "value": "no CI"
+  }
+]
