@@ -96,6 +96,7 @@ _EN_BODY = """# myapp
 
 myapp is a tiny scaffold.
 
+<!-- makewiki:section=build -->
 ## Build
 
 [[id:build]]
@@ -103,6 +104,7 @@ myapp is a tiny scaffold.
 make build
 ```
 
+<!-- makewiki:section=test -->
 ## Test
 
 [[id:test]]
@@ -110,6 +112,7 @@ make build
 make test
 ```
 
+<!-- makewiki:section=run -->
 ## Run
 
 [[id:run]]
@@ -117,6 +120,7 @@ make test
 myapp run --port 8080
 ```
 
+<!-- makewiki:section=configure -->
 ## Configure
 
 Set `server.port` in `./config.yaml`.

@@ -24,9 +24,12 @@ renders an `UNKNOWN` marker — it never invents prose.
      the fence body); an untagged technical block is an **L4a failure**. A
      block may be exempted only with an explicit
      `[[parity:ignore reason="..."]]` marker.
-   - Every H2 section SHOULD carry a stable section marker
+   - For multilingual output, every REVIEWABLE H2 MUST carry a stable section
 
-     `<!-- makewiki:section=<slug> -->` immediately above it.
+     marker `<!-- makewiki:section=<slug> -->` immediately above it.
+     Locate headings can be freely translated / reworded and sections may be
+     reordered per language, but the SECTION ID must never change and must be
+     present on every reviewable H2.
    - Commands, flags, options, and code samples must match identically across
 
      all languages for blocks carrying the same stable ID.

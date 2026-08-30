@@ -551,8 +551,13 @@ See `references/anti_ai_cliche.md`. Highlights:
    block is an **L4a failure**. A block may be exempted from parity only with
    an explicit `[[parity:ignore reason="..."]]` marker. Parity and revision
    always match blocks by their stable ID — never by position.
-3. **Stable H2 Section Markers** — every H2 section SHOULD carry a stable
-   section marker `<!-- makewiki:section=<slug> -->` immediately above it.
+3. **Stable H2 Section Markers** — for MULTILINGUAL output, every reviewable
+   H2 MUST carry a stable section marker `<!-- makewiki:section=<slug> -->`
+   immediately above it. A reviewable H2 with no marker is an **L4a failure**
+   (without a stable ID, Python could only guess the cross-language
+   correspondence by heading text or position, which is forbidden).
+   Single-language output may omit markers. Duplicate section IDs and
+   duplicate block IDs within one document are also L4a failures.
 4. **Section ORDER may differ per language** — each language is written
    natively and independently, so section order is NOT required to match across
    languages. ALL cross-language parity and review (L4) is keyed on the stable

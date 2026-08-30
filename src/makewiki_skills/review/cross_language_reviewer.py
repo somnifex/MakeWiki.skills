@@ -9,6 +9,7 @@ from datetime import UTC, datetime
 from pydantic import BaseModel, Field, computed_field
 
 from makewiki_skills.model.document_artifact import DocumentArtifact
+from makewiki_skills.review.section_parser import parse_document_sections
 from makewiki_skills.toolkit.markdown_tools import FactSet, MarkdownTool
 
 _FENCE_PATTERN = re.compile(r"```[a-zA-Z0-9_\-\+]*\n.*?```", re.DOTALL)
@@ -75,21 +76,38 @@ class RevisionInstruction(BaseModel):
 class AlignedPassage(BaseModel):
     """A passage aligned across languages by STABLE identity, not position.
 
-    Each passage is keyed by either a stable section ID
-    (``<!-- makewiki:section=<slug> -->``) or a stable block ID
-    (``[[id:...]]``). ``section_id`` is always the nearest preceding section
-    marker (``""`` when none); ``block_id`` is the ``[[id:...]]`` for a code
-    block passage, ``None`` for a prose passage. ``texts`` maps each language
-    to that passage's text in that language.
+    Each passage is keyed by a stable document ID (``base_name``) plus a stable
+    section ID (``<!-- makewiki:section=<slug> -->``) and/or a stable block ID
+    (``[[id:...]]``). ``document_id`` is the document's ``base_name`` — it is
+    part of the stable identity namespace, so the same ``section_id`` on two
+    different pages never collides. ``section_id`` is always the nearest
+    preceding section marker (``""`` when none); ``block_id`` is the
+    ``[[id:...]]`` for a code-blocks passage, ``None`` for a prose passage.
+    ``texts`` maps each language to that passage's text in that language; a
+    language that declares the document but NOT this section/block carries
+    ``"missing"`` (an absent passage is itself a semantic-review item for the
+    Auditor, never papered over with a different section's content).
+
+    ``review_item_id`` is the single, stable identifier shared with the L4b
+    semantic checks and the SemanticAuditBundle (one ID system, not three):
+    ``L4b:<document_id>:<section_id>`` for prose, with a ``:block:<block_id>``
+    suffix for code passages.
 
     Python only ALIGNS these passages — it never judges whether the meanings
     match. That semantic judgment is the LLM Auditor's L4b step.
     """
 
+    document_id: str = ""
     section_id: str
     block_id: str | None = None
     languages: list[str] = Field(default_factory=list)
     texts: dict[str, str] = Field(default_factory=dict)
+
+    @property
+    def review_item_id(self) -> str:
+        if self.block_id is None:
+            return f"L4b:{self.document_id}:{self.section_id}"
+        return f"L4b:{self.document_id}:{self.section_id}:block:{self.block_id}"
 
 
 class CrossLanguageReviewer:
@@ -177,18 +195,28 @@ class CrossLanguageReviewer:
         ``semantic-review`` and ``parity``):
 
         ``documents`` maps a language code to its rendered ``DocumentArtifact``s.
-        Returns a deterministic list of :class:`AlignedPassage`:
+        Returns a deterministic list of :class:`AlignedPassage`, ordered by
+        sorted ``base_name`` then sorted section/block identity:
 
-        * one **prose** passage per stable section ID (``block_id is None``),
-          carrying each language's section text with code fences removed, and
-        * one **code** passage per stable ``(section_id, block_id)`` pair,
-          carrying each language's verbatim fenced block.
+        * one **prose** passage per stable ``(document_id, section_id)`` —
+          ``block_id is None`` — carrying each language's section text with code
+          fences and markers removed; and
+        * one **code** passage per stable ``(document_id, section_id, block_id)``
+          key, carrying each language's verbatim fenced block.
 
-        Pairing is keyed on the ``<!-- makewiki:section=<slug> -->`` marker and
-        the ``[[id:...]]`` marker — never on H2 heading text or heading index —
-        so sections may be reordered across languages and still align. If any
-        language document declares no section markers, code blocks fall back to
-        pairing by block ID alone.
+        Pairing is **document-scoped**: ``document_id`` is the doc's
+        ``base_name``, so the same section id on two different pages never
+        collides. Within a document, sections pair by the
+        ``<!-- makewiki:section=<slug> -->`` marker and blocks by
+        ``[[id:...]]`` — never by H2 heading text or heading index — so sections
+        may be reordered (and headings reworded) across languages and still
+        align. If any language document declares no section markers, code blocks
+        fall back to pairing by block ID alone (section key ``""``).
+
+        A language that declares the document but NOT a given section/block
+        carries ``texts[lang] = "missing"`` and stays in ``languages`` — an
+        absent passage is itself a semantic-review item for the Auditor, never
+        filled with a different section's content.
 
         This method only ALIGNS. It never judges prose or asserts meaning
         equality — L4b (semantic prose parity) stays a pending LLM Auditor step
@@ -199,45 +227,60 @@ class CrossLanguageReviewer:
         # when this method is actually called (both modules are loaded by then).
         from makewiki_skills.verification.l4_cross_language import (
             pair_blocks_by_section_id,
-            split_sections,
         )
 
         languages = sorted(documents.keys())
-        concatenated = {
-            lang: "\n".join(doc.content for doc in doc_list)
-            for lang, doc_list in documents.items()
-        }
+
+        # base_name -> {language_code: content} — the document-scoped universe.
+        doc_map: dict[str, dict[str, str]] = {}
+        for lang in languages:
+            for doc in documents[lang]:
+                doc_map.setdefault(doc.base_name, {})[lang] = doc.content
 
         passages: list[AlignedPassage] = []
 
-        # ---- prose passages keyed by stable section ID -----------------------
-        section_chunks: dict[str, dict[str, str]] = {}
-        all_sections: set[str] = set()
-        for lang in languages:
-            for section_id, chunk in split_sections(concatenated[lang]):
-                section_chunks.setdefault(section_id, {})[lang] = _strip_fences(chunk)
-                all_sections.add(section_id)
-        for section_id in sorted(all_sections):
-            langs = section_chunks[section_id]
-            passages.append(
-                AlignedPassage(
-                    section_id=section_id,
-                    block_id=None,
-                    languages=sorted(langs.keys()),
-                    texts=langs,
+        # ---- prose passages keyed by (document_id, section_id) --------------
+        for base_name in sorted(doc_map):
+            lang_map = doc_map[base_name]
+            section_texts: dict[str, dict[str, str]] = {}
+            for lang, content in lang_map.items():
+                parsed = parse_document_sections(content, document_id=base_name)
+                for sec in parsed.sections:
+                    section_texts.setdefault(sec.section_id, {})[lang] = _strip_fences(
+                        sec.content
+                    )
+            for section_id in sorted(section_texts):
+                texts: dict[str, str] = dict(section_texts[section_id])
+                for lang in sorted(lang_map):
+                    if lang not in texts:
+                        texts[lang] = "missing"
+                passages.append(
+                    AlignedPassage(
+                        document_id=base_name,
+                        section_id=section_id,
+                        block_id=None,
+                        languages=sorted(texts.keys()),
+                        texts=texts,
+                    )
                 )
-            )
 
-        # ---- code passages keyed by stable (section_id, block_id) ------------
-        for (section_id, block_id), lang_refs in sorted(
-            pair_blocks_by_section_id(concatenated).items()
+        # ---- code passages keyed by (document_id, section_id, block_id) -----
+        for (document_id, section_id, block_id), lang_refs in sorted(
+            pair_blocks_by_section_id(documents).items()
         ):
+            block_texts: dict[str, str] = {
+                lang: ref.full_block for lang, ref in lang_refs.items()
+            }
+            for lang in sorted(doc_map.get(document_id, {})):
+                if lang not in block_texts:
+                    block_texts[lang] = "missing"
             passages.append(
                 AlignedPassage(
+                    document_id=document_id,
                     section_id=section_id,
                     block_id=block_id,
-                    languages=sorted(lang_refs.keys()),
-                    texts={lang: ref.full_block for lang, ref in sorted(lang_refs.items())},
+                    languages=sorted(block_texts.keys()),
+                    texts=block_texts,
                 )
             )
 

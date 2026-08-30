@@ -659,34 +659,25 @@ def parity(
     l4_report = orchestrator.verify_layer("L4", documents, wiki_dir=resolved_wiki_dir)
 
     # Aligned passages (prose parity input for the LLM Auditor), matched by
-    # H2 position like semantic-review does.
-    pages: dict[str, dict[str, str]] = {}
-    for lang_code, doc_list in documents.items():
-        for doc in doc_list:
-            pages.setdefault(doc.base_name, {})[lang_code] = doc.content
+    # STABLE SECTION ID, never by H2 text or H2 position. Sections pair
+    # document-scoped: the same section id on two different pages never
+    # collides because each AlignedPassage carries its document's base_name.
+    from makewiki_skills.review.cross_language_reviewer import CrossLanguageReviewer
 
     aligned: list[dict[str, Any]] = []
-    for base_name, lang_contents in sorted(pages.items()):
-        if len(lang_contents) < 2:
-            continue
-        ref_lang = next(iter(lang_contents))
-        ref_sections = _split_by_h2(lang_contents[ref_lang])
-        for section_heading in ref_sections:
-            passages: dict[str, str] = {}
-            ref_idx = list(ref_sections.keys()).index(section_heading)
-            for lang_code, content in lang_contents.items():
-                sections = _split_by_h2(content)
-                other_sections = list(sections.values())
-                if ref_idx < len(other_sections):
-                    passages[lang_code] = other_sections[ref_idx][:800]
-                else:
-                    passages[lang_code] = ""
-            if any(p.strip() for p in passages.values()):
-                aligned.append({
-                    "document": base_name,
-                    "reference_heading": section_heading,
-                    "passages": passages,
-                })
+    for passage in CrossLanguageReviewer().align_documents(documents):
+        present = [lang for lang, text in passage.texts.items() if text != "missing"]
+        # Emit when there are >=2 real passages to compare, or when a language
+        # that declares the document is missing this passage — the Auditor must
+        # see the "missing" marker rather than have a gap papered over.
+        if len(present) >= 2 or any(text == "missing" for text in passage.texts.values()):
+            aligned.append({
+                "review_item_id": passage.review_item_id,
+                "document": passage.document_id,
+                "section_id": passage.section_id,
+                "block_id": passage.block_id,
+                "passages": passage.texts,
+            })
 
     if output_format == "json":
         typer.echo(json_lib.dumps({
@@ -700,7 +691,7 @@ def parity(
     console.print(f"  L4 (Cross-language): {state}  {l4_report.passed_count}/{l4_report.total_checks}")
     for check in l4_report.failures():
         console.print(f"    [red]{check.target}[/red]: {check.detail}")
-    console.print(f"[bold]Aligned passages:[/bold] {len(aligned)} section(s) ready for LLM prose review")
+    console.print(f"[bold]Aligned passages:[/bold] {len(aligned)} item(s) ready for LLM prose review")
     raise typer.Exit(0 if l4_report.passed else 1)
 
 
@@ -867,30 +858,40 @@ def semantic_review(
         if len(lang_contents) >= expected_lang_count:
             fully_aligned_pages += 1
 
-        ref_lang = next(iter(lang_contents))
-        ref_sections = _split_by_h2(lang_contents[ref_lang])
+    # Pair sections by STABLE SECTION ID per document, never by H2 text or H2
+    # index, so reordered/reworded native sections still align by identity.
+    from makewiki_skills.model.document_artifact import GeneratedDocument
+    from makewiki_skills.review.cross_language_reviewer import CrossLanguageReviewer
 
-        for section_heading in ref_sections:
-            passages: dict[str, str] = {}
-            for lang_code, content in lang_contents.items():
-                sections = _split_by_h2(content)
-                # Headings differ across languages, so sections are matched by position.
-                section_idx = list(ref_sections.keys()).index(section_heading)
-                other_sections = list(sections.values())
-                if section_idx < len(other_sections):
-                    passages[lang_code] = other_sections[section_idx][:500]
-                else:
-                    passages[lang_code] = ""
+    l4_documents: dict[str, list[GeneratedDocument]] = {}
+    for lang_code in langs:
+        if not LanguageRegistry.has(lang_code):
+            continue
+        l4_documents[lang_code] = [
+            GeneratedDocument(
+                filename=base,
+                base_name=base,
+                language_code=lang_code,
+                content=content,
+                word_count=len(content.split()),
+            )
+            for base, lang_contents in pages.items()
+            if lang_code in lang_contents
+            for content in [lang_contents[lang_code]]
+        ]
 
-            if any(p.strip() for p in passages.values()):
-                review_pairs.append(
-                    {
-                        "document": base_name,
-                        "section_index": list(ref_sections.keys()).index(section_heading),
-                        "reference_heading": section_heading,
-                        "passages": passages,
-                    }
-                )
+    for passage in CrossLanguageReviewer().align_documents(l4_documents):
+        present = [lang for lang, text in passage.texts.items() if text != "missing"]
+        if len(present) >= 2 or any(text == "missing" for text in passage.texts.values()):
+            review_pairs.append(
+                {
+                    "review_item_id": passage.review_item_id,
+                    "document": passage.document_id,
+                    "section_id": passage.section_id,
+                    "block_id": passage.block_id,
+                    "passages": passage.texts,
+                }
+            )
 
     alignment_ratio = (
         fully_aligned_pages / len(pages) if pages else 0.0
@@ -909,35 +910,11 @@ def semantic_review(
         console.print(f"  Documents with multiple languages: {len(pages)}")
         console.print(f"  Section pairs for review: {len(review_pairs)}")
         for pair in review_pairs[:10]:
-            console.print(f"\n  [cyan]{pair['document']}[/cyan] — {pair['reference_heading']}")
+            console.print(f"\n  [cyan]{pair['document']}[/cyan] — {pair['section_id']}")
             passages = cast(dict[str, str], pair["passages"])
             for lang, text in passages.items():
                 preview = str(text)[:80].replace("\n", " ")
                 console.print(f"    [{lang}] {preview}...")
-
-
-def _split_by_h2(content: str) -> dict[str, str]:
-    """Split markdown content into sections by H2 headings."""
-    import re
-
-    sections: dict[str, str] = {}
-    current_heading = "(intro)"
-    current_lines: list[str] = []
-
-    for line in content.splitlines():
-        match = re.match(r"^##\s+(.+)$", line)
-        if match:
-            if current_lines:
-                sections[current_heading] = "\n".join(current_lines)
-            current_heading = match.group(1).strip()
-            current_lines = []
-        else:
-            current_lines.append(line)
-
-    if current_lines:
-        sections[current_heading] = "\n".join(current_lines)
-
-    return sections
 
 
 def _load_config(config_path: Path | None, target: Path) -> MakeWikiConfig:

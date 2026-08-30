@@ -9,9 +9,12 @@ prose. The Python toolkit supplies the mechanical half: `verify-docs` runs
 the unified L0–L5 verification, `parity` checks block-ID exact-match across
 languages, and `semantic-review` produces aligned passages for the Auditor.
 
-The Quality Gate aggregates the result into PASS / FAIL and maps to the CI
-exit code (0 / 1). MakeWiki is **evidence-backed**, not "zero-hallucination";
-every status reflects a concrete check, not marketing.
+The Quality Gate aggregates the result into an honest four-state verdict
+(`passed` / `pending_semantic_review` / `pending_mechanical_verification` /
+`failed`) mapped to the CI exit policy (passed→0, failed→1,
+pending_semantic_review→0 when `allow_pending_llm_layers` else 2,
+pending_mechanical_verification→3). MakeWiki is **evidence-backed**, not
+"zero-hallucination"; every status reflects a concrete check, not marketing.
 
 ---
 
@@ -27,7 +30,10 @@ every status reflects a concrete check, not marketing.
 
      keyed on stable block IDs (`[[id:<slug>]]`) and stable H2 section markers
      (`<!-- makewiki:section=<slug> -->`), never on heading text or heading
-     position; section ORDER may differ per language.
+     position; section ORDER may differ per language. For multilingual output
+     every reviewable H2 MUST carry a stable section marker; a missing marker
+     or a duplicate section ID is an L4a mechanical failure Python flags
+     before the Auditor sees prose.
    - The Auditor judges prose parity (L4b) from the aligned passages produced
 
      by `semantic-review`.

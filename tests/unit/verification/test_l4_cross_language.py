@@ -1,11 +1,13 @@
 """Unit tests for L4 Cross-Language Verifier."""
 
 from makewiki_skills.generator.language_generator import GeneratedDocument
+from makewiki_skills.review.section_parser import parse_document_sections
 from makewiki_skills.verification.l4_cross_language import (
     L4CrossLanguageVerifier,
     pair_blocks_by_section_id,
     render_section_marker,
     section_ids,
+    split_sections,
 )
 
 
@@ -358,43 +360,48 @@ def test_section_ids_and_render_round_trip():
 def test_blocks_in_reordered_sections_still_pair():
     """Same section marker + block id across languages, in DIFFERENT section
     order, still pairs; parity passes for exact-equal code."""
+    # Reviewable sections use H2 headings (an H2 following the marker). The zh-CN
+    # version reorders the sections relative to en.
     en = (
         "<!-- makewiki:section=usage -->\n"
-        "# Usage\n"
+        "## Usage\n"
         "[[id:run]]\n```bash\napp run\n```\n"
         "\n"
         "<!-- makewiki:section=install -->\n"
-        "# Install\n"
+        "## Install\n"
         "[[id:install.init]]\n```bash\napp init\n```\n"
     )
     # zh-CN reorders: install section first, usage second.
     zh = (
         "<!-- makewiki:section=install -->\n"
-        "# 安装\n"
+        "## 安装\n"
         "[[id:install.init]]\n```bash\napp init\n```\n"
         "\n"
         "<!-- makewiki:section=usage -->\n"
-        "# 用法\n"
+        "## 用法\n"
         "[[id:run]]\n```bash\napp run\n```\n"
     )
 
-    paired = pair_blocks_by_section_id({"en": en, "zh-CN": zh})
-    # Both blocks pair under the SAME (section, block) key despite reordering.
-    assert ("usage", "run") in paired
-    assert ("install", "install.init") in paired
-    assert set(paired[("usage", "run")].keys()) == {"en", "zh-CN"}
-    assert set(paired[("install", "install.init")].keys()) == {"en", "zh-CN"}
-
-    # Verifier: parity passes for the exact-equal code even though section order
-    # differs.
     docs = {
-        "en": [GeneratedDocument(filename="g.md", base_name="g.md", language_code="en", content=en)],
+        "en": [
+            GeneratedDocument(filename="g.md", base_name="g.md", language_code="en", content=en)
+        ],
         "zh-CN": [
             GeneratedDocument(
                 filename="g.zh-CN.md", base_name="g.md", language_code="zh-CN", content=zh
             )
         ],
     }
+    paired = pair_blocks_by_section_id(docs)
+    # Both blocks pair under the SAME (document, section, block) key despite
+    # reordering.
+    assert ("g.md", "usage", "run") in paired
+    assert ("g.md", "install", "install.init") in paired
+    assert set(paired[("g.md", "usage", "run")].keys()) == {"en", "zh-CN"}
+    assert set(paired[("g.md", "install", "install.init")].keys()) == {"en", "zh-CN"}
+
+    # Verifier: parity passes for the exact-equal code even though section order
+    # differs.
     report = L4CrossLanguageVerifier().verify_documents(docs)
     mech = [
         c for c in report.checks
@@ -414,11 +421,180 @@ def test_blocks_in_reordered_sections_still_pair():
 
 
 def test_pairing_falls_back_to_block_id_without_section_markers():
-    """No section markers in any doc -> falls back to pairing by block ID alone."""
+    """No section markers in any doc -> falls back to keying by (doc, "", block)."""
     en = "[[id:run]]\n```bash\napp run\n```\n"
     zh = "[[id:run]]\n```bash\napp run\n```\n"
-    paired = pair_blocks_by_section_id({"en": en, "zh-CN": zh})
-    # Section key collapses to "" and the block still pairs.
-    assert ("", "run") in paired
-    assert set(paired[("", "run")].keys()) == {"en", "zh-CN"}
+    docs = {
+        "en": [
+            GeneratedDocument(filename="g.md", base_name="g.md", language_code="en", content=en)
+        ],
+        "zh-CN": [
+            GeneratedDocument(
+                filename="g.zh-CN.md", base_name="g.md", language_code="zh-CN", content=zh
+            )
+        ],
+    }
+    paired = pair_blocks_by_section_id(docs)
+    # Section key collapses to "" (document_id is always the explicit base_name)
+    # and the block still pairs.
+    assert ("g.md", "", "run") in paired
+    assert set(paired[("g.md", "", "run")].keys()) == {"en", "zh-CN"}
 
+
+# ---------------------------------------------------------------------------
+# Splitting delegates to the parser (single source of truth)
+# ---------------------------------------------------------------------------
+
+
+def test_split_sections_matches_parser():
+    """split_sections is a thin wrapper over parse_document_sections: the section
+    ids and body content they produce must agree."""
+    sample = (
+        "<!-- makewiki:section=alpha -->\n"
+        "## Alpha\n"
+        "Body a.\n"
+        "<!-- makewiki:section=beta -->\n"
+        "## Beta\n"
+        "Body b.\n"
+    )
+    parsed = parse_document_sections(sample, document_id="g.md")
+    split = split_sections(sample)
+
+    assert [sid for sid, _ in split] == [sec.section_id for sec in parsed.sections]
+    assert [content for _, content in split] == [sec.content for sec in parsed.sections]
+
+
+# ---------------------------------------------------------------------------
+# Stable-identity structural invariants (§8 / §9)
+# ---------------------------------------------------------------------------
+
+
+def test_duplicate_section_id_fails():
+    """One document declaring the same stable section id twice yields an L4a
+    FAILED check; a section ID must be unique per document."""
+    dup = (
+        "<!-- makewiki:section=alpha -->\n## Alpha\ncontent a\n"
+        "<!-- makewiki:section=alpha -->\n## Alpha again\ncontent b\n"
+    )
+    docs = {
+        "en": [GeneratedDocument(filename="x.md", base_name="x.md", language_code="en", content=dup)],
+        "zh-CN": [
+            GeneratedDocument(
+                filename="x.zh-CN.md", base_name="x.md", language_code="zh-CN", content=dup
+            )
+        ],
+    }
+    report = L4CrossLanguageVerifier().verify_documents(docs)
+
+    dup_checks = [
+        c for c in report.checks
+        if c.claim_type == "l4a_mechanical" and "more than once" in c.claim_text
+    ]
+    assert len(dup_checks) >= 1
+    for check in dup_checks:
+        assert check.status == "failed"
+        assert check.verified is False
+        assert "alpha" in check.claim_text
+
+
+def test_duplicate_block_id_fails():
+    """One document with two [[id:run]] blocks in different sections is an L4a
+    FAILED check naming the duplicated block id (not silently overwritten)."""
+    content = (
+        "<!-- makewiki:section=alpha -->\n## Alpha\n"
+        "[[id:run]]\n```bash\napp run a\n```\n"
+        "<!-- makewiki:section=beta -->\n## Beta\n"
+        "[[id:run]]\n```bash\napp run b\n```\n"
+    )
+    docs = {
+        "en": [GeneratedDocument(filename="x.md", base_name="x.md", language_code="en", content=content)],
+        "zh-CN": [
+            GeneratedDocument(
+                filename="x.zh-CN.md", base_name="x.md", language_code="zh-CN", content=content
+            )
+        ],
+    }
+    report = L4CrossLanguageVerifier().verify_documents(docs)
+
+    dup_checks = [
+        c for c in report.checks
+        if c.claim_type == "l4a_mechanical"
+        and "Duplicate stable block id" in c.claim_text
+    ]
+    assert len(dup_checks) >= 1
+    for check in dup_checks:
+        assert check.status == "failed"
+        assert check.verified is False
+        assert check.target == "[[id:run]]"
+
+
+def test_same_block_id_different_documents_does_not_collide():
+    """Two documents each declaring [[id:install.command]] do NOT collide: the
+    pairing keys are namespaced by document_id and parity succeeds for each."""
+    block = "[[id:install.command]]\n```bash\nhelm install app\n```\n"
+    a_en = f"<!-- makewiki:section=install -->\n## Install\n{block}"
+    b_en = f"<!-- makewiki:section=install -->\n## Install\n{block}"
+    a_zh = f"<!-- makewiki:section=install -->\n## 安装\n{block}"
+    b_zh = f"<!-- makewiki:section=install -->\n## 安装\n{block}"
+
+    docs = {
+        "en": [
+            GeneratedDocument(filename="a.md", base_name="a.md", language_code="en", content=a_en),
+            GeneratedDocument(filename="b.md", base_name="b.md", language_code="en", content=b_en),
+        ],
+        "zh-CN": [
+            GeneratedDocument(
+                filename="a.zh-CN.md", base_name="a.md", language_code="zh-CN", content=a_zh
+            ),
+            GeneratedDocument(
+                filename="b.zh-CN.md", base_name="b.md", language_code="zh-CN", content=b_zh
+            ),
+        ],
+    }
+
+    paired = pair_blocks_by_section_id(docs)
+    # Both documents' install.command blocks are kept separate by document_id.
+    assert ("a.md", "install", "install.command") in paired
+    assert ("b.md", "install", "install.command") in paired
+    assert set(paired[("a.md", "install", "install.command")].keys()) == {"en", "zh-CN"}
+    assert set(paired[("b.md", "install", "install.command")].keys()) == {"en", "zh-CN"}
+
+    report = L4CrossLanguageVerifier().verify_documents(docs)
+    # Each document's install.command block is present in both languages and
+    # identical -> both pass; no cross-document collision failure.
+    passed = [
+        c for c in report.checks
+        if c.claim_type == "l4a_mechanical" and "identical" in c.claim_text
+    ]
+    assert any(c.target == "a.md [[id:install.command]] @install" for c in passed)
+    assert any(c.target == "b.md [[id:install.command]] @install" for c in passed)
+
+
+def test_missing_multilingual_section_id_fails():
+    """In multilingual output, a language's H2 with no section marker is an L4a
+    FAILED check mentioning 'stable section marker'."""
+    en = (
+        "<!-- makewiki:section=setup -->\n## Setup\nRun the app.\n"
+    )
+    # zh-CN H2 carries no stable section marker.
+    zh = "## 设置\n运行应用。\n"
+    docs = {
+        "en": [
+            GeneratedDocument(filename="guide.md", base_name="guide.md", language_code="en", content=en)
+        ],
+        "zh-CN": [
+            GeneratedDocument(
+                filename="guide.zh-CN.md", base_name="guide.md", language_code="zh-CN", content=zh
+            )
+        ],
+    }
+    report = L4CrossLanguageVerifier().verify_documents(docs)
+
+    missing = [
+        c for c in report.checks
+        if c.claim_type == "l4a_mechanical" and "stable section marker" in c.claim_text
+    ]
+    assert len(missing) >= 1
+    for check in missing:
+        assert check.status == "failed"
+        assert check.verified is False

@@ -61,7 +61,9 @@ aligned passages, then judges the LLM-judged layers:
    code/command parity)? L4 matching is keyed on stable block IDs
    (`[[id:...]]`) and stable H2 section markers
    (`<!-- makewiki:section=<slug> -->`), never on heading text or heading
-   position — section ORDER may legitimately differ per language.
+   position — section ORDER may legitimately differ per language. For
+   multilingual output every reviewable H2 MUST carry a stable section marker,
+   and duplicate section or block IDs within one document are L4a failures.
 3. **L5 Over-Assertion Audit** — are any claims more confident than the
    evidence supports? Are anti-AI-cliché rules followed?
 
@@ -74,7 +76,7 @@ verdicts — schema `{schema_version, documents_digest, semantic_model_digest?,
 auditor, audited_at, verdicts:[{review_item_id, layer: L3|L4b|L5, status:
 passed|failed, rationale_summary, evidence_refs, confidence}]}`. The bundle is
 **item-level**: each `SemanticAuditVerdict` targets exactly one
-`review_item_id` (e.g. `L3:README.md:make build`, `L4b:README:build`,
+`review_item_id` (e.g. `L3:README.md:make build`, `L4b:README.md:build`,
 `L5:README.md:make build`). The report's `review_items` registry lists the
 expected semantic review items for L3 / L4b / L5 — the bundle can only
 adjudicate items that exist in this registry; a verdict for an unknown

@@ -144,8 +144,10 @@ of `parity`.
 
    block MUST carry a stable block ID `[[id:<slug>]]` (an untagged technical
    block is an **L4a failure**; exemption only via
-   `[[parity:ignore reason="..."]]`). Every H2 section SHOULD carry a stable
-   section marker `<!-- makewiki:section=<slug> -->`. Section ORDER may differ
+   `[[parity:ignore reason="..."]]`). Every multilingual REVIEWABLE H2
+   section MUST carry a stable section marker `<!-- makewiki:section=<slug> -->`;
+   single-language output may omit markers. Duplicate section or block IDs
+   within one document are L4a failures. Section ORDER may differ
    per language (native independent writing); all cross-language parity and
    review is keyed on stable block + section IDs, never on heading text or
    heading position.
