@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import uuid
 from datetime import UTC, datetime
-from typing import Literal
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field, computed_field
 
@@ -59,6 +59,13 @@ class VerificationCheck(BaseModel):
     #: re-runs when the underlying semantic item is unchanged — it is NEVER a
     #: random UUID (unlike ``check_id``).
     review_item_id: str | None = None
+    #: Structured provenance from the LLM Auditor, populated by the item-level
+    #: semantic-bundle merge (``verification_source == "semantic_audit_bundle"``).
+    #: Holds the auditor, rationale, evidence refs, confidence and audited_at as
+    #: first-class fields so downstream consumers (CLI report, eval scorer, Skill
+    #: layer) can read them without parsing ``detail`` prose. None when the check
+    #: was not merged from an audit bundle.
+    provenance: dict[str, Any] | None = None
 
 
 class ReviewItem(BaseModel):

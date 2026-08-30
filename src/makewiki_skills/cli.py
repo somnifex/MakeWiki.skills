@@ -346,7 +346,7 @@ def verify_docs(
         semantic_model_digest=semantic_model_digest,
     )
     result = evaluate_quality_gate(
-        report, cfg, fail_on_critical=cfg.quality.fail_on_critical
+        report, cfg, allow_pending_llm_layers=cfg.quality.allow_pending_llm_layers
     )
 
     if output_format == "json":

@@ -9,8 +9,16 @@ category — a field is never dead and is never ambiguous about who consumes it:
   (writing guidance). Example: ``documentation_policy.banned_descriptors`` is
   enforced by the Python validator and is also consulted by the writer to avoid
   banned descriptors.
-* ``LEGACY_ONLY`` — only consumed by the deprecated ``legacy-generate`` path.
-  Currently empty (no live legacy-only config surface remains).
+* ``LEGACY_ONLY`` — only consumed by the deprecated ``legacy-generate`` /
+  ``generate`` path: the ``LegacyDeterministicRenderer`` and the legacy
+  ``Pipeline`` (revision engine, output manager). These fields control
+  *semantic* scaffolding decisions (whether to emit faq/troubleshooting/
+  env-vars pages, whether to attach uncertainty hedges, revision rounds) that
+  the deprecated scaffold performs in Python. The authoritative ``/makewiki``
+  flow never consults them — the LLM writers decide what to author. They are
+  marked LEGACY_ONLY, not PYTHON_ONLY, so the contract knows Python consumes
+  them only inside the non-authoritative scaffold, and they never leak into the
+  authoritative plane's "Python mechanically enforces this" surface.
 
 Config classes declare their membership across four ClassVars:
 
@@ -119,22 +127,22 @@ class RevisionConfig(BaseModel):
     # 一轮 revision 没产生任何修改时停止
     stop_on_no_progress: bool = True
 
-    # 最低 grounding 分数
-    min_grounding_score: float = Field(default=1.0, ge=0.0, le=1.0)
-
-    _PYTHON_CONSUMED_FIELDS: ClassVar[frozenset[str]] = frozenset(
+    _PYTHON_CONSUMED_FIELDS: ClassVar[frozenset[str]] = frozenset()
+    _LLM_CONSUMED_FIELDS: ClassVar[frozenset[str]] = frozenset()
+    _SHARED_CONSUMED_FIELDS: ClassVar[frozenset[str]] = frozenset()
+    # The entire revision engine is the deprecated legacy scaffold. These fields
+    # drive the legacy Pipeline's MechanicalRepairEngine loop (auto-hedge /
+    # auto-harmonize are Python-authored semantic edits) and are therefore
+    # LEGACY_ONLY — never part of the authoritative /makewiki plane.
+    _LEGACY_CONSUMED_FIELDS: ClassVar[frozenset[str]] = frozenset(
         {
             "enabled",
             "max_rounds",
             "auto_hedge_ungrounded",
             "auto_harmonize_code_blocks",
             "stop_on_no_progress",
-            "min_grounding_score",
         }
     )
-    _LLM_CONSUMED_FIELDS: ClassVar[frozenset[str]] = frozenset()
-    _SHARED_CONSUMED_FIELDS: ClassVar[frozenset[str]] = frozenset()
-    _LEGACY_CONSUMED_FIELDS: ClassVar[frozenset[str]] = frozenset()
 
 
 class ContentDepthConfig(BaseModel):
@@ -275,14 +283,16 @@ class DeliveryConfig(BaseModel):
 class QualityConfig(BaseModel):
     """Thresholds for the unified L0-L5 Quality Gate."""
 
-    fail_on_critical: bool = True
     # When True, unresolved LLM-judged layers (L3/L4-prose/L5) that are left
     # pending do not by themselves fail the gate.
     allow_pending_llm_layers: bool = True
+    # The single Quality Gate grounding threshold. This is the ONLY place the
+    # gate reads a grounding score threshold — the revision engine no longer
+    # carries its own copy.
     min_grounding_score: float = Field(default=1.0, ge=0.0, le=1.0)
 
     _PYTHON_CONSUMED_FIELDS: ClassVar[frozenset[str]] = frozenset(
-        {"fail_on_critical", "allow_pending_llm_layers", "min_grounding_score"}
+        {"allow_pending_llm_layers", "min_grounding_score"}
     )
     _LLM_CONSUMED_FIELDS: ClassVar[frozenset[str]] = frozenset()
     _SHARED_CONSUMED_FIELDS: ClassVar[frozenset[str]] = frozenset()
@@ -322,16 +332,8 @@ class MakeWikiConfig(BaseModel):
             "output_dir",
             "languages",
             "default_language",
-            "overwrite",
-            "delete_stale_files",
-            "generate_faq",
-            "generate_troubleshooting",
-            "generate_env_vars_page",
-            "strict_grounding",
-            "emit_uncertainty_notes",
             "scan",
             "review",
-            "revision",
             "quality",
             "site",
             "documentation_policy",
@@ -342,7 +344,26 @@ class MakeWikiConfig(BaseModel):
         {"agent", "delivery", "content_depth", "language_profiles"}
     )
     _SHARED_CONSUMED_FIELDS: ClassVar[frozenset[str]] = frozenset()
-    _LEGACY_CONSUMED_FIELDS: ClassVar[frozenset[str]] = frozenset()
+    # These fields ONLY drive the deprecated ``legacy-generate`` / ``generate``
+    # scaffold (the ``LegacyDeterministicRenderer`` emitting faq/troubleshooting/
+    # env-vars pages and uncertainty notes, the legacy ``Pipeline`` write stage
+    # and its ``CodeGroundingVerifier`` strictness, and the whole legacy revision
+    # block). The authoritative ``/makewiki`` flow never reads them — the LLM
+    # writers decide page composition and hedging. So they are LEGACY_ONLY, not
+    # PYTHON_ONLY: Python consumes them only inside the non-authoritative
+    # scaffold, and they must never appear as legitimate mechanical enforcement.
+    _LEGACY_CONSUMED_FIELDS: ClassVar[frozenset[str]] = frozenset(
+        {
+            "generate_faq",
+            "generate_troubleshooting",
+            "generate_env_vars_page",
+            "strict_grounding",
+            "emit_uncertainty_notes",
+            "overwrite",
+            "delete_stale_files",
+            "revision",
+        }
+    )
 
     @classmethod
     def load(cls, config_path: Path, target_dir: Path | None = None) -> MakeWikiConfig:
@@ -413,6 +434,25 @@ def llm_consumed_field_paths() -> set[str]:
         llm: frozenset[str] = getattr(model, "_LLM_CONSUMED_FIELDS", frozenset())
         shared: frozenset[str] = getattr(model, "_SHARED_CONSUMED_FIELDS", frozenset())
         for field in llm | shared:
+            paths.add(f"{model.__name__}.{field}")
+    return paths
+
+
+def legacy_consumed_field_paths() -> set[str]:
+    """Return every field path consumed ONLY by the deprecated legacy scaffold.
+
+    LEGACY_ONLY fields are read by Python only inside ``legacy-generate`` /
+    ``generate`` (the ``LegacyDeterministicRenderer``, the legacy ``Pipeline``,
+    the ``MechanicalRepairEngine``). They are deliberately excluded from
+    ``python_consumed_field_paths()`` so the authoritative-plane contract does
+    not treat them as legitimate mechanical enforcement — but they must still be
+    covered so ``test_every_config_field_is_marked_consumed`` does not report
+    them as dead.
+    """
+    paths: set[str] = set()
+    for model in iter_config_models():
+        legacy: frozenset[str] = getattr(model, "_LEGACY_CONSUMED_FIELDS", frozenset())
+        for field in legacy:
             paths.add(f"{model.__name__}.{field}")
     return paths
 

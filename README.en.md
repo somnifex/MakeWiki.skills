@@ -159,9 +159,9 @@ MakeWiki no longer claims "zero hallucinations." It delivers **verifiable, evide
 Optional config file at the project root. Fields fall into four classes:
 
 - **LLM-only** — read by the Skill orchestrator / writers (`agent.*`, `delivery.*`, `content_depth.*`, `language_profiles.*`, and the other `documentation_policy.*` fields besides the two Shared ones below).
-- **Python-only** — read by the mechanical plane (`site.*`, `scan.*`, `review.*`, `quality.*`, `revision.*`, etc.).
+- **Python-only** — read by the authoritative mechanical CLI (`site.*`, `scan.*`, `review.*`, `quality.*`, `output_dir`, `languages`, `default_language`).
 - **Shared** — read by Python for mechanical enforcement AND by the LLM writer as guidance (`documentation_policy.forbid_unfounded_praise` and `documentation_policy.banned_descriptors`).
-- **Legacy-only** — empty today (the deprecated `legacy-generate` path has no live config surface).
+- **Legacy-only** — semantic scaffolding fields consumed ONLY by the deprecated `legacy-generate` / `generate` scaffold (`generate_faq`, `generate_troubleshooting`, `generate_env_vars_page`, `emit_uncertainty_notes`, `strict_grounding`, `overwrite`, `delete_stale_files`, and the whole `revision.*` block). In the authoritative `/makewiki` flow the LLM writers decide page composition and hedging; Python never treats these as mechanical authority.
 
 ```yaml
 output_dir: makewiki
@@ -187,7 +187,6 @@ delivery:                    # LLM-consumed
   include_compatibility_matrix: true
 
 quality:                     # Quality Gate thresholds
-  fail_on_critical: true
   min_grounding_score: 1.0
 ```
 

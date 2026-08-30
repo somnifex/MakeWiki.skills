@@ -18,7 +18,10 @@ from makewiki_skills.verification.report import (
     ReviewItem,
     VerificationCheck,
 )
-from makewiki_skills.verification.semantic_audit import SemanticAuditBundle
+from makewiki_skills.verification.semantic_audit import (
+    SemanticAuditBundle,
+    validate_bundle_shape,
+)
 
 
 def _slug(text: str) -> str:
@@ -122,6 +125,10 @@ class VerificationOrchestrator:
                     return report  # UNPROVEN -> reject (not merged)
                 if semantic_bundle.semantic_model_digest != semantic_model_digest:
                     return report  # STALE -> reject
+            # Re-validate the bundle's cross-row shape (no duplicate
+            # review_item_id, layer prefix matches). Python must never merge a
+            # malformed bundle — the rejection below relies on well-formed ids.
+            validate_bundle_shape(semantic_bundle)
             self._merge_semantic_bundle(report, semantic_bundle)
         return report
 
@@ -193,42 +200,53 @@ class VerificationOrchestrator:
     ) -> None:
         """Merge the Auditor's L3/L4b/L5 verdicts into the report item-level.
 
-        Each ``SemanticAuditVerdict`` maps to EXACTLY ONE ``VerificationCheck``
-        by its ``review_item_id``. Mechanics:
+        Each ``SemanticAuditVerdict`` maps to EXACTLY ONE registry item (matched
+        by ``review_item_id``), and may only adjudicate an item that exists in
+        the Review Registry Python computed in ``_build_review_items``. The
+        registry is the authoritative, deduplicated list of pending semantic
+        items (pending-only, L4b-only) — so a verdict can never adjudicate a
+        check the registry did not register. Mechanics:
 
-        1. Build a per-layer lookup ``review_item_id -> check`` over the L3/L4b/
-           L5 semantic checks that carry a non-None ``review_item_id``.
-        2. For each verdict whose ``review_item_id`` matches NO existing check,
-           the whole bundle is REJECTED: the merge aborts immediately, nothing is
-           merged, and all L3/L4b/L5 checks stay pending. Unknown ids are
-           recorded on ``report.details`` for diagnosis.
+        1. Build a lookup ``review_item_id -> check`` over the REGISTRY items
+           (mapping back to the underlying ``VerificationCheck`` by the same
+           effective id the registry used).
+        2. For each verdict whose ``review_item_id`` matches NO registry item,
+           the whole bundle is REJECTED: nothing is merged, and all L3/L4b/L5
+           checks stay pending. Unknown ids are recorded on ``report.details``
+           for diagnosis. (Duplicate verdict ids are rejected earlier by
+           ``validate_bundle_shape``.)
         3. Each matched verdict updates ONLY that one check in place — status,
-           verified, verification source, and provenance (rationale / auditor /
-           confidence / evidence / audited_at) — while preserving the check's
-           ``review_item_id``.
+           verified, verification source, and STRUCTURED provenance
+           (auditor / rationale_summary / evidence_refs / confidence /
+           audited_at, stored on ``check.provenance``) — while preserving the
+           check's ``review_item_id`` and a readable ``detail``.
         4. Never rebuild ``lr.checks`` wholesale; never touch L0/L1/L2/L4a
            mechanical checks; unmentioned pending checks keep ``status="pending"``.
         """
-        # ---- 1. per-layer lookup -------------------------------------------
-        # Build the lookup over the SAME effective review_item_id the registry
-        # computed in ``_build_review_items`` (a check's own id, or the
-        # deterministic fallback), so the merge adjudicates the registry's items.
-        semantic_layers = {"L3", "L4", "L5"}
-        lookup: dict[str, VerificationCheck] = {}
-        for layer_name, lr in report.layers.items():
-            if layer_name not in semantic_layers:
+        # ---- 1. lookup over REGISTRY items only ----------------------------
+        # The registry carries the exact set of adjudicable, pending semantic
+        # items. Map each registered review_item_id to its underlying
+        # VerificationCheck via the effective id; the registry is already
+        # deduplicated and L4b-only, so a registered item matches exactly one
+        # check.
+        registry_ids = {item.review_item_id for item in report.review_items}
+        check_by_rid: dict[str, VerificationCheck] = {}
+        for layer_name in ("L3", "L4", "L5"):
+            lr = report.layers.get(layer_name)
+            if lr is None:
                 continue
             for check in lr.checks:
                 rid = VerificationOrchestrator._effective_review_item_id(
                     layer_name, check
                 )
-                lookup.setdefault(rid, check)
+                if rid in registry_ids:
+                    check_by_rid[rid] = check
 
         # ---- 2. unknown review_item_id -> reject whole bundle --------------
         unknown_ids = [
             v.review_item_id
             for v in bundle.verdicts
-            if v.review_item_id not in lookup
+            if v.review_item_id not in registry_ids
         ]
         if unknown_ids:
             details = dict(report.details)
@@ -240,18 +258,28 @@ class VerificationOrchestrator:
 
         # ---- 3. item-level update for each matched verdict -----------------
         for verdict in bundle.verdicts:
-            check = lookup[verdict.review_item_id]
+            check = check_by_rid[verdict.review_item_id]
             check.status = verdict.status
             check.verified = verdict.status == "passed"
             check.verification_source = "semantic_audit_bundle"
-            # Preserve semantic content + provenance on the merged check.
-            provenance = (
+            # Structured provenance: the Auditor's adjudication record kept as
+            # first-class fields (Python does not re-judge the verdict, it only
+            # preserves who said what, when, and why).
+            check.provenance = {
+                "auditor": bundle.auditor,
+                "rationale_summary": verdict.rationale_summary,
+                "evidence_refs": list(verdict.evidence_refs),
+                "confidence": verdict.confidence,
+                "audited_at": bundle.audited_at,
+            }
+            # A readable one-line summary remains on detail for CLI/legacy
+            # display; the structured fields are the source of truth.
+            evidence = ", ".join(verdict.evidence_refs) if verdict.evidence_refs else "none"
+            check.detail = (
                 f"LLM Auditor: {bundle.auditor}; rationale: {verdict.rationale_summary}"
                 f"; confidence: {verdict.confidence}"
-                f"; evidence: {', '.join(verdict.evidence_refs) if verdict.evidence_refs else 'none'}"
-                f"; audited_at: {bundle.audited_at} | {check.detail}"
+                f"; evidence: {evidence}; audited_at: {bundle.audited_at}"
             )
-            check.detail = provenance
 
     def verify_layer(
         self,

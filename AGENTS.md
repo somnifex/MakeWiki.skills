@@ -185,7 +185,6 @@ quality_gate:
     - L4 cross_language (Python exact + LLM prose)
     - L5 epistemic (LLM over-assertion review)
   thresholds:
-    quality.fail_on_critical: true
     quality.min_grounding_score: 1.0
     quality.allow_pending_llm_layers: true
   result_fields:

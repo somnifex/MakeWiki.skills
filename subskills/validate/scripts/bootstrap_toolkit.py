@@ -227,9 +227,16 @@ def populate_from_archive(target: Path, version: str, expected_sha256: str | Non
 def populate_from_git(
     target: Path,
     version: str,
-    expected_sha256: str | None = None,
     commit: str | None = None,
 ) -> None:
+    """Install the toolkit from a pinned Git tag (version + optional commit).
+
+    A Git install is verified by its Git identity only: the exact release tag
+    (``--branch v<version>``) and, when pinned, the exact commit SHA. It is a
+    hard boundary that a Git checkout is NEVER verified against an archive
+    checksum — ``MAKEWIKI_TOOLKIT_ARCHIVE_SHA256`` is the integrity checksum for
+    the downloaded release zip, not a property of a validated git checkout.
+    """
     target.parent.mkdir(parents=True, exist_ok=True)
     if target.exists():
         shutil.rmtree(target)
@@ -245,8 +252,6 @@ def populate_from_git(
             ["git", "-C", str(target), "checkout", commit],
             check=True,
         )
-    if expected_sha256:
-        verify_git_checkout_sha256(target, expected_sha256)
     # Record the exact fetched commit SHA (git identity) — kept separate from
     # the archive checksum used for zip installs.
     fetched = subprocess.run(
@@ -257,25 +262,6 @@ def populate_from_git(
     ).stdout.strip()
     record_commit(target, fetched)
     record_version(target, version)
-
-
-def verify_git_checkout_sha256(root: Path, expected: str) -> None:
-    """Best-effort integrity marker for git clones.
-
-    A git clone has no single archive to hash, so we hash the tree as a
-    deterministic marker (sorted relative paths + file bytes). This is a
-    supplementary integrity signal on top of git's own tag+commit pinning.
-    """
-    digest = hashlib.sha256()
-    for path in sorted(p for p in root.rglob("*") if p.is_file() and ".git" not in p.parts):
-        digest.update(str(path.relative_to(root)).encode("utf-8"))
-        digest.update(b"\0")
-        digest.update(path.read_bytes())
-    actual = digest.hexdigest()
-    if actual != expected:
-        raise RuntimeError(
-            f"Toolkit tree SHA256 mismatch for {root}: expected {expected}, got {actual}"
-        )
 
 
 def ensure_home_toolkit() -> Path:
@@ -299,7 +285,9 @@ def ensure_home_toolkit() -> Path:
 
     if shutil.which("git"):
         try:
-            populate_from_git(target, version, expected_sha256, commit)
+            # Git install verifies by version + commit identity only — never by
+            # the archive checksum (expected_sha256 is for zip installs).
+            populate_from_git(target, version, commit)
             return target
         except subprocess.CalledProcessError:
             pass

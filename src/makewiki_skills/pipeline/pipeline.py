@@ -248,7 +248,7 @@ def quality_passed(
     if cross_report is not None and not cross_report.passed:
         return False
     if grounding_report is not None:
-        if grounding_report.grounding_score < config.revision.min_grounding_score:
+        if grounding_report.grounding_score < config.quality.min_grounding_score:
             return False
         if len(grounding_report.violations) > 0:
             return False

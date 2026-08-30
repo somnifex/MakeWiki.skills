@@ -24,6 +24,7 @@ from makewiki_skills.config import (
     all_field_categories,
     field_consumer_category,
     iter_config_models,
+    legacy_consumed_field_paths,
     llm_consumed_field_paths,
     python_consumed_field_paths,
 )
@@ -44,19 +45,28 @@ def _all_config_field_paths() -> dict[str, set[str]]:
 
 
 def test_every_config_field_is_marked_consumed():
-    """Union of Python + LLM consumed sets == every declared field per model."""
+    """Union of Python + LLM (+ Legacy) consumed sets == every declared field.
+
+    LEGACY_ONLY fields are consumed by the deprecated ``legacy-generate``
+    scaffold; they still count as consumed (never dead) but must NOT be treated
+    as authoritative mechanical enforcement, so they live outside the Python
+    and LLM sets and are counted separately here.
+    """
     declared = _all_config_field_paths()
     python_paths = python_consumed_field_paths()
     llm_paths = llm_consumed_field_paths()
+    legacy_paths = legacy_consumed_field_paths()
 
     failures: list[str] = []
     for model_name, fields in declared.items():
-        expected_python = {f"{model_name}.{f}" for f in fields}
-        consumed_here = {p for p in python_paths if p.startswith(f"{model_name}.")}
-        consumed_here |= {p for p in llm_paths if p.startswith(f"{model_name}.")}
-        missing = expected_python - consumed_here
+        consumed_here = {
+            p for p in python_paths | llm_paths | legacy_paths
+            if p.startswith(f"{model_name}.")
+        }
+        expected = {f"{model_name}.{f}" for f in fields}
+        missing = expected - consumed_here
         if missing:
-            failures.append(f"{model_name}: not declared Python or LLM consumed: {sorted(missing)}")
+            failures.append(f"{model_name}: not classified consumed: {sorted(missing)}")
     assert not failures, "\n".join(failures)
 
 
@@ -209,7 +219,9 @@ def test_yaml_config_templates_annotate_consumption():
     """
     # SHARED is a first-class consumption category (Python validator + LLM
     # writer); it is accepted alongside ``Python-consumed`` / ``LLM-consumed``.
-    VALID_ANNOTATIONS = ("Python-consumed", "LLM-consumed", "SHARED")
+    # ``Legacy-consumed`` marks fields read only by the deprecated
+    # ``legacy-generate`` / ``generate`` scaffold.
+    VALID_ANNOTATIONS = ("Python-consumed", "LLM-consumed", "SHARED", "Legacy-consumed")
     template_paths = [
         PROJECT_ROOT / "templates" / "config.yaml",
         PROJECT_ROOT / "subskills" / "init" / "templates" / "default.config.yaml",
@@ -262,3 +274,71 @@ def test_python_consumed_field_subset_is_nonempty():
     """At least *some* fields are Python-consumed — guard against all-LLM regression."""
     assert len(python_consumed_field_paths()) > 0
     assert len(llm_consumed_field_paths()) > 0
+
+
+def test_semantic_content_fields_are_legacy_only_not_python_only():
+    """The LLM-first boundary: page-presence, uncertainty, and revision fields
+    that control SEMANTIC authoring must be LEGACY_ONLY, never PYTHON_ONLY.
+
+    ``generate_faq`` / ``generate_troubleshooting`` / ``generate_env_vars_page``
+    decide whether Python emits semantic-content pages; ``emit_uncertainty_notes``
+    and ``revision.*`` decide whether Python attaches uncertainty/revision prose.
+    Those decisions belong to the LLM in the authoritative ``/makewiki`` flow, so
+    Python may only consume them inside the deprecated legacy scaffold
+    (LEGACY_ONLY). If one of these ever becomes PYTHON_ONLY, Python's "mechanical
+    enforcement" surface would be silently authoring semantics — a boundary
+    violation this contract must keep failing until it is classified legacy.
+    """
+    semantic_fields = {
+        "MakeWikiConfig.generate_faq",
+        "MakeWikiConfig.generate_troubleshooting",
+        "MakeWikiConfig.generate_env_vars_page",
+        "MakeWikiConfig.emit_uncertainty_notes",
+        "RevisionConfig.enabled",
+        "RevisionConfig.max_rounds",
+        "RevisionConfig.auto_hedge_ungrounded",
+        "RevisionConfig.auto_harmonize_code_blocks",
+        "RevisionConfig.stop_on_no_progress",
+    }
+    categories = all_field_categories()
+    for path in semantic_fields:
+        assert categories[path] == "LEGACY_ONLY", (
+            f"{path} must be LEGACY_ONLY (consumed only by the deprecated "
+            f"legacy scaffold, never as authoritative Python semantics); "
+            f"got {categories[path]}"
+        )
+    # The legacy scaffold must actually have a live surface (non-empty), else
+    # LEGACY_ONLY is a fiction.
+    assert len(legacy_consumed_field_paths()) > 0
+
+
+def test_strict_grounding_and_write_policy_are_legacy_only_in_python_plane():
+    """Python-only enforcement fields that are actually read ONLY by the legacy
+    pipeline (strict_grounding, overwrite, delete_stale_files) must be LEGACY_ONLY.
+    """
+    categories = all_field_categories()
+    for path in (
+        "MakeWikiConfig.strict_grounding",
+        "MakeWikiConfig.overwrite",
+        "MakeWikiConfig.delete_stale_files",
+        "MakeWikiConfig.revision",
+    ):
+        assert categories[path] == "LEGACY_ONLY", (
+            f"{path} must be LEGACY_ONLY (read only by the legacy pipeline); "
+            f"got {categories[path]}"
+        )
+
+
+def test_authoritative_output_fields_stay_python_only():
+    """Fields read by the authoritative mechanical CLI (verify-docs / parity /
+    review) stay PYTHON_ONLY — they are genuinely Python-mechanical."""
+    categories = all_field_categories()
+    for path in (
+        "MakeWikiConfig.output_dir",
+        "MakeWikiConfig.languages",
+        "MakeWikiConfig.default_language",
+    ):
+        assert categories[path] == "PYTHON_ONLY", (
+            f"{path} must stay PYTHON_ONLY (read by the authoritative CLI); "
+            f"got {categories[path]}"
+        )

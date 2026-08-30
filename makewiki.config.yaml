@@ -1,0 +1,89 @@
+output_dir: makewiki
+languages:
+- en
+- zh-CN
+default_language: en
+overwrite: true
+delete_stale_files: false
+generate_faq: true
+generate_troubleshooting: true
+generate_env_vars_page: true
+strict_grounding: true
+emit_uncertainty_notes: true
+scan:
+  mode: auto
+  ignore_dirs:
+  - node_modules
+  - dist
+  - build
+  - .git
+  - .makewiki
+  - __pycache__
+  - .venv
+  - venv
+  max_depth: 6
+  max_file_size_kb: 512
+  enable_source_intelligence: true
+  source_intelligence_max_files: 50
+  max_external_urls: 3
+  recursive_docs: true
+review:
+  enable_cross_language_review: true
+  enable_code_grounding_verification: true
+  enable_codebase_verification: true
+  enable_semantic_review: true
+  min_page_alignment_ratio: 0.9
+revision:
+  enabled: true
+  max_rounds: 2
+  auto_hedge_ungrounded: true
+  auto_harmonize_code_blocks: true
+  stop_on_no_progress: true
+  min_grounding_score: 1.0
+content_depth:
+  mode: auto
+  max_faq_items: 20
+  max_usage_examples: 8
+  max_troubleshooting_items: 8
+  split_usage_threshold: 6
+documentation_policy:
+  audience: end-user
+  structure_strategy: user-journey
+  prefer_task_oriented_sections: true
+  include_architecture_analysis: false
+  include_directory_overview: false
+  include_source_walkthroughs: false
+  forbid_unfounded_praise: true
+  banned_descriptors:
+  - powerful
+  - robust
+  - flexible
+  - enterprise-grade
+  - high-performance
+  - elegant
+  - state-of-the-art
+  - cutting-edge
+  - seamless
+  - blazing-fast
+  - world-class
+  - best-in-class
+  - production-ready
+agent:
+  max_subagents: 10
+  rebattle_rounds: 2
+  tier_override: auto
+site:
+  compile: true
+  theme: auto
+  include_search: true
+  output_subdir: site
+delivery:
+  audience: dual
+  include_deployment_runbook: true
+  include_compatibility_matrix: true
+  include_health_checks: true
+quality:
+  fail_on_critical: true
+  allow_pending_llm_layers: true
+  min_grounding_score: 1.0
+language_profiles: {}

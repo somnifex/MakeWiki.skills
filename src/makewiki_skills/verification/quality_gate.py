@@ -180,7 +180,6 @@ def evaluate_quality_gate(
     report: ComprehensiveVerificationReport,
     revision: RevisionConfig | MakeWikiConfig | None = None,
     *,
-    fail_on_critical: bool = True,
     min_grounding_score: float | None = None,
     resolved_critical_in_rounds: int = 0,
     allow_pending_llm_layers: bool | None = None,
@@ -192,25 +191,34 @@ def evaluate_quality_gate(
     report:
         The aggregate L0-L5 report from the orchestrator.
     revision:
-        Either a ``RevisionConfig`` (or a full ``MakeWikiConfig`` whose
-        ``revision`` is read) supplying ``min_grounding_score``.
-    fail_on_critical:
-        Whether any failed mechanical layer or unresolved critical item fails the
-        gate. LLM-judged layers left ``pending`` are reported but do not by
-        themselves fail the gate unless their checks explicitly failed.
+        Optional configuration. A full ``MakeWikiConfig`` supplies the gate's
+        single grounding threshold from ``quality.min_grounding_score`` (and
+        ``quality.allow_pending_llm_layers`` when the flag is None); a bare
+        ``RevisionConfig`` has no quality block, so the gate falls back to its
+        default threshold 1.0.
+    min_grounding_score:
+        Explicit override for the grounding threshold. When None, the gate
+        inherits it from ``revision.quality.min_grounding_score`` (or the
+        default 1.0).
     allow_pending_llm_layers:
-        If provided, overrides the auto-detection from the config. When True
-        (default), unresolved LLM-judged layers (L3 / L4b / L5) that are pending
-        hold the gate at ``pending_semantic_review`` with exit-policy code 0.
-        When False, a pending LLM layer with no audit verdict forces the gate to
-        ``failed`` (Python gate exit 1) — pending-with-no-bundle is not allowed.
+        EXIT POLICY ONLY — never changes the truth verdict. When True (default),
+        unresolved LLM-judged layers (L3 / L4b / L5) that are pending hold the
+        gate at ``pending_semantic_review`` and exit 0. When False, the verdict
+        STILL reads ``pending_semantic_review`` (never ``failed``) but the honest
+        base exit code is 2, conveying that the review was not granted. This flag
+        maps ``pending_semantic_review`` to 0-or-2 via ``ci_exit_code_for``; it
+        can never promote a pending semantic state to ``failed``.
     """
     min_score = min_grounding_score
     if min_score is None:
         if isinstance(revision, MakeWikiConfig):
-            min_score = revision.revision.min_grounding_score
-        elif revision is not None:
-            min_score = revision.min_grounding_score
+            # The single Quality Gate threshold lives on quality.*, not on the
+            # revision engine (which no longer carries its own copy).
+            min_score = revision.quality.min_grounding_score
+        elif isinstance(revision, RevisionConfig):
+            # Backward-compatible: a bare RevisionConfig has no quality block, so
+            # fall back to the gate default rather than a dead split threshold.
+            min_score = 1.0
         else:
             min_score = 1.0
 
@@ -335,10 +343,11 @@ def evaluate_quality_gate(
     # so does an EXPLICIT LLM-judged layer failure (a documented check that
     # contradicted or was never proven cannot be papered over). A pending
     # mechanical layer drives PENDING_MECHANICAL_VERIFICATION. Otherwise a
-    # pending LLM layer holds the gate at PENDING_SEMANTIC_REVIEW — unless
-    # allow_pending_llm_layers=False, in which case pending-with-no-bundle is
-    # not allowed and the gate is "failed". Only a fully adjudicated,
-    # non-blocking report is "passed".
+    # pending LLM layer holds the gate at PENDING_SEMANTIC_REVIEW — the verdict
+    # NEVER flips to "failed" for an un-reviewed semantic item. Whether the exit
+    # policy grants that pending state a 0 or a 2 is decided separately by
+    # ``ci_exit_code_for``/``allow_pending_llm_layers`` (exit policy only). Only
+    # a fully adjudicated, non-blocking report is "passed".
     if any_mechanical_failed or llm_failed:
         verdict: QualityGateVerdict = "failed"
     elif mechanical_pending:
@@ -351,12 +360,13 @@ def evaluate_quality_gate(
         # a dip in the mechanical score with no pending/failed layer).
         verdict = "failed"
     elif pending_llm_layers:
-        if pending_allowed:
-            verdict = "pending_semantic_review"
-        else:
-            # allow_pending_llm_layers=False: pending-with-no-bundle is not
-            # allowed, so the gate is failed (Python gate exit 1).
-            verdict = "failed"
+        # A pending LLM layer (L3/L4b/L5) with no audit verdict is ALWAYS
+        # ``pending_semantic_review``. ``allow_pending_llm_layers`` is EXIT
+        # POLICY ONLY and can never change the truth verdict from pending to
+        # failed: it only maps to exit 0 (allowed) or exit 2 (not allowed) in
+        # ``ci_exit_code_for``. Python never converts an un-reviewed semantic
+        # item into a failure.
+        verdict = "pending_semantic_review"
     else:
         verdict = "passed"
 
@@ -398,7 +408,6 @@ def evaluate_quality_gate(
         revision_rounds=resolved_critical_in_rounds,
         details={
             "min_grounding_score": min_score,
-            "fail_on_critical": fail_on_critical,
             "allow_pending_llm_layers": pending_allowed,
             "verdict": verdict,
             "ci_exit_code": ci_exit_code,

@@ -265,14 +265,93 @@ def test_unknown_review_item_id_is_rejected(tmp_path: Path):
         assert report.layers[layer].verdict == "pending"
 
 
+def test_merge_only_adjudicates_registry_items_not_pending(
+    tmp_path: Path,
+):
+    """Req 4: a bundle may ONLY adjudicate an item that EXISTS in the Review
+    Registry (pending L3/L4b/L5 items). A verdict for an id that matches a real
+    L4b check Python emitted but did NOT register — here the single-language
+    ``L4b:...:not-applicable`` prose-parity check, whose status is
+    ``not_applicable`` and is therefore not a pending review item — is an
+    UNKNOWN review_item_id and rejects the whole bundle. Python must never let an
+    audit verdict touch a check the registry did not register."""
+    # Single-language docs: L4 emits the ``not-applicable`` l4b semantic check
+    # (registered nothing pending), leaving only L3/L5 items in the registry.
+    en = GeneratedDocument(
+        filename="README.md",
+        base_name="README",
+        language_code="en",
+        content=_EN,
+    )
+    docs: dict[str, list[GeneratedDocument]] = {"en": [en]}
+    orchestrator = _orchestrator(tmp_path)
+    probe = SemanticAuditBundle(documents_digest="sha256:probe", verdicts=[])
+    report = orchestrator.verify_documents(docs, semantic_bundle=probe)
+
+    # The not-applicable L4b check exists in the layer but is NOT registered.
+    non_registered = next(
+        c
+        for c in report.layers["L4"].checks
+        if c.review_item_id == "L4b:all:not-applicable"
+    )
+    assert non_registered.status == "not_applicable"
+    registry_ids = {i.review_item_id for i in report.review_items}
+    assert "L4b:all:not-applicable" not in registry_ids, (
+        "precondition: a not_applicable l4b check is not a registered review item"
+    )
+
+    # A bundle verdict targeting that unregistered id must be rejected.
+    bundle = SemanticAuditBundle(
+        documents_digest="sha256:x",
+        verdicts=[
+            SemanticAuditVerdict(
+                review_item_id="L4b:all:not-applicable",
+                layer="L4b",
+                status="passed",
+                rationale_summary="ok",
+            ),
+        ],
+    )
+    reject = orchestrator.verify_documents(docs, semantic_bundle=bundle)
+    assert reject.details.get("semantic_bundle_rejected") is True
+    assert reject.details.get("semantic_bundle_rejection_reason") == "unknown_review_item_id"
+    assert "L4b:all:not-applicable" in reject.details.get(
+        "semantic_bundle_unknown_ids", []
+    )
+    # Nothing merged: L4b's not-applicable check is untouchable, L3/L5 stay pending.
+    assert reject.layers["L3"].verdict == "pending"
+    assert reject.layers["L5"].verdict == "pending"
+
+    # A valid registry item (L3/L5 pending) still merges normally in this layout.
+    if report.review_items:
+        item0 = report.review_items[0]
+        ok_bundle = SemanticAuditBundle(
+            documents_digest="sha256:x",
+            verdicts=[
+                SemanticAuditVerdict(
+                    review_item_id=item0.review_item_id,
+                    layer=item0.layer,
+                    status="passed",
+                    rationale_summary="ok",
+                )
+            ],
+        )
+        ok = orchestrator.verify_documents(docs, semantic_bundle=ok_bundle)
+        assert ok.details.get("semantic_bundle_rejected") is not True
+        assert _find_check(ok, item0.review_item_id).status == "passed"
+
+
 def test_semantic_audit_provenance_is_preserved(tmp_path: Path):
-    """A merged check carries verification_source == 'semantic_audit_bundle' and
-    its detail mentions the auditor, rationale, confidence, and evidence."""
+    """A merged check records verification_source == 'semantic_audit_bundle' and
+    carries the Auditor's provenance STRUCTURALLY (auditor / rationale_summary /
+    evidence_refs / confidence / audited_at) on ``check.provenance``, not as
+    prose to be parsed. A readable one-line detail is kept for display."""
     docs = _docs()
     items = _pending_review_items(tmp_path, docs)
     bundle = SemanticAuditBundle(
         documents_digest="sha256:x",
         auditor="fake_primary_auditor",
+        audited_at="2026-01-02T03:04:05+00:00",
         verdicts=[
             SemanticAuditVerdict(
                 review_item_id=items[0].review_item_id,
@@ -289,6 +368,14 @@ def test_semantic_audit_provenance_is_preserved(tmp_path: Path):
 
     check = _find_check(report, items[0].review_item_id)
     assert check.verification_source == "semantic_audit_bundle"
+    # Structured provenance is the source of truth (Req 5).
+    assert check.provenance is not None
+    assert check.provenance["auditor"] == "fake_primary_auditor"
+    assert check.provenance["rationale_summary"] == "behavior matches traced source"
+    assert check.provenance["evidence_refs"] == ["src/app/cli.py:120-148"]
+    assert check.provenance["confidence"] == "high"
+    assert check.provenance["audited_at"] == "2026-01-02T03:04:05+00:00"
+    # The readable one-line detail is kept and mentions the same facts.
     assert "fake_primary_auditor" in check.detail
     assert "behavior matches traced source" in check.detail  # rationale
     assert "high" in check.detail  # confidence

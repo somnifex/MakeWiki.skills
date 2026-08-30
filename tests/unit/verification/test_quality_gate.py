@@ -101,8 +101,7 @@ def test_pending_layer_does_not_fail_gate_by_default():
     report.layers["L3"] = LayerReport(layer="L3", name="Behavior", checks=[])
     cfg = MakeWikiConfig.default(Path("."))
     cfg.quality.allow_pending_llm_layers = True
-    cfg.quality.fail_on_critical = False
-    result = evaluate_quality_gate(report, cfg, fail_on_critical=cfg.quality.fail_on_critical)
+    result = evaluate_quality_gate(report, cfg)
     # Pending LLM (no audit verdict) with allow_pending=True -> pending_semantic_review.
     # exit-policy code 0, but NEVER passed: pending is never passed.
     assert result.verdict == "pending_semantic_review"
@@ -348,30 +347,42 @@ def test_pending_semantic_review_never_has_passed_true():
         assert result.passed == (result.verdict == "passed")
 
 
-def test_allow_pending_llm_layers_false_forces_pending_to_failed():
-    """MAJOR: allow_pending_llm_layers actually changes the verdict.
+def test_allow_pending_llm_layers_is_exit_policy_only_never_changes_verdict():
+    """CRITICAL: allow_pending_llm_layers affects ONLY the CI exit code.
 
     When False, a pending LLM layer (L3/L4b/L5) with no audit verdict is NOT
-    allowed — the gate verdict flips to ``failed`` and Python exits 1.
+    granted the exit policy — but the VERDICT NEVER flips to ``failed``. It stays
+    ``pending_semantic_review`` (the honest base exit 2). Python must never
+    convert an un-reviewed semantic item into a failure.
     """
     report = _review_report(llm_pending=True)
-    # Mechanical layers clean, only LLM layers pending -> with the flag False,
-    # pending-with-no-bundle is not allowed.
+    # Mechanical layers clean, only LLM layers pending -> the flag only changes
+    # the exit code, never the truth verdict.
     cfg = MakeWikiConfig.default(Path("."))
     cfg.quality.allow_pending_llm_layers = False
     result = evaluate_quality_gate(report, cfg)
-    assert result.verdict == "failed"
+    assert result.verdict == "pending_semantic_review"
     assert result.passed is False
-    assert result.ci_exit_code == 1
-    assert result.exit_code == 1
+    # Honest base exit for an ungranted pending semantic review is 2 (not 1).
+    assert result.ci_exit_code == 2
+    assert result.exit_code == 2
 
-    # The same report with the flag True stays pending (exit-policy 0).
+    # The same report with the flag True stays pending but is granted exit 0.
     cfg2 = MakeWikiConfig.default(Path("."))
     cfg2.quality.allow_pending_llm_layers = True
     result2 = evaluate_quality_gate(report, cfg2)
     assert result2.verdict == "pending_semantic_review"
     assert result2.ci_exit_code == 0
     assert result2.passed is False
+
+    # Explicit parameter path honours the same contract.
+    result3 = evaluate_quality_gate(
+        report,
+        MakeWikiConfig.default(Path(".")),
+        allow_pending_llm_layers=False,
+    )
+    assert result3.verdict == "pending_semantic_review"
+    assert result3.ci_exit_code == 2
 
 
 def test_ci_exit_code_mapping_all_four_branches():

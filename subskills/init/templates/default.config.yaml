@@ -3,13 +3,17 @@ languages:                         # Python-consumed (Pipeline.languages)
   - en
   - zh-CN
 default_language: en               # Python-consumed (Pipeline.default_language)
-overwrite: true                    # Python-consumed (OutputManager.overwrite)
-delete_stale_files: false          # Python-consumed (OutputManager.delete_stale_files)
-generate_faq: true                  # Python-consumed (LanguageGenerator); emits faq.md slot (LLM-populated; UNKNOWN if empty)
-generate_troubleshooting: true      # Python-consumed (LanguageGenerator); emits troubleshooting.md slot (LLM-populated; UNKNOWN if empty)
-generate_env_vars_page: true        # Python-consumed (LanguageGenerator); emits env-vars.md slot
-strict_grounding: true              # Python-consumed (CodeGroundingVerifier.strict)
-emit_uncertainty_notes: true        # Python-consumed (LanguageGenerator uncertainty notes)
+# Legacy-consumed: these fields ONLY drive the deprecated `legacy-generate` /
+# `generate` scaffold (LegacyDeterministicRenderer + legacy Pipeline +
+# MechanicalRepairEngine). The authoritative /makewiki flow never reads them —
+# the LLM writers decide page composition and hedging.
+overwrite: true                    # Legacy-consumed (legacy OutputManager.overwrite)
+delete_stale_files: false          # Legacy-consumed (legacy OutputManager.delete_stale_files)
+generate_faq: true                  # Legacy-consumed (LegacyDeterministicRenderer); emits faq.md slot (LLM-populated; UNKNOWN if empty)
+generate_troubleshooting: true      # Legacy-consumed (LegacyDeterministicRenderer); emits troubleshooting.md slot (LLM-populated; UNKNOWN if empty)
+generate_env_vars_page: true        # Legacy-consumed (LegacyDeterministicRenderer); emits env-vars.md slot
+strict_grounding: true              # Legacy-consumed (legacy CodeGroundingVerifier.strict)
+emit_uncertainty_notes: true        # Legacy-consumed (LegacyDeterministicRenderer uncertainty notes)
 
 # LLM-consumed: read by the Skill orchestrator / Writers (subagent budget + tier).
 agent:
@@ -60,14 +64,15 @@ review:
   enable_semantic_review: true              # Python-consumed
   min_page_alignment_ratio: 0.9             # Python-consumed
 
-# Python-consumed (revision engine).
-revision:
-  enabled: true                            # Python-consumed
-  max_rounds: 2                            # Python-consumed
-  auto_hedge_ungrounded: true              # Python-consumed
-  auto_harmonize_code_blocks: true         # Python-consumed
-  stop_on_no_progress: true                # Python-consumed
-  min_grounding_score: 1.0                 # Python-consumed
+# Legacy-consumed: the whole revision block only drives the deprecated
+# `legacy-generate` / `generate` MechanicalRepairEngine (auto-hedge /
+# auto-harmonize). The authoritative /makewiki flow never reads it.
+revision:                           # Legacy-consumed
+  enabled: true                            # Legacy-consumed
+  max_rounds: 2                            # Legacy-consumed
+  auto_hedge_ungrounded: true              # Legacy-consumed
+  auto_harmonize_code_blocks: true         # Legacy-consumed
+  stop_on_no_progress: true                # Legacy-consumed
 
 # LLM-consumed: writer depth decisions.
 content_depth:
@@ -87,7 +92,7 @@ documentation_policy:
   include_directory_overview: false               # LLM-consumed
   include_source_walkthroughs: false              # LLM-consumed
   forbid_unfounded_praise: true                   # SHARED (Python validator + LLM writer)
-  banned_descriptors:                             # Python-consumed (validator)
+  banned_descriptors:                             # SHARED (Python validator + LLM writer)
     - powerful
     - robust
     - flexible
@@ -104,9 +109,8 @@ documentation_policy:
 
 # Python-consumed: unified L0-L5 + Quality Gate thresholds.
 quality:
-  fail_on_critical: true                # Python-consumed
-  allow_pending_llm_layers: true        # Python-consumed
-  min_grounding_score: 1.0              # Python-consumed
+  allow_pending_llm_layers: true        # Python-consumed (exit policy only)
+  min_grounding_score: 1.0              # Python-consumed (sole gate threshold)
 
 # LLM-consumed: per-language writer tone overrides.
 language_profiles: {}                   # LLM-consumed

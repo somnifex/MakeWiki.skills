@@ -186,9 +186,8 @@ quality_gate:
     details: dict
   ci_exit_code: "passed -> 0, failed -> 1, pending_semantic_review -> 0 (when quality.allow_pending_llm_layers) else 2, pending_mechanical_verification -> 3"
   config:
-    quality.fail_on_critical: true
-    quality.min_grounding_score: 1.0
-    quality.allow_pending_llm_layers: true
+    quality.min_grounding_score: 1.0  # sole Quality Gate grounding threshold
+    quality.allow_pending_llm_layers: true  # EXIT POLICY ONLY; never changes the truth verdict
   layer_ownership:
     mechanical: ["L0", "L1", "L2", "L4-exact"]
     llm_judged: ["L3", "L4-prose", "L5"]

@@ -63,7 +63,9 @@ scaffold).
   `L5:README.md:make build`); omitted items stay PENDING; a verdict for an
   unknown `review_item_id` rejects the whole bundle. The merge only adjudicates
   items in the report's `review_items` registry, and merged checks carry
-  `verification_source = "semantic_audit_bundle"`. If the bundle declares a
+  `verification_source = "semantic_audit_bundle"` plus the Auditor's STRUCTURED
+  provenance (`check.provenance`: `auditor`, `rationale_summary`,
+  `evidence_refs`, `confidence`, `audited_at`). If the bundle declares a
   `semantic_model_digest` but no `--semantic-model` is supplied, the model
   binding is UNPROVEN and L3/L4b/L5 stay PENDING (never silently trusted).
 - `export` rejects `--format pdf` with an explicit error.

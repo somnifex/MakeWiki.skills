@@ -495,13 +495,16 @@ def test_authoritative_handoff_partial_then_full_audit(tmp_path: Path) -> None:
     # policy table.
     assert ci_exit_code_for("pending_semantic_review", allow_pending_llm_layers=False) == 2
     assert ci_exit_code_for("pending_semantic_review", allow_pending_llm_layers=True) == 0
-    # And under the strict policy the real gate escalates an unadjudicated bundle
-    # to a hard failure (Python gate exit 1), never a papered-over pass.
+    # And under the strict policy the real gate keeps the HONEST verdict — the
+    # unadjudicated bundle stays PENDING_SEMANTIC_REVIEW (never papered over as a
+    # pass, never escalated to failed) — but exits at the honest base code 2
+    # because the exit policy was not granted. ``allow_pending_llm_layers`` is
+    # EXIT POLICY ONLY: it can never turn a pending semantic item into a failure.
     gate_partial_strict = evaluate_quality_gate(
         report_partial, allow_pending_llm_layers=False
     )
-    assert gate_partial_strict.verdict == "failed"
-    assert gate_partial_strict.ci_exit_code == 1
+    assert gate_partial_strict.verdict == "pending_semantic_review"
+    assert gate_partial_strict.ci_exit_code == 2
     assert gate_partial_strict.passed is False
 
     # 3. FULL: build from the review-item registry of the partial report. The

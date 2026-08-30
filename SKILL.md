@@ -212,9 +212,8 @@ quality_gate:
     details: dict
   ci_exit_code: "0 passed | 1 failed | 0/2 pending_semantic_review (0 granted by quality.allow_pending_llm_layers, else 2) | 3 pending_mechanical_verification"
   config:
-    quality.fail_on_critical: true    # bool, default true
-    quality.min_grounding_score: 1.0  # float 0.0..1.0
-    quality.allow_pending_llm_layers: true  # when true, pending_semantic_review exits 0; the verdict still reads PENDING
+    quality.min_grounding_score: 1.0  # float 0.0..1.0; the sole Quality Gate threshold
+    quality.allow_pending_llm_layers: true  # EXIT POLICY ONLY: verdict stays PENDING; when true, pending_semantic_review exits 0, else honest base 2. Never turns pending into failed.
 ```
 
 Layer ownership:
@@ -322,8 +321,9 @@ reasonable, and it never overrides the Auditor's adjudication. Each verdict
 maps to exactly one check by its `review_item_id`; a layer the Auditor did not
 mention, or a `review_item_id` it did not adjudicate, stays `pending`. Merged
 checks carry `verification_source = "semantic_audit_bundle"` as a formal
-source, plus the verdict's `review_item_id`, auditor, rationale, confidence,
-evidence refs, and `audited_at` as provenance.
+source, plus the verdict's `review_item_id` and the Auditor's structured
+provenance (`check.provenance`: auditor, rationale_summary, evidence_refs,
+confidence, audited_at).
 
 ### `verify-docs --semantic-audit <file>` and `--semantic-model <file>`
 
@@ -741,12 +741,19 @@ dead or ambiguous:
   `include_source_walkthroughs`) — read by Skill / writers, NOT by Python.
   The contract's negative test asserts these LLM-only fields have no Python
   read.
-- **Python-only**: `scan.*`, `review.*`, `revision.*`, `site.*`,
-  `quality.*`, `emit_uncertainty_notes`, `generate_*`, `output_dir`,
-  `languages`, `default_language`, `overwrite`, `delete_stale_files`,
-  `strict_grounding`, `target_dir`.
-- **Legacy-only**: none today (the deprecated `legacy-generate` path has no
-  live config surface).
+- **Python-only**: `scan.*`, `review.*`, `site.*`, `quality.*`,
+  `output_dir`, `languages`, `default_language`, `target_dir`. These are the
+  fields the authoritative mechanical CLI actually reads (`verify-docs`,
+  `parity`, `review`, `build-site`).
+- **Legacy-only**: `emit_uncertainty_notes`, `generate_*`, `strict_grounding`,
+  `overwrite`, `delete_stale_files`, and the whole `revision.*` block. These
+  SEMANTIC scaffolding decisions (whether to emit faq/troubleshooting/env-vars
+  pages, whether to attach uncertainty hedges, revision rounds) are consumed
+  ONLY by the deprecated `legacy-generate` / `generate` scaffold — the legacy
+  deterministic renderer, the legacy pipeline, and its mechanical repair
+  loop. They are never treated as authoritative Python "mechanical
+  enforcement": in the authoritative `/makewiki` flow the LLM Auditor edits
+  Markdown in place and the LLM writers decide page composition and hedging.
 
 See `tests/contracts/test_config_consumption_contract.py`.
 

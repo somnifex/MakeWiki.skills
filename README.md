@@ -158,9 +158,9 @@ MakeWiki 不再宣称"零幻觉"，而提供**可验证的证据驱动文档**�
 如需自定义生成行为，可在项目根目录放置配置文件（可选）。配置字段分为四类：
 
 - **LLM-only**：被 Skill 编排器 / 写作者读取（`agent.*`、`delivery.*`、`content_depth.*`、`language_profiles.*` 及除下方两条外的 `documentation_policy.*`）。
-- **Python-only**：被机械平面读取（`site.*`、`scan.*`、`review.*`、`quality.*`、`revision.*` 等）。
+- **Python-only**：被权威机械 CLI 读取（`site.*`、`scan.*`、`review.*`、`quality.*`、`output_dir`、`languages`、`default_language`）。
 - **Shared**：Python 用于机械执行、LLM 作为写作约束（`documentation_policy.forbid_unfounded_praise` 与 `documentation_policy.banned_descriptors`）。
-- **Legacy-only**：目前为空（已废弃的 `legacy-generate` 路径无活动配置）。
+- **Legacy-only**：仅被已废弃的 `legacy-generate` / `generate` 脚手架读取的语义搭建字段（`generate_faq`、`generate_troubleshooting`、`generate_env_vars_page`、`emit_uncertainty_notes`、`strict_grounding`、`overwrite`、`delete_stale_files` 及整个 `revision.*` 块）。在权威 `/makewiki` 流程中，页面构成与规避措辞由 LLM 写作者决定，Python 绝不将其视为机械权威。
 
 ```yaml
 output_dir: makewiki
@@ -186,7 +186,6 @@ delivery:                    # LLM-consumed
   include_compatibility_matrix: true
 
 quality:                     # Quality Gate 阈值
-  fail_on_critical: true
   min_grounding_score: 1.0
 ```
 

@@ -86,15 +86,16 @@ quality_gate:
   ci_exit_code: "0 passed | 1 failed | 0/2 pending_semantic_review (0 granted by quality.allow_pending_llm_layers, else 2) | 3 pending_mechanical_verification"
 
   config:
-    quality.fail_on_critical: true    # bool, default true
-    quality.min_grounding_score: 1.0  # float 0.0..1.0
-    quality.allow_pending_llm_layers: true
+    quality.min_grounding_score: 1.0  # float 0.0..1.0; sole Quality Gate grounding threshold
+    quality.allow_pending_llm_layers: true  # EXIT POLICY ONLY; never changes the truth verdict
 ```
 
-`allow_pending_llm_layers` is EXIT POLICY ONLY: when true (the default), a
-`pending_semantic_review` verdict exits 0 — the review is not a mechanical
-failure — while the verdict / UI still reads PENDING_SEMANTIC_REVIEW. Without
-it the exit code is the honest base `2`.
+`allow_pending_llm_layers` is EXIT POLICY ONLY: it maps a
+`pending_semantic_review` verdict to exit 0 (when true, the default) or the
+honest base 2 (when false). It NEVER changes the truth verdict — an un-reviewed
+LLM layer (L3 / L4b / L5) is always `pending_semantic_review`, never `failed`:
+Python must not convert a pending semantic item into a failure. The verdict /
+UI reads PENDING_SEMANTIC_REVIEW in both cases.
 
 ### Layer Status Semantics
 
@@ -120,7 +121,7 @@ decision_rules:
   verdict:
     failed: "any mechanical layer failed (or mechanical-score shortfall), OR any LLM-judged check explicitly failed"
     pending_mechanical_verification: "no failures, but a mechanical layer (L0/L1/L2/L4a) is still pending"
-    pending_semantic_review: "no failures, mechanical layers resolved, but an LLM layer (L3/L4b/L5) is pending"
+    pending_semantic_review: "no failures, mechanical layers resolved, but an LLM layer (L3/L4b/L5) is pending; this verdict NEVER flips to failed — allow_pending_llm_layers affects only the exit code"
     passed: "every layer adjudicated and non-blocking (strictly verdict == 'passed')"
   exit_policy:
     passed: 0
