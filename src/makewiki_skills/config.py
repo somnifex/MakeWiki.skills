@@ -1,28 +1,41 @@
 """Project-level configuration model.
 
-Each field of :class:`MakeWikiConfig` is either Python-consumed (read by the
-mechanical plane) or explicitly LLM-consumed (read by the Skill orchestrator /
-language writers). The contract test
-``tests/contracts/test_config_consumption_contract.py`` enforces that **no
-field is dead** — every attribute must resolve to one of the two consumers.
+Every public field of :class:`MakeWikiConfig` maps to exactly one consumer
+category — a field is never dead and is never ambiguous about who consumes it:
 
-To keep the contract mechanically verifiable, every config class declares:
+* ``PYTHON_ONLY`` — read by the mechanical Python plane only.
+* ``LLM_ONLY`` — read by the Skill orchestrator / language writers only.
+* ``SHARED`` — read by BOTH Python (mechanical enforcement) and the LLM
+  (writing guidance). Example: ``documentation_policy.banned_descriptors`` is
+  enforced by the Python validator and is also consulted by the writer to avoid
+  banned descriptors.
+* ``LEGACY_ONLY`` — only consumed by the deprecated ``legacy-generate`` path.
+  Currently empty (no live legacy-only config surface remains).
 
-* ``_PYTHON_CONSUMED_FIELDS``: names of attributes read by Python code paths.
-* ``_LLM_CONSUMED_FIELDS``: names of attributes intentionally documented but
-  only consumed by the Skill layer / writers.
+Config classes declare their membership across four ClassVars:
 
-Adding a new field requires choosing one of the two lists (and writing a
-test in ``tests/contracts/`` that covers it).
+* ``_PYTHON_CONSUMED_FIELDS``: read by Python code paths (mechanical plane).
+* ``_LLM_CONSUMED_FIELDS``: read by the Skill layer / writers only.
+* ``_SHARED_CONSUMED_FIELDS``: read by both Python and the LLM.
+* ``_LEGACY_CONSUMED_FIELDS``: read only by the legacy path (usually empty).
+
+The contract test ``tests/contracts/test_config_consumption_contract.py``
+enforces that **no public field is UNKNOWN** — every attribute must resolve to
+exactly one of the four categories.
 """
 
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any, ClassVar, cast
+from typing import Any, ClassVar, Literal, cast, get_args
 
 import yaml  # type: ignore[import-untyped]
 from pydantic import BaseModel, Field
+
+#: Every public config field maps to exactly one consumer category.
+ConsumerCategory = Literal["PYTHON_ONLY", "LLM_ONLY", "SHARED", "LEGACY_ONLY"]
+
+_CONSUMER_CATEGORIES: frozenset[str] = frozenset(get_args(ConsumerCategory))
 
 
 class ScanConfig(BaseModel):
@@ -62,6 +75,8 @@ class ScanConfig(BaseModel):
     _LLM_CONSUMED_FIELDS: ClassVar[frozenset[str]] = frozenset(
         {"max_external_urls"}  # forward planning; reserved for LLM-authored fetch steps.
     )
+    _SHARED_CONSUMED_FIELDS: ClassVar[frozenset[str]] = frozenset()
+    _LEGACY_CONSUMED_FIELDS: ClassVar[frozenset[str]] = frozenset()
 
 
 class ReviewConfig(BaseModel):
@@ -83,6 +98,8 @@ class ReviewConfig(BaseModel):
         }
     )
     _LLM_CONSUMED_FIELDS: ClassVar[frozenset[str]] = frozenset()
+    _SHARED_CONSUMED_FIELDS: ClassVar[frozenset[str]] = frozenset()
+    _LEGACY_CONSUMED_FIELDS: ClassVar[frozenset[str]] = frozenset()
 
 
 class RevisionConfig(BaseModel):
@@ -116,6 +133,8 @@ class RevisionConfig(BaseModel):
         }
     )
     _LLM_CONSUMED_FIELDS: ClassVar[frozenset[str]] = frozenset()
+    _SHARED_CONSUMED_FIELDS: ClassVar[frozenset[str]] = frozenset()
+    _LEGACY_CONSUMED_FIELDS: ClassVar[frozenset[str]] = frozenset()
 
 
 class ContentDepthConfig(BaseModel):
@@ -137,6 +156,8 @@ class ContentDepthConfig(BaseModel):
             "split_usage_threshold",
         }
     )
+    _SHARED_CONSUMED_FIELDS: ClassVar[frozenset[str]] = frozenset()
+    _LEGACY_CONSUMED_FIELDS: ClassVar[frozenset[str]] = frozenset()
 
 
 class DocumentationPolicyConfig(BaseModel):
@@ -167,9 +188,7 @@ class DocumentationPolicyConfig(BaseModel):
         ]
     )
 
-    _PYTHON_CONSUMED_FIELDS: ClassVar[frozenset[str]] = frozenset(
-        {"banned_descriptors"}
-    )
+    _PYTHON_CONSUMED_FIELDS: ClassVar[frozenset[str]] = frozenset()
     _LLM_CONSUMED_FIELDS: ClassVar[frozenset[str]] = frozenset(
         {
             "audience",
@@ -178,9 +197,16 @@ class DocumentationPolicyConfig(BaseModel):
             "include_architecture_analysis",
             "include_directory_overview",
             "include_source_walkthroughs",
-            "forbid_unfounded_praise",
         }
     )
+    # Read by Python (renderer/validator.py enforces banned descriptors and the
+    # no-unfounded-praise rule mechanically) AND consulted by the LLM writer as
+    # writing guidance. Because ``forbid_unfounded_praise`` gates the ban, both
+    # fields are SHARED.
+    _SHARED_CONSUMED_FIELDS: ClassVar[frozenset[str]] = frozenset(
+        {"banned_descriptors", "forbid_unfounded_praise"}
+    )
+    _LEGACY_CONSUMED_FIELDS: ClassVar[frozenset[str]] = frozenset()
 
 
 class LanguageProfileConfig(BaseModel):
@@ -190,6 +216,8 @@ class LanguageProfileConfig(BaseModel):
 
     _PYTHON_CONSUMED_FIELDS: ClassVar[frozenset[str]] = frozenset()
     _LLM_CONSUMED_FIELDS: ClassVar[frozenset[str]] = frozenset({"tone"})
+    _SHARED_CONSUMED_FIELDS: ClassVar[frozenset[str]] = frozenset()
+    _LEGACY_CONSUMED_FIELDS: ClassVar[frozenset[str]] = frozenset()
 
 
 class AgentConfig(BaseModel):
@@ -203,6 +231,8 @@ class AgentConfig(BaseModel):
     _LLM_CONSUMED_FIELDS: ClassVar[frozenset[str]] = frozenset(
         {"max_subagents", "rebattle_rounds", "tier_override"}
     )
+    _SHARED_CONSUMED_FIELDS: ClassVar[frozenset[str]] = frozenset()
+    _LEGACY_CONSUMED_FIELDS: ClassVar[frozenset[str]] = frozenset()
 
 
 class SiteConfig(BaseModel):
@@ -217,6 +247,8 @@ class SiteConfig(BaseModel):
         {"compile", "theme", "include_search", "output_subdir"}
     )
     _LLM_CONSUMED_FIELDS: ClassVar[frozenset[str]] = frozenset()
+    _SHARED_CONSUMED_FIELDS: ClassVar[frozenset[str]] = frozenset()
+    _LEGACY_CONSUMED_FIELDS: ClassVar[frozenset[str]] = frozenset()
 
 
 class DeliveryConfig(BaseModel):
@@ -236,6 +268,8 @@ class DeliveryConfig(BaseModel):
             "include_health_checks",
         }
     )
+    _SHARED_CONSUMED_FIELDS: ClassVar[frozenset[str]] = frozenset()
+    _LEGACY_CONSUMED_FIELDS: ClassVar[frozenset[str]] = frozenset()
 
 
 class QualityConfig(BaseModel):
@@ -251,6 +285,8 @@ class QualityConfig(BaseModel):
         {"fail_on_critical", "allow_pending_llm_layers", "min_grounding_score"}
     )
     _LLM_CONSUMED_FIELDS: ClassVar[frozenset[str]] = frozenset()
+    _SHARED_CONSUMED_FIELDS: ClassVar[frozenset[str]] = frozenset()
+    _LEGACY_CONSUMED_FIELDS: ClassVar[frozenset[str]] = frozenset()
 
 
 class MakeWikiConfig(BaseModel):
@@ -305,6 +341,8 @@ class MakeWikiConfig(BaseModel):
     _LLM_CONSUMED_FIELDS: ClassVar[frozenset[str]] = frozenset(
         {"agent", "delivery", "content_depth", "language_profiles"}
     )
+    _SHARED_CONSUMED_FIELDS: ClassVar[frozenset[str]] = frozenset()
+    _LEGACY_CONSUMED_FIELDS: ClassVar[frozenset[str]] = frozenset()
 
     @classmethod
     def load(cls, config_path: Path, target_dir: Path | None = None) -> MakeWikiConfig:
@@ -350,18 +388,81 @@ def iter_config_models() -> list[type[BaseModel]]:
 
 
 def python_consumed_field_paths() -> set[str]:
-    """Return every Python-consumed field path (e.g. ``scan.ignore_dirs``)."""
+    """Return every field path read by Python — PYTHON_ONLY plus SHARED.
+
+    A SHARED field is consumed by Python as well as the LLM, so it must be
+    included here for the "every Python-marked field is referenced" contract.
+    """
     paths: set[str] = set()
     for model in iter_config_models():
-        for field in getattr(model, "_PYTHON_CONSUMED_FIELDS", frozenset()):
+        py: frozenset[str] = getattr(model, "_PYTHON_CONSUMED_FIELDS", frozenset())
+        shared: frozenset[str] = getattr(model, "_SHARED_CONSUMED_FIELDS", frozenset())
+        for field in py | shared:
             paths.add(f"{model.__name__}.{field}")
     return paths
 
 
 def llm_consumed_field_paths() -> set[str]:
-    """Return every LLM-consumed field path (e.g. ``agent.max_subagents``)."""
+    """Return every field path read by the LLM — LLM_ONLY plus SHARED.
+
+    A SHARED field is consumed by the LLM as well as Python, so it must be
+    included here too.
+    """
     paths: set[str] = set()
     for model in iter_config_models():
-        for field in getattr(model, "_LLM_CONSUMED_FIELDS", frozenset()):
+        llm: frozenset[str] = getattr(model, "_LLM_CONSUMED_FIELDS", frozenset())
+        shared: frozenset[str] = getattr(model, "_SHARED_CONSUMED_FIELDS", frozenset())
+        for field in llm | shared:
             paths.add(f"{model.__name__}.{field}")
     return paths
+
+
+def _field_category(model: type[BaseModel], field: str) -> ConsumerCategory:
+    """Classify a single field into exactly one consumer category.
+
+    Ordering is significant: membership in the explicit SHARED set wins over
+    the PYTHON/LLM sets (a field may appear on both when it is genuinely
+    consumed by both planes). Every public field is classified; a field in none
+    of the four sets is a contract violation and is raised loudly rather than
+    silently returned as an impossible UNKNOWN.
+    """
+    shared: frozenset[str] = getattr(model, "_SHARED_CONSUMED_FIELDS", frozenset())
+    py: frozenset[str] = getattr(model, "_PYTHON_CONSUMED_FIELDS", frozenset())
+    llm: frozenset[str] = getattr(model, "_LLM_CONSUMED_FIELDS", frozenset())
+    legacy: frozenset[str] = getattr(model, "_LEGACY_CONSUMED_FIELDS", frozenset())
+    if field in shared:
+        return "SHARED"
+    if field in py:
+        return "PYTHON_ONLY"
+    if field in llm:
+        return "LLM_ONLY"
+    if field in legacy:
+        return "LEGACY_ONLY"
+    raise ValueError(
+        f"Config field {model.__name__}.{field} is not classified in any of "
+        "the four consumer categories (PYTHON_ONLY/LLM_ONLY/SHARED/LEGACY_ONLY)."
+    )
+
+
+def field_consumer_category(model: type[BaseModel], field: str) -> ConsumerCategory:
+    """Return the consumer category for one field on one config model.
+
+    Returns one of ``"PYTHON_ONLY"``, ``"LLM_ONLY"``, ``"SHARED"``, or
+    ``"LEGACY_ONLY"``. An unconsumed field is a contract violation and is
+    reported via ``ValueError`` — there is no silent ``UNKNOWN`` state.
+    """
+    return _field_category(model, field)
+
+
+def all_field_categories() -> dict[str, ConsumerCategory]:
+    """Map every public field to its single consumer category.
+
+    Keys are ``"<Class>.<field>"`` paths (e.g. ``DocumentationPolicyConfig.
+    banned_descriptors``). Every public field must classify; an unconsumed one
+    raises (see :func:`field_consumer_category`).
+    """
+    categories: dict[str, ConsumerCategory] = {}
+    for model in iter_config_models():
+        for field in model.model_fields:
+            categories[f"{model.__name__}.{field}"] = _field_category(model, field)
+    return categories

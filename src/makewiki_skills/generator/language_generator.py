@@ -1,28 +1,67 @@
-"""Render documents from the semantic model."""
+"""Legacy deterministic renderer for the Mechanical Plane.
+
+This module is the **non-authoritative** scaffold that renders documents from a
+``SemanticModel`` via Jinja templates. It is NOT the authoritative MakeWiki
+writer — the authoritative writer is the LLM Language Writer subagent (see
+``SKILL.md``). It is reachable only through the deprecated ``legacy-generate``
+/ ``generate`` CLI path.
+
+The neutral document model lives in ``model.document_artifact``; this module
+re-exports it so historically-importing callers keep working while the
+codebase migrates to the neutral name.
+"""
 
 from __future__ import annotations
 
-from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
 import jinja2
-from pydantic import BaseModel, Field
 
 from makewiki_skills.config import MakeWikiConfig
 from makewiki_skills.languages.profile import LanguageProfile
+from makewiki_skills.model.document_artifact import (
+    DocumentArtifact,
+    GeneratedDocument,
+)
 from makewiki_skills.model.semantic_model import SemanticModel
 
+# Backward-compatible aliases so existing import sites keep working during the
+# migration to the neutral names.
+RenderedDocument = DocumentArtifact
+Document = DocumentArtifact
 
-class GeneratedDocument(BaseModel):
-    """A single rendered Markdown document for one language."""
-
-    filename: str  # e.g. "README.md" or "README.zh-CN.md"
-    base_name: str  # e.g. "README.md" (without language suffix)
-    language_code: str
-    content: str
-    word_count: int = 0
-    generation_timestamp: str = Field(default_factory=lambda: datetime.now(UTC).isoformat())
+# Canonical English UNKNOWN markers and neutral labels.
+#
+# These are the ONLY narrative-leaning strings the deterministic scaffold may
+# emit, and they are deliberately English-only. Python does not translate
+# narrative — localization of prose (including these honest UNKNOWN
+# markers) is the LLM Language Writer's job in the authoritative /makewiki
+# flow. When a slot cannot be mechanically proven, the scaffold emits the
+# canonical English marker below (or nothing at all) rather than fabricating
+# per-language prose.
+UNKNOWN_PREREQ_MARKER = (
+    "No specific prerequisites were found in the scanned project files."
+)
+UNKNOWN_CONFIG_MARKER = (
+    "No user-facing configuration was found in the scanned project files."
+)
+UNKNOWN_FAQ_MARKER = (
+    "No recurring questions stood out in the scanned project files. "
+    "Check the repository discussions for more context."
+)
+UNKNOWN_TROUBLESHOOTING_MARKER = (
+    "No common failure patterns were found in the scanned project files."
+)
+UNKNOWN_QUICK_START_MARKER = (
+    "No explicit quick-start example was identified for this project."
+)
+UNKNOWN_USAGE_MARKER = (
+    "No repeatable usage patterns were clear from the scanned project files."
+)
+UNKNOWN_PLATFORM_NOTE_MARKER = (
+    "No platform-specific notes were found in the scanned project files."
+)
 
 
 DOCUMENT_TEMPLATES: list[tuple[str, str]] = [
@@ -73,8 +112,14 @@ def _resolve_templates(
     return pages
 
 
-class LanguageGenerator:
-    """Render the full document set for one language."""
+class LegacyDeterministicRenderer:
+    """Render the full document set for one language.
+
+    **Legacy / non-authoritative.** The canonical writer in the authoritative
+    ``/makewiki`` flow is the LLM Language Writer subagent. This Jinja-based
+    renderer is the deprecated deterministic scaffold, kept for regression
+    testing and mechanical fallback only.
+    """
 
     def __init__(self, template_dir: Path | None = None) -> None:
         if template_dir is None:
@@ -152,7 +197,7 @@ class LanguageGenerator:
             quick_start_example = {
                 "title": self._uncertainty(
                     profile,
-                    "No explicit quick-start example was identified for this project.",
+                    UNKNOWN_QUICK_START_MARKER,
                     config.emit_uncertainty_notes,
                 ),
                 "description": None,
@@ -196,33 +241,32 @@ class LanguageGenerator:
                 "quick_start_example": quick_start_example,
                 "uncertainty_no_prereqs": self._uncertainty(
                     profile,
-                    "No specific prerequisites were found in the scanned project files.",
+                    UNKNOWN_PREREQ_MARKER,
                     config.emit_uncertainty_notes,
                 ),
                 "uncertainty_no_config": self._uncertainty(
                     profile,
-                    "No user-facing configuration was found in the scanned project files.",
+                    UNKNOWN_CONFIG_MARKER,
                     config.emit_uncertainty_notes,
                 ),
                 "uncertainty_no_faq": self._uncertainty(
                     profile,
-                    "No recurring questions stood out in the scanned project files. "
-                    "Check the repository discussions for more context.",
+                    UNKNOWN_FAQ_MARKER,
                     config.emit_uncertainty_notes,
                 ),
                 "uncertainty_no_troubleshooting": self._uncertainty(
                     profile,
-                    "No common failure patterns were found in the scanned project files.",
+                    UNKNOWN_TROUBLESHOOTING_MARKER,
                     config.emit_uncertainty_notes,
                 ),
                 "uncertainty_no_usage": self._uncertainty(
                     profile,
-                    "No repeatable usage patterns were clear from the scanned project files.",
+                    UNKNOWN_USAGE_MARKER,
                     config.emit_uncertainty_notes,
                 ),
                 "uncertainty_no_platform_notes": self._uncertainty(
                     profile,
-                    "No platform-specific notes were found in the scanned project files.",
+                    UNKNOWN_PLATFORM_NOTE_MARKER,
                     config.emit_uncertainty_notes,
                 ),
                 "config_file_label": self._localize(profile, "Configuration file"),
@@ -270,51 +314,34 @@ class LanguageGenerator:
         text = re.sub(f"({latin})({cjk})", r"\1 \2", text)
         return text
 
-    _SIMPLE_TRANSLATIONS: dict[str, dict[str, str]] = {
-        "zh-CN": {
-            "Configuration file": "\u914d\u7f6e\u6587\u4ef6",
-            "Expected output": "\u9884\u671f\u8f93\u51fa",
-            "Key": "\u914d\u7f6e\u9879",
-            "No specific prerequisites were found in the scanned project files.": "\u626b\u63cf\u5230\u7684\u9879\u76ee\u6587\u4ef6\u91cc\u6ca1\u6709\u660e\u786e\u7ed9\u51fa\u7279\u5b9a\u524d\u7f6e\u6761\u4ef6\u3002",
-            "No user-facing configuration was found in the scanned project files.": "\u626b\u63cf\u5230\u7684\u9879\u76ee\u6587\u4ef6\u91cc\u6ca1\u6709\u8bc6\u522b\u51fa\u9762\u5411\u7528\u6237\u7684\u914d\u7f6e\u9879\u3002",
-            "No recurring questions stood out in the scanned project files. Check the repository discussions for more context.": "\u626b\u63cf\u5230\u7684\u9879\u76ee\u6587\u4ef6\u91cc\u6ca1\u6709\u6c89\u6dc0\u51fa\u660e\u786e\u7684\u5e38\u89c1\u95ee\u9898\uff0c\u53ef\u4ee5\u518d\u67e5\u770b\u4ed3\u5e93\u91cc\u7684 issue \u6216\u8ba8\u8bba\u533a\u3002",
-            "No common failure patterns were found in the scanned project files.": "\u626b\u63cf\u5230\u7684\u9879\u76ee\u6587\u4ef6\u91cc\u6ca1\u6709\u53d1\u73b0\u660e\u663e\u7684\u5e38\u89c1\u6545\u969c\u6a21\u5f0f\u3002",
-            "No explicit quick-start example was identified for this project.": "\u8fd9\u4e2a\u9879\u76ee\u91cc\u6ca1\u6709\u8bc6\u522b\u51fa\u660e\u786e\u7684\u5feb\u901f\u4e0a\u624b\u793a\u4f8b\uff0c\u65e0\u6cd5\u673a\u68b0\u9a8c\u8bc1\u3002",
-            "No repeatable usage patterns were clear from the scanned project files.": "\u626b\u63cf\u5230\u7684\u9879\u76ee\u6587\u4ef6\u91cc\u6ca1\u6709\u63d0\u70bc\u51fa\u7a33\u5b9a\u7684\u4f7f\u7528\u6d41\u7a0b\u3002",
-            "No platform-specific notes were found in the scanned project files.": "\u626b\u63cf\u5230\u7684\u9879\u76ee\u6587\u4ef6\u91cc\u6ca1\u6709\u53d1\u73b0\u660e\u663e\u7684\u5e73\u53f0\u5dee\u5f02\u8bf4\u660e\u3002",
-            "Platform": "\u5e73\u53f0",
-            "Usage Examples": "\u4f7f\u7528\u793a\u4f8b",
-            "Documentation Navigation": "\u6587\u6863\u5bfc\u822a",
-            "This guide stays with user-visible behavior and skips internal architecture.": "\u672c\u6307\u5357\u53ea\u805a\u7126\u7528\u6237\u5b9e\u9645\u80fd\u770b\u5230\u548c\u64cd\u4f5c\u7684\u5185\u5bb9\uff0c\u4e0d\u5c55\u5f00\u5185\u90e8\u67b6\u6784\u3002",
-            "This page lists runtime configuration only. Build and packaging metadata are left out.": "\u672c\u9875\u53ea\u6574\u7406\u8fd0\u884c\u65f6\u914d\u7f6e\uff0c\u4e0d\u5c55\u5f00\u6784\u5efa\u548c\u6253\u5305\u5143\u6570\u636e\u3002",
-        },
-        "ja": {
-            "Configuration file": "\u8a2d\u5b9a\u30d5\u30a1\u30a4\u30eb",
-            "Expected output": "\u671f\u5f85\u3055\u308c\u308b\u51fa\u529b",
-            "Key": "\u30ad\u30fc",
-            "No specific prerequisites were found in the scanned project files.": "\u30b9\u30ad\u30e3\u30f3\u3057\u305f\u30d7\u30ed\u30b8\u30a7\u30af\u30c8\u30d5\u30a1\u30a4\u30eb\u304b\u3089\u3001\u660e\u78ba\u306a\u524d\u63d0\u6761\u4ef6\u306f\u78ba\u8a8d\u3067\u304d\u307e\u305b\u3093\u3067\u3057\u305f\u3002",
-            "No user-facing configuration was found in the scanned project files.": "\u30b9\u30ad\u30e3\u30f3\u3057\u305f\u30d7\u30ed\u30b8\u30a7\u30af\u30c8\u30d5\u30a1\u30a4\u30eb\u304b\u3089\u3001\u30e6\u30fc\u30b6\u30fc\u5411\u3051\u306e\u8a2d\u5b9a\u306f\u78ba\u8a8d\u3067\u304d\u307e\u305b\u3093\u3067\u3057\u305f\u3002",
-            "No recurring questions stood out in the scanned project files. Check the repository discussions for more context.": "\u30b9\u30ad\u30e3\u30f3\u3057\u305f\u30d7\u30ed\u30b8\u30a7\u30af\u30c8\u30d5\u30a1\u30a4\u30eb\u304b\u3089\u3001\u7e70\u308a\u8fd4\u3057\u51fa\u3066\u304f\u308b\u8cea\u554f\u306f\u898b\u5f53\u305f\u308a\u307e\u305b\u3093\u3067\u3057\u305f\u3002\u8a73\u3057\u304f\u306f\u30ea\u30dd\u30b8\u30c8\u30ea\u306e issue \u3084 discussion \u3092\u78ba\u8a8d\u3057\u3066\u304f\u3060\u3055\u3044\u3002",
-            "No common failure patterns were found in the scanned project files.": "\u30b9\u30ad\u30e3\u30f3\u3057\u305f\u30d7\u30ed\u30b8\u30a7\u30af\u30c8\u30d5\u30a1\u30a4\u30eb\u304b\u3089\u3001\u5178\u578b\u7684\u306a\u30c8\u30e9\u30d6\u30eb\u306f\u78ba\u8a8d\u3067\u304d\u307e\u305b\u3093\u3067\u3057\u305f\u3002",
-            "No explicit quick-start example was identified for this project.": "\u3053\u306e\u30d7\u30ed\u30b8\u30a7\u30af\u30c8\u3067\u660e\u793a\u7684\u306a\u30af\u30a4\u30c3\u30af\u30b9\u30bf\u30fc\u30c8\u4f8b\u306f\u7279\u5b9a\u3055\u308c\u3066\u3044\u307e\u305b\u3093\u3002",
-            "No repeatable usage patterns were clear from the scanned project files.": "\u30b9\u30ad\u30e3\u30f3\u3057\u305f\u30d7\u30ed\u30b8\u30a7\u30af\u30c8\u30d5\u30a1\u30a4\u30eb\u304b\u3089\u3001\u5b9a\u578b\u7684\u306a\u4f7f\u3044\u65b9\u306f\u8aad\u307f\u53d6\u308c\u307e\u305b\u3093\u3067\u3057\u305f\u3002",
-            "No platform-specific notes were found in the scanned project files.": "\u30b9\u30ad\u30e3\u30f3\u3057\u305f\u30d7\u30ed\u30b8\u30a7\u30af\u30c8\u30d5\u30a1\u30a4\u30eb\u304b\u3089\u3001\u30d7\u30e9\u30c3\u30c8\u30d5\u30a9\u30fc\u30e0\u56fa\u6709\u306e\u6ce8\u610f\u70b9\u306f\u78ba\u8a8d\u3067\u304d\u307e\u305b\u3093\u3067\u3057\u305f\u3002",
-            "Platform": "\u30d7\u30e9\u30c3\u30c8\u30d5\u30a9\u30fc\u30e0",
-            "Usage Examples": "\u4f7f\u7528\u4f8b",
-            "Documentation Navigation": "\u30c9\u30ad\u30e5\u30e1\u30f3\u30c8\u30ca\u30d3\u30b2\u30fc\u30b7\u30e7\u30f3",
-            "This guide stays with user-visible behavior and skips internal architecture.": "\u3053\u306e\u30ac\u30a4\u30c9\u306f\u30e6\u30fc\u30b6\u30fc\u304c\u76f4\u63a5\u6271\u3046\u5185\u5bb9\u306b\u7d5e\u308a\u3001\u5185\u90e8\u30a2\u30fc\u30ad\u30c6\u30af\u30c1\u30e3\u306b\u306f\u8e0f\u307f\u8fbc\u307f\u307e\u305b\u3093\u3002",
-            "This page lists runtime configuration only. Build and packaging metadata are left out.": "\u3053\u306e\u30da\u30fc\u30b8\u3067\u306f\u5b9f\u884c\u6642\u306e\u8a2d\u5b9a\u3060\u3051\u3092\u6271\u3044\u3001\u30d3\u30eb\u30c9\u3084\u30d1\u30c3\u30b1\u30fc\u30b8\u30f3\u30b0\u306e\u30e1\u30bf\u30c7\u30fc\u30bf\u306f\u7701\u3044\u3066\u3044\u307e\u3059\u3002",
-        },
-    }
-
     @classmethod
     def _uncertainty(cls, profile: LanguageProfile, english: str, enabled: bool = True) -> str:
+        """Return the honest UNKNOWN marker for a slot.
+
+        This is deliberately English-only: Python does not translate narrative.
+        Localization of these markers and labels is the LLM Language Writer's
+        job in the authoritative /makewiki flow. When a slot cannot be
+        mechanically proven it emits the single canonical English marker, never
+        Python-authored per-language prose.
+        """
+        del profile
         if not enabled:
             return ""
-        lang_map = cls._SIMPLE_TRANSLATIONS.get(profile.code, {})
-        return lang_map.get(english, english)
+        return english
 
     @classmethod
     def _localize(cls, profile: LanguageProfile, english: str) -> str:
-        lang_map = cls._SIMPLE_TRANSLATIONS.get(profile.code, {})
-        return lang_map.get(english, english)
+        """Return the neutral English label.
+
+        Python no longer carries a per-language translation table: the labels
+        stay English and localization is delegated to the LLM writer.
+        """
+        del profile
+        return english
+
+
+# Backward-compatible alias: the canonical name is
+# ``LegacyDeterministicRenderer`` (an explicitly non-authoritative scaffold).
+# ``LanguageGenerator`` is retained so existing imports, tests and call sites
+# keep functioning while the codebase migrates to the legacy-stated name.
+LanguageGenerator = LegacyDeterministicRenderer

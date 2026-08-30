@@ -13,10 +13,19 @@ import hashlib
 import re
 from dataclasses import dataclass, field
 
-from makewiki_skills.generator.language_generator import GeneratedDocument
+from makewiki_skills.model.document_artifact import DocumentArtifact
 from makewiki_skills.review.cross_language_reviewer import CrossLanguageReview
 from makewiki_skills.verification.code_grounding_verifier import GroundingReport
 from makewiki_skills.verification.codebase_verifier import CodebaseVerificationReport
+
+# Canonical English UNKNOWN evidence caveat. This is a single, factual marker
+# stating a command could not be mechanically verified against the codebase —
+# it is English-only (no per-language translation) because Python does not
+# translate narrative; localization is the LLM Auditor/Writer's job.
+UNKNOWN_EVIDENCE_MARKER = (
+    "This command could not be mechanically verified against the codebase "
+    "(UNKNOWN evidence)."
+)
 
 # Canonical mechanical-only action vocabulary. Semantic actions (``anti_cliche``,
 # narrative ``hedge_ungrounded`` prose) are intentionally absent — those are the
@@ -71,11 +80,11 @@ class MechanicalRepairEngine:
 
     def revise(
         self,
-        documents: dict[str, list[GeneratedDocument]],
+        documents: dict[str, list[DocumentArtifact]],
         grounding_report: GroundingReport | None = None,
         codebase_report: CodebaseVerificationReport | None = None,
         cross_language_report: CrossLanguageReview | None = None,
-    ) -> tuple[dict[str, list[GeneratedDocument]], RevisionReport]:
+    ) -> tuple[dict[str, list[DocumentArtifact]], RevisionReport]:
         """Apply mechanical repairs to generated documents based on verification findings.
 
         No semantic prose rewriting happens here. The only text this engine
@@ -84,12 +93,12 @@ class MechanicalRepairEngine:
         across languages by stable block ID.
         """
         report = RevisionReport()
-        revised_docs: dict[str, list[GeneratedDocument]] = {}
+        revised_docs: dict[str, list[DocumentArtifact]] = {}
 
         # Clone documents so repair is side-effect free.
         for lang, doc_list in documents.items():
             revised_docs[lang] = [
-                GeneratedDocument(
+                DocumentArtifact(
                     filename=doc.filename,
                     base_name=doc.base_name,
                     language_code=doc.language_code,
@@ -211,18 +220,17 @@ class MechanicalRepairEngine:
     ) -> tuple[str, int]:
         """Attach a fixed, factual UNKNOWN evidence caveat around unverified commands.
 
-        The caveat text is a canned, per-language statement — a pure marker that
-        the command could not be mechanically verified against the codebase. It
-        is driven entirely by verification evidence and never invents ambiguity
-        prose ("may be experimental").
+        The caveat text is a single canonical English statement — a pure marker
+        that the command could not be mechanically verified against the
+        codebase. It is driven entirely by verification evidence and never
+        invents ambiguity prose ("may be experimental"), and it is never
+        translated by Python (localization is the LLM Auditor/Writer's job).
         """
+        del lang  # the marker is English-only; Python does not localize narrative
         hedged_count = 0
-        caveat_text = (
-            "\n> [!NOTE] 这条命令未在当前代码库中找到显式声明，无法机械验证 "
-            "(This command could not be mechanically verified against the codebase)."
-            if "zh" in lang
-            else "\n> [!NOTE] This command could not be mechanically verified against the codebase (UNKNOWN evidence)."
-        )
+        # Single canonical English UNKNOWN marker. No invented per-language
+        # caveat prose — localization is the LLM Auditor/Writer's job.
+        caveat_text = "\n> [!NOTE] " + UNKNOWN_EVIDENCE_MARKER
 
         for cmd in ungrounded_commands:
             if not cmd or len(cmd) < 3:
@@ -312,7 +320,7 @@ class MechanicalRepairEngine:
         return blocks
 
     def _harmonize_cross_language_code(
-        self, documents: dict[str, list[GeneratedDocument]]
+        self, documents: dict[str, list[DocumentArtifact]]
     ) -> int:
         """Harmonize code blocks across languages by stable block ID.
 

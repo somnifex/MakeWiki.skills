@@ -18,6 +18,12 @@ REQUIRED_PATHS = (
     "scripts/run_toolkit.py",
     "src/makewiki_skills/__init__.py",
 )
+# Marker files recording the installed version and its provenance. These record
+# the state of an *installation*, not of a source tree, so they must never be
+# copied from a local source into a fresh install.
+VERSION_FILE = "VERSION"
+GIT_COMMIT_FILE = ".toolkit-commit"
+ARCHIVE_SHA256_FILE = ".toolkit-archive-sha256"
 IGNORE = shutil.ignore_patterns(
     ".git",
     ".history",
@@ -27,6 +33,9 @@ IGNORE = shutil.ignore_patterns(
     ".ruff_cache",
     ".venv",
     "__pycache__",
+    VERSION_FILE,
+    GIT_COMMIT_FILE,
+    ARCHIVE_SHA256_FILE,
 )
 
 
@@ -83,6 +92,54 @@ def looks_like_toolkit_root(path: Path) -> bool:
     return all((path / relative_path).exists() for relative_path in REQUIRED_PATHS)
 
 
+def installed_version(target: Path) -> str | None:
+    """Return the version recorded in ``<root>/VERSION``, or None when absent."""
+    marker = target / VERSION_FILE
+    if not marker.is_file():
+        return None
+    value = marker.read_text(encoding="utf-8").strip()
+    return value or None
+
+
+def record_version(target: Path, version: str) -> None:
+    """Persist the resolved version marker inside the toolkit install root."""
+    target.mkdir(parents=True, exist_ok=True)
+    (target / VERSION_FILE).write_text(f"{version}\n", encoding="utf-8")
+
+
+def record_commit(target: Path, commit: str) -> None:
+    """Persist the exact fetched git commit SHA for a git install."""
+    target.mkdir(parents=True, exist_ok=True)
+    (target / GIT_COMMIT_FILE).write_text(f"{commit}\n", encoding="utf-8")
+
+
+def record_archive_sha256(target: Path, archive_sha256: str | None) -> None:
+    """Persist the verified archive checksum for an archive install.
+
+    Distinct from the git-commit record: archive installs carry a checksum of
+    the downloaded zip, not a git identity. When ``archive_sha256`` is None any
+    stale record is removed (nothing was verified).
+    """
+    target.mkdir(parents=True, exist_ok=True)
+    marker = target / ARCHIVE_SHA256_FILE
+    if archive_sha256:
+        marker.write_text(f"{archive_sha256}\n", encoding="utf-8")
+    elif marker.exists():
+        marker.unlink()
+
+
+def needs_replacement(target: Path, requested: str) -> bool:
+    """True when the installed toolkit must be rebuilt for ``requested``.
+
+    The tool is reused only when an install exists AND its recorded version
+    matches the requested one. A wrong/stale (or absent) recorded version means
+    the install is replaced.
+    """
+    if not looks_like_toolkit_root(target):
+        return True
+    return installed_version(target) != requested
+
+
 def discover_local_source(start: Path) -> Path | None:
     for candidate in [start, *start.parents]:
         if looks_like_toolkit_root(candidate):
@@ -117,6 +174,9 @@ def populate_from_archive(target: Path, version: str, expected_sha256: str | Non
         if extracted_root is None:
             raise RuntimeError("Unexpected archive layout")
         replace_dir(target, extracted_root)
+        record_version(target, version)
+        verified_sha256 = expected_sha256 or sha256_of_file(archive_path)
+        record_archive_sha256(target, verified_sha256)
 
 
 def populate_from_git(target: Path, version: str, expected_sha256: str | None = None) -> None:
@@ -131,6 +191,16 @@ def populate_from_git(target: Path, version: str, expected_sha256: str | None = 
     )
     if expected_sha256:
         verify_git_checkout_sha256(target, expected_sha256)
+    # Record the exact fetched commit SHA (git identity) — kept separate from
+    # the archive checksum used for zip installs.
+    commit = subprocess.run(
+        ["git", "-C", str(target), "rev-parse", "HEAD"],
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
+    record_commit(target, commit)
+    record_version(target, version)
 
 
 def verify_git_checkout_sha256(root: Path, expected: str) -> None:
@@ -162,9 +232,12 @@ def ensure_home_toolkit() -> Path:
             return target
         if not target.resolve().is_relative_to(local_source.resolve()):
             replace_dir(target, local_source)
+            record_version(target, version)
             return target
 
-    if looks_like_toolkit_root(target):
+    # Reuse only when an install exists AND its recorded version matches the
+    # requested one; a stale/absent version means replace.
+    if not needs_replacement(target, version):
         return target
 
     if shutil.which("git"):

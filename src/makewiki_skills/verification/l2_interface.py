@@ -9,7 +9,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from makewiki_skills.generator.language_generator import GeneratedDocument
+from makewiki_skills.model.document_artifact import DocumentArtifact
 from makewiki_skills.toolkit.markdown_tools import MarkdownTool
 from makewiki_skills.verification.report import LayerReport, VerificationCheck
 
@@ -56,7 +56,7 @@ class L2InterfaceVerifier:
 
     def verify_documents(
         self,
-        documents: dict[str, list[GeneratedDocument]],
+        documents: dict[str, list[DocumentArtifact]],
     ) -> LayerReport:
         specs = self._get_all_command_specs()
         checks: list[VerificationCheck] = []
@@ -76,7 +76,7 @@ class L2InterfaceVerifier:
 
     def _verify_command_invocation(
         self,
-        doc: GeneratedDocument,
+        doc: DocumentArtifact,
         cmd_str: str,
         specs: dict[str, CLICommandSpec],
     ) -> list[VerificationCheck]:

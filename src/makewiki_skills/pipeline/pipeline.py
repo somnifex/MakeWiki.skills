@@ -1,4 +1,15 @@
-"""Orchestrate the documentation pipeline."""
+"""Orchestrate the documentation pipeline.
+
+**LEGACY deterministic scaffold — NOT the authoritative writer.**
+
+The authoritative MakeWiki writer is the LLM Language Writer subagent driven by
+the ``/makewiki`` skill flow. This ``Pipeline`` is the deprecated mechanical
+scaffold kept for regression/testing only: it drives the deterministic
+``LegacyDeterministicRenderer`` (Jinja) through the verify -> revise -> write
+loop. It never authors semantic/narrative content in Python — every narrative
+slot either comes from the ``SemanticModel`` (LLM-authored fields) or is
+reported as an honest UNKNOWN marker.
+"""
 
 from __future__ import annotations
 
@@ -10,13 +21,14 @@ from pathlib import Path
 from pydantic import BaseModel, ConfigDict, Field
 
 from makewiki_skills.config import MakeWikiConfig
-from makewiki_skills.generator.language_generator import GeneratedDocument, LanguageGenerator
+from makewiki_skills.generator.language_generator import LegacyDeterministicRenderer
 from makewiki_skills.languages.registry import LanguageRegistry
 from makewiki_skills.model.claim import (
     ClaimSet,
     build_claims_from_evidence,
     verify_claims_against_codebase,
 )
+from makewiki_skills.model.document_artifact import DocumentArtifact
 from makewiki_skills.model.semantic_model import (
     Command,
     ConfigItem,
@@ -66,14 +78,14 @@ class PipelineContext(BaseModel):
     evidence_registry: EvidenceRegistry = Field(default_factory=EvidenceRegistry)
     claim_set: ClaimSet | None = None
     semantic_model: SemanticModel | None = None
-    generated_documents: dict[str, list[GeneratedDocument]] = Field(default_factory=dict)
+    generated_documents: dict[str, list[DocumentArtifact]] = Field(default_factory=dict)
     cross_language_review: CrossLanguageReview | None = None
     grounding_report: GroundingReport | None = None
     codebase_verification_report: CodebaseVerificationReport | None = None
     revision_reports: list[RevisionReport] = Field(default_factory=list)
     revision_rounds: int = 0
     revision_report: RevisionReport | None = None
-    final_documents: dict[str, list[GeneratedDocument]] = Field(default_factory=dict)
+    final_documents: dict[str, list[DocumentArtifact]] = Field(default_factory=dict)
     validation_report: ValidationReport | None = None
 
     stage_timings: dict[str, float] = Field(default_factory=dict)
@@ -155,12 +167,14 @@ def stage_build_semantic_model(ctx: PipelineContext) -> PipelineContext:
 
 
 def stage_generate_documents(ctx: PipelineContext) -> PipelineContext:
+    # legacy deterministic scaffold — NOT the authoritative writer. The
+    # authoritative /makewiki writer is the LLM Language Writer subagent.
     if ctx.semantic_model is None:
         ctx.errors.append("Cannot generate: no semantic model")
         return ctx
 
     LanguageRegistry.load_builtins()
-    generator = LanguageGenerator()
+    generator = LegacyDeterministicRenderer()
 
     for lang_code in ctx.config.languages:
         if not LanguageRegistry.has(lang_code):
@@ -412,6 +426,17 @@ STAGES = [
 
 
 class Pipeline:
+    """LEGACY deterministic scaffold pipeline.
+
+    NOT the authoritative writer. The authoritative MakeWiki flow is the LLM
+    Language Writer subagent driven by ``/makewiki`` (see ``SKILL.md``). This
+    class is the deprecated mechanical pipeline kept for regression/testing and
+    mechanical fallback; it drives the ``LegacyDeterministicRenderer`` and never
+    authors semantic/narrative content in Python.
+    """
+
+    _LEGACY_WRITER = True  # explicit marker: the document-generation stage is a legacy scaffold
+
     def __init__(self, config: MakeWikiConfig) -> None:
         self._config = config
 
@@ -738,23 +763,27 @@ def _is_repo_navigation_command(command: str) -> bool:
 
 
 def _installation_step_title(command: str) -> str:
-    normalized = command.lower()
-    if normalized.startswith(
-        ("pip install", "npm install", "pnpm install", "yarn install", "poetry install")
-    ):
-        return "Install the project"
-    if normalized.startswith("uv sync"):
-        return "Sync the project environment"
-    if normalized.startswith(("cargo build", "go build")):
-        return "Build the project"
-    return "Run the documented setup command"
+    """Return a MECHANICAL, neutral title for an install step.
+
+    The title is the proven command itself — never a fabricated narrative like
+    "Install the project". Natural-language step descriptions and translations
+    are the LLM Language Writer's job in the authoritative /makewiki flow. The
+    command is the honest, mechanically-proven content of the step, so it is
+    used verbatim as a neutral title.
+    """
+    return command
 
 
 def _verify_command(registry: EvidenceRegistry) -> str | None:
-    for fact in _commands_from_sections(registry, _USAGE_SECTION_KEYWORDS):
-        value = (fact.value or "").strip()
-        if value and not value.startswith("make "):
-            return value
+    """Return the explicit verify command, or UNKNOWN (``None``).
+
+    The deterministic scaffold never guesses a canonical verify command by a
+    prefix heuristic, and it never silently excludes ``make ...`` commands. A
+    verify command is only reported when an explicit LLM-authored one exists on
+    the model; this builder has no way to receive one, so it returns UNKNOWN
+    rather than fabricating or picking one.
+    """
+    del registry  # explicit verify commands are LLM-authored, not guessed here
     return None
 
 
@@ -766,13 +795,6 @@ _INSTALL_SECTION_KEYWORDS = (
     "setup",
 )
 
-_USAGE_SECTION_KEYWORDS = (
-    "example",
-    "examples",
-    "quick start",
-    "usage",
-    "use",
-)
 
 # Build-metadata schema files, excluded from user-facing configuration by
 # EXACT mechanical filename. These are deterministically build/packaging

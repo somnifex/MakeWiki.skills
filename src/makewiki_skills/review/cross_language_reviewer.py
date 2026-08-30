@@ -7,7 +7,7 @@ from datetime import UTC, datetime
 
 from pydantic import BaseModel, Field, computed_field
 
-from makewiki_skills.generator.language_generator import GeneratedDocument
+from makewiki_skills.model.document_artifact import DocumentArtifact
 from makewiki_skills.toolkit.markdown_tools import FactSet, MarkdownTool
 
 
@@ -62,7 +62,7 @@ class CrossLanguageReviewer:
     def __init__(self) -> None:
         self._md = MarkdownTool()
 
-    def review(self, documents: dict[str, list[GeneratedDocument]]) -> CrossLanguageReview:
+    def review(self, documents: dict[str, list[DocumentArtifact]]) -> CrossLanguageReview:
         """Run a full cross-language review.
 
         Args:

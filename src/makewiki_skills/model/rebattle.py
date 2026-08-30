@@ -3,9 +3,17 @@
 from __future__ import annotations
 
 import uuid
-from typing import Literal
+from typing import Any, Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
+
+from makewiki_skills.model.claim import CLAIM_TYPES
+from makewiki_skills.model.semantic_model import (
+    FAQItem,
+    SemanticModel,
+    TroubleshootingItem,
+    UserTask,
+)
 
 
 class AgentClaim(BaseModel):
@@ -18,6 +26,12 @@ class AgentClaim(BaseModel):
     ``agent_id``/``perspective`` and is the input to ReBattle cross-examination.
     It is *not* a Python-mechanical fact and is *not* yet an accepted,
     adjudicated fact.
+
+    ``semantic_key`` is REQUIRED and is the canonical *meaning* of the claim
+    (a dotted path such as ``network.port``). ReBattle groups and compares
+    claims by ``semantic_key``, never by a value — two agents asserting
+    different values for the same meaning land in one discrepancy, while the
+    same value with different meaning never collides.
     """
 
     claim_id: str = Field(default_factory=lambda: f"claim-{uuid.uuid4().hex[:8]}")
@@ -26,14 +40,36 @@ class AgentClaim(BaseModel):
         "user_experience"  # "user_experience" | "code_implementation" | "deployment_ops"
     )
     claim_type: str = (
-        "command"  # "command" | "config_key" | "path" | "workflow" | "error_case" | "prerequisite"
+        "command"  # mechanical + cognitive ClaimType vocabulary
     )
+    semantic_key: str  # required — the meaning used for cross-agent grouping
     assertion: str
     value: str | None = None
+    subject: str | None = None
+    predicate: str | None = None
+    object: Any = None
     source_file: str | None = None
     line_range: tuple[int, int] | None = None
     raw_evidence: str | None = None
+    # evidence_refs: source paths underpinning the claim. Populated from
+    # source_file when present and not explicitly supplied.
+    evidence_refs: list[str] = Field(default_factory=list)
     confidence: Literal["high", "medium", "low", "inferred"] = "medium"
+
+    @model_validator(mode="after")
+    def _ensure_supported_claim_type(self) -> AgentClaim:
+        if self.claim_type not in CLAIM_TYPES:
+            raise ValueError(
+                f"claim_type {self.claim_type!r} is not in the ClaimType vocabulary "
+                f"{sorted(CLAIM_TYPES)}"
+            )
+        return self
+
+    @model_validator(mode="after")
+    def _map_evidence_refs(self) -> AgentClaim:
+        if not self.evidence_refs and self.source_file:
+            self.evidence_refs = [self.source_file]
+        return self
 
 
 # Deprecated: use AgentClaim. Kept as a module-level alias so existing
@@ -84,9 +120,11 @@ class AdjudicatedClaim(BaseModel):
     """A consensus fact produced by the ReBattle + Judge pipeline.
 
     This is the *AdjudicatedClaim* layer of the four-layer claim vocabulary:
-    an AgentClaim that has survived cross-examination and received an explicit
-    ruling. One is produced per surviving claim when adjudications are supplied
-    to :meth:`ReBattleArena.synthesize_consensus`.
+    an AgentClaim that has survived cross-examination AND received an explicit
+    Judge ruling. One is produced per surviving claim ONLY when an explicit
+    ``AdjudicationResult`` exists for that claim. A claim with no dispute is
+    never wrapped here — "no challenge" means undisputed / pending-adjudication,
+    never auto-``accepted``.
     """
 
     claim: AgentClaim
@@ -123,27 +161,32 @@ class ReBattleArena:
 
     @staticmethod
     def detect_discrepancies(claim_sets: list[AgentClaimSet]) -> list[Discrepancy]:
-        """Group claims by normalized key/topic and detect conflicts or contradictions."""
-        claims_by_key: dict[tuple[str, str], list[AgentClaim]] = {}
+        """Group claims by ``semantic_key`` (meaning) and detect conflicts.
+
+        Two agents asserting DIFFERENT values (port 3000 vs 8080) but the SAME
+        ``semantic_key`` land in ONE discrepancy. The same value under different
+        ``semantic_key`` never collides. ``claim_type`` is retained on the
+        ``Discrepancy`` for display only.
+        """
+        claims_by_key: dict[str, list[AgentClaim]] = {}
 
         for cset in claim_sets:
             for claim in cset.claims:
-                key_token = (claim.value or claim.assertion).strip().lower()
-                key = (claim.claim_type, key_token)
-                claims_by_key.setdefault(key, []).append(claim)
+                claims_by_key.setdefault(claim.semantic_key, []).append(claim)
 
         discrepancies: list[Discrepancy] = []
 
-        for (ctype, val), matched_claims in claims_by_key.items():
+        for key, matched_claims in claims_by_key.items():
             confidences = {c.confidence for c in matched_claims}
             agents = {c.agent_id for c in matched_claims}
+            ctype = matched_claims[0].claim_type
 
             if len(matched_claims) > 1 and len(agents) > 1:
                 assertions = {c.assertion.strip() for c in matched_claims}
                 if len(assertions) > 1 or "inferred" in confidences:
                     discrepancies.append(
                         Discrepancy(
-                            topic=f"{ctype}:{val}",
+                            topic=key,
                             claim_type=ctype,
                             claims=matched_claims,
                             status="open",
@@ -152,7 +195,7 @@ class ReBattleArena:
             elif "inferred" in confidences or "low" in confidences:
                 discrepancies.append(
                     Discrepancy(
-                        topic=f"{ctype}:{val}",
+                        topic=key,
                         claim_type=ctype,
                         claims=matched_claims,
                         status="open",
@@ -165,37 +208,37 @@ class ReBattleArena:
     def synthesize_consensus(
         claim_sets: list[AgentClaimSet],
         adjudications: list[AdjudicationResult] | None = None,
-    ) -> list[AgentClaim] | list[AdjudicatedClaim]:
-        """Synthesize high-confidence consensus facts, filtering out rejected claims.
+    ) -> list[AgentClaim | AdjudicatedClaim]:
+        """Synthesize consensus by ``semantic_key``, only wrapping explicitly
+        adjudicated claims.
 
-        When no adjudications are supplied, returns the surviving
-        high-confidence ``AgentClaim`` facts (renamed value of the original
-        behavior). When adjudications ARE supplied, returns one
-        ``AdjudicatedClaim`` per surviving claim carrying its ruling — the
-        accepted/rejected/modified/hedged disposition recorded by the Judge.
+        A claim with an explicit ``AdjudicationResult`` becomes an
+        ``AdjudicatedClaim`` carrying that ruling. A claim with NO adjudication
+        is returned as a plain, pending ``AgentClaim`` (undisputed /
+        pending-adjudication) — it is NEVER auto-accepted. "No challenge" never
+        fabricates ``ruling="accepted"``; only a Judge ruling does.
         """
         if not adjudications:
             return _consensus_agent_claims(claim_sets)
 
-        # Adjudicated path: build a topic -> ruling lookup and produce one
-        # AdjudicatedClaim per surviving (non-rejected) claim.
-        ruling_by_topic: dict[str, AdjudicationResult] = {}
+        # Adjudicated path: build semantic_key -> ruling lookup and produce one
+        # AdjudicatedClaim per claim that carries an explicit ruling.
+        ruling_by_key: dict[str, AdjudicationResult] = {}
         for ruling in adjudications:
-            ruling_by_topic[ruling.discrepancy_topic.lower()] = ruling
+            ruling_by_key[ruling.discrepancy_topic.lower()] = ruling
 
-        seen: set[tuple[str, str]] = set()
-        consensus: list[AdjudicatedClaim] = []
+        seen: set[str] = set()
+        consensus: list[AgentClaim | AdjudicatedClaim] = []
 
         for cset in claim_sets:
             for claim in cset.claims:
-                topic = f"{claim.claim_type}:{(claim.value or claim.assertion).strip()}".lower()
-                adj = ruling_by_topic.get(topic)
+                key = claim.semantic_key.lower()
+                adj = ruling_by_key.get(key)
 
-                # Any claim whose topic was explicitly rejected is dropped.
+                # A claim whose semantic_key was explicitly rejected is dropped.
                 if adj is not None and adj.ruling == "rejected":
                     continue
 
-                key = (claim.claim_type, (claim.value or claim.assertion).strip().lower())
                 if key in seen:
                     continue
                 seen.add(key)
@@ -211,16 +254,9 @@ class ReBattleArena:
                         )
                     )
                 else:
-                    # Surviving claim with no explicit dispute -> accepted as-is.
-                    consensus.append(
-                        AdjudicatedClaim(
-                            claim=claim,
-                            ruling="accepted",
-                            final_assertion=claim.assertion,
-                            adjudicator_reasoning="No dispute raised during cross-examination; claim accepted.",
-                            verified_via_codebase=False,
-                        )
-                    )
+                    # No explicit adjudication -> leave as pending AgentClaim,
+                    # never auto-accepted.
+                    consensus.append(claim)
 
         return consensus
 
@@ -228,20 +264,60 @@ class ReBattleArena:
 def _consensus_agent_claims(
     claim_sets: list[AgentClaimSet],
     _adjudications: list[AdjudicationResult] | None = None,
-) -> list[AgentClaim]:
-    """(Legacy inner behavior) surviving high-confidence AgentClaims without rulings.
+) -> list[AgentClaim | AdjudicatedClaim]:
+    """Surviving (unadjudicated) AgentClaims deduplicated by ``semantic_key``.
 
-    Retains the pre-adjudication consensus shape for callers that do not
-    supply adjudications. Rejected-topic filtering is a no-op here because
-    without an adjudication list there are no rejected topics.
+    Returned as the consensus union type so ``synthesize_consensus`` can hand
+    them back unchanged alongside real ``AdjudicatedClaim`` results. The
+    underlying values are always plain pending ``AgentClaim`` objects — no
+    ``AdjudicatedClaim`` is fabricated here. Without an adjudication list there
+    are no rejected topics, so no filtering happens.
     """
-    seen: set[tuple[str, str]] = set()
-    consensus: list[AgentClaim] = []
+    seen: set[str] = set()
+    consensus: list[AgentClaim | AdjudicatedClaim] = []
     for cset in claim_sets:
         for claim in cset.claims:
-            key = (claim.claim_type, (claim.value or claim.assertion).strip().lower())
-            if key in seen:
+            if claim.semantic_key in seen:
                 continue
-            seen.add(key)
+            seen.add(claim.semantic_key)
             consensus.append(claim)
     return consensus
+
+
+def fold_adjudicated_into_semantic_model(
+    adjudicated: list[AdjudicatedClaim],
+    model: SemanticModel,
+) -> SemanticModel:
+    """Mechanical bridge: fold accepted AdjudicatedClaims into the SemanticModel.
+
+    This is the ONLY Python path by which cognitive content enters the
+    authoritative SemanticModel, and it ingests ONLY ``AdjudicatedClaim`` (the
+    Judge's ruling) — never raw ``AgentClaim`` / ``MechanicalAssertion``. Python
+    does not invent cognitive fields; without a Judge ruling they stay empty /
+    ``unknown``. Rejected and hedged rulings are never folded in; accepted and
+    modified rulings (both authoritative) are. The same ``model`` is returned
+    (mutated in place).
+    """
+    for adj in adjudicated:
+        if adj.ruling not in ("accepted", "modified"):
+            continue
+        ctype = adj.claim.claim_type
+        text = adj.final_assertion or adj.claim.assertion
+        if ctype == "faq_topic":
+            model.faq.append(FAQItem(question=adj.claim.semantic_key, answer=text))
+            model.provenance.faq = "llm"
+        elif ctype == "troubleshooting":
+            model.troubleshooting.append(
+                TroubleshootingItem(symptom=adj.claim.semantic_key, solution=text)
+            )
+            model.provenance.troubleshooting = "llm"
+        elif ctype == "workflow":
+            model.user_tasks.append(
+                UserTask(title=adj.claim.semantic_key, steps=[text] if text else [])
+            )
+            model.provenance.user_tasks = "llm"
+        else:
+            # Mechanical or unmapped cognitive types are not invented here; they
+            # are sourced from evidence or rendered by the Skill layer.
+            continue
+    return model

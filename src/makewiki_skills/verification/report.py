@@ -90,8 +90,31 @@ class LayerReport(BaseModel):
 
     @computed_field  # type: ignore[prop-decorator]
     @property
+    def verdict(self) -> Literal["passed", "failed", "pending", "not_applicable"]:
+        """Honest layer-level verdict derived from the individual checks.
+
+        A layer is never ``passed`` merely because it has no failures: pending or
+        unknown checks keep the verdict pending (LLM judgment), a layer whose
+        checks are all genuinely not-applicable is ``not_applicable``, and a
+        layer with no checks at all defaults to ``pending`` (nothing was proven).
+        """
+        checks = self.checks
+        if not checks:
+            return "pending"
+        if any(c.status == "failed" for c in checks):
+            return "failed"
+        if any(c.status in ("pending", "unknown") for c in checks):
+            return "pending"
+        if all(c.status == "not_applicable" for c in checks):
+            return "not_applicable"
+        if self.passed_count > 0:
+            return "passed"
+        return "pending"
+
+    @computed_field  # type: ignore[prop-decorator]
+    @property
     def passed(self) -> bool:
-        return self.failed_count == 0
+        return self.verdict == "passed"
 
     def failures(self) -> list[VerificationCheck]:
         return [c for c in self.checks if not c.verified]
@@ -128,8 +151,28 @@ class ComprehensiveVerificationReport(BaseModel):
 
     @computed_field  # type: ignore[prop-decorator]
     @property
+    def verdict(self) -> Literal["passed", "failed", "pending", "not_applicable"]:
+        """Aggregate verdict: failed if any layer failed; pending if any layer
+        is pending; not_applicable if every layer is not_applicable; passed only
+        if every layer is passed. A pending layer can never be overridden to a
+        vacuous pass at the aggregate level."""
+        layers = list(self.layers.values())
+        if not layers:
+            return "pending"
+        if any(layer.verdict == "failed" for layer in layers):
+            return "failed"
+        if any(layer.verdict == "pending" for layer in layers):
+            return "pending"
+        if all(layer.verdict == "not_applicable" for layer in layers):
+            return "not_applicable"
+        if all(layer.verdict == "passed" for layer in layers):
+            return "passed"
+        return "pending"
+
+    @computed_field  # type: ignore[prop-decorator]
+    @property
     def passed(self) -> bool:
-        return all(layer.passed for layer in self.layers.values())
+        return self.verdict == "passed"
 
 
 # ---------------------------------------------------------------------------

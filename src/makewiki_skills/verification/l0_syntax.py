@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from makewiki_skills.generator.language_generator import GeneratedDocument
+from makewiki_skills.model.document_artifact import DocumentArtifact
 from makewiki_skills.toolkit.markdown_tools import MarkdownTool
 from makewiki_skills.verification.report import LayerReport, VerificationCheck
 
@@ -17,7 +17,7 @@ class L0SyntaxVerifier:
 
     def verify_documents(
         self,
-        documents: dict[str, list[GeneratedDocument]],
+        documents: dict[str, list[DocumentArtifact]],
         base_dir: Path | None = None,
     ) -> LayerReport:
         checks: list[VerificationCheck] = []

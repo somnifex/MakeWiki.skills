@@ -399,6 +399,50 @@ def test_bootstrap_verify_archive_sha256_skips_when_no_expected(monkeypatch, tmp
     assert "skipping archive integrity check" in out
 
 
+# ---------- review command accepts a wiki_dir (matching validate) ------------
+
+
+def test_review_accepts_project_dir_with_makewiki_output(tmp_path: Path):
+    """`review <project>` derives the wiki_dir under <project>/makewiki/."""
+    runner = CliRunner()
+    project = tmp_path / "project"
+    wiki_dir = project / "makewiki"
+    wiki_dir.mkdir(parents=True)
+    (wiki_dir / "README.md").write_text("# Hello\n", encoding="utf-8")
+    (wiki_dir / "install.md").write_text("## Install\nrun it\n", encoding="utf-8")
+
+    result = runner.invoke(app, ["review", str(project)])
+    assert result.exit_code == 0, result.output
+    combined = (result.output or "") + (result.stderr or "")
+    assert "Cross-Language Review" in combined
+
+
+def test_review_accepts_wiki_dir_directly(tmp_path: Path):
+    """`review <wiki_dir>` (a dir with README.md) is used directly as the output."""
+    runner = CliRunner()
+    wiki_dir = tmp_path / "wiki"
+    wiki_dir.mkdir()
+    (wiki_dir / "README.md").write_text("# Hello\n", encoding="utf-8")
+    (wiki_dir / "install.md").write_text("## Install\nrun it\n", encoding="utf-8")
+
+    result = runner.invoke(app, ["review", str(wiki_dir)])
+    assert result.exit_code == 0, result.output
+    combined = (result.output or "") + (result.stderr or "")
+    assert "Cross-Language Review" in combined
+
+
+def test_review_exits_one_when_no_wiki_dir_found(tmp_path: Path):
+    """A path that is neither a project nor a wiki_dir errors out."""
+    runner = CliRunner()
+    empty = tmp_path / "empty"
+    empty.mkdir()
+
+    result = runner.invoke(app, ["review", str(empty)])
+    assert result.exit_code == 1, result.output
+    combined = (result.output or "") + (result.stderr or "")
+    assert "Wiki directory not found" in combined
+
+
 # ---------- verify-claim L5 epistemic status ---------------------------------
 
 

@@ -3,7 +3,7 @@
 from pathlib import Path
 
 from makewiki_skills.config import MakeWikiConfig
-from makewiki_skills.generator.language_generator import GeneratedDocument
+from makewiki_skills.model.document_artifact import GeneratedDocument
 from makewiki_skills.pipeline.pipeline import (
     PipelineContext,
     count_issues,

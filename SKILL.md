@@ -552,16 +552,32 @@ alias of `parity`.
 
 ### Config Consumption Contract
 
-Every field in `makewiki.config.yaml` is either Python-consumed or
-explicitly marked LLM-consumed (read by the Skill orchestrator / writers):
+Every field in `makewiki.config.yaml` maps to exactly one consumer category —
+Python-only, LLM-only, Shared, or Legacy-only. The contract test
+`tests/contracts/test_config_consumption_contract.py` enforces that no field is
+dead or ambiguous:
 
-- **LLM-consumed**: `agent.*`, `delivery.*`, `language_profiles.*`,
-  `documentation_policy.*` — read by Skill; verified by contract test that
-  they are NOT consumed by Python.
-- **Python-consumed**: `scan.*`, `review.*`, `revision.*`, `site.*`,
+- **Shared** (read by Python for mechanical enforcement AND by the LLM writer
+  as guidance): `documentation_policy.forbid_unfounded_praise` and
+  `documentation_policy.banned_descriptors`. Python reads them in
+  `renderer/validator.py` to enforce the no-unfounded-praise / no-banned-word
+  rule mechanically; the writer also consults them so it never produces such
+  descriptors in the first place.
+- **LLM-only**: `agent.*`, `delivery.*`, `language_profiles.*`,
+  `content_depth.*`, and the other `documentation_policy.*` fields
+  (`audience`, `structure_strategy`, `prefer_task_oriented_sections`,
+  `include_architecture_analysis`, `include_directory_overview`,
+  `include_source_walkthroughs`) — read by Skill / writers, NOT by Python.
+  The contract's negative test asserts these LLM-only fields have no Python
+  read.
+- **Python-only**: `scan.*`, `review.*`, `revision.*`, `site.*`,
   `quality.*`, `emit_uncertainty_notes`, `generate_*`, `output_dir`,
-  `languages`, `default_language`.
-- See `tests/contracts/test_config_consumption_contract.py`.
+  `languages`, `default_language`, `overwrite`, `delete_stale_files`,
+  `strict_grounding`, `target_dir`.
+- **Legacy-only**: none today (the deprecated `legacy-generate` path has no
+  live config surface).
+
+See `tests/contracts/test_config_consumption_contract.py`.
 
 ---
 

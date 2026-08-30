@@ -251,8 +251,8 @@ def verify_docs(
     Gate aggregates the layers into a PASS/FAIL decision mapped to the CI exit
     code (0 pass / 1 fail).
     """
-    from makewiki_skills.generator.language_generator import GeneratedDocument
     from makewiki_skills.languages.registry import LanguageRegistry
+    from makewiki_skills.model.document_artifact import GeneratedDocument
     from makewiki_skills.verification.orchestrator import VerificationOrchestrator
     from makewiki_skills.verification.quality_gate import evaluate_quality_gate
 
@@ -548,8 +548,8 @@ def parity(
     Skill's LLM Auditor to reason over prose parity. Mechanical exactness is
     Python's proof; semantic prose equality is the LLM's judgment.
     """
-    from makewiki_skills.generator.language_generator import GeneratedDocument
     from makewiki_skills.languages.registry import LanguageRegistry
+    from makewiki_skills.model.document_artifact import GeneratedDocument
     from makewiki_skills.verification.orchestrator import VerificationOrchestrator
 
     target = Path(target).resolve()
@@ -644,12 +644,14 @@ def parity(
 
 @app.command()
 def review(
-    target: Path = typer.Argument(..., help="Target project directory"),
+    target: Path = typer.Argument(
+        ..., help="Project directory or MakeWiki output directory (wiki_dir)"
+    ),
     langs: list[str] = typer.Option(["en", "zh-CN"], "--lang", "-l"),
     config_path: Path | None = typer.Option(None, "--config", "-c"),
 ) -> None:
     """Run cross-language review on existing makewiki output."""
-    from makewiki_skills.generator.language_generator import GeneratedDocument
+    from makewiki_skills.model.document_artifact import GeneratedDocument
     from makewiki_skills.review.cross_language_reviewer import CrossLanguageReviewer
 
     target = Path(target).resolve()
@@ -660,7 +662,12 @@ def review(
 
     LanguageRegistry.load_builtins()
 
+    # Accept either a project directory (whose makewiki/ output lives under
+    # cfg.output_dir) OR a wiki_dir passed directly. A wiki_dir is detected by
+    # the presence of README.md in the target itself.
     wiki_dir = target / cfg.output_dir
+    if not wiki_dir.is_dir() and (target / "README.md").is_file():
+        wiki_dir = target
     if not wiki_dir.is_dir():
         console.print(f"[red]Error:[/red] Wiki directory not found: {wiki_dir}")
         raise typer.Exit(1)

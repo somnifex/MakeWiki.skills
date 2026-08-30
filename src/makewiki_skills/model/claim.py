@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import re
 from pathlib import Path
-from typing import Any, Literal, cast
+from typing import Any, Literal, cast, get_args
 
 from pydantic import BaseModel, Field
 
@@ -12,6 +12,31 @@ from makewiki_skills.scanner.evidence_registry import EvidenceRegistry
 from makewiki_skills.scanner.project_detector import ProjectDetectionResult
 
 Confidence = Literal["high", "medium", "low", "inferred"]
+
+# The full ClaimType vocabulary covering BOTH the mechanical types Python can
+# prove deterministically (command/config/path/version) AND the cognitive types
+# only an LLM Agent may author (workflow/persona/prerequisite/behavior/
+# error_case/faq_topic/troubleshooting/constraint/capability/architecture).
+# There is no "ngx" type; that was a historical typo.
+ClaimType = Literal[
+    "command",
+    "config",
+    "path",
+    "version",
+    "workflow",
+    "persona",
+    "prerequisite",
+    "behavior",
+    "error_case",
+    "faq_topic",
+    "troubleshooting",
+    "constraint",
+    "capability",
+    "architecture",
+]
+
+# Machine-checkable membership set mirroring the ClaimType vocabulary.
+CLAIM_TYPES: frozenset[str] = frozenset(get_args(ClaimType))
 
 VerificationStatus = Literal[
     "pending",
@@ -65,7 +90,11 @@ class Claim(BaseModel):
     """
 
     claim_id: str
-    claim_type: str  # "command" | "config" | "path" | "version" | "behavior" | "workflow" | "ngx"
+    # claim_type covers the full ClaimType vocabulary: mechanical types Python
+    # proves (command | config | path | version) and cognitive types only an LLM
+    # Agent authors (workflow | persona | prerequisite | behavior | error_case |
+    # faq_topic | troubleshooting | constraint | capability | architecture).
+    claim_type: str
     semantic_key: str
 
     subject: str
@@ -272,8 +301,12 @@ def verify_claims_against_codebase(
     """Verify claims against project filesystem and mark verification states."""
     target_dir = Path(target_dir).resolve()
 
-    allowed_claim_types = {"command", "config", "path", "version", "behavior", "workflow", "ngx"}
-    claim_id_pattern = re.compile(r"^(CMD|CFG|PATH|VER)_[A-Z0-9_]+$", re.IGNORECASE)
+    # claim_type must be a member of the full, unambiguous ClaimType vocabulary
+    # (no "ngx"). Claim ids are validated only as stable unique slugs — they are
+    # NOT forced to carry a mechanical CMD_/CFG_/PATH_/VER_ prefix, because
+    # cognitive claims (workflow, persona, faq_topic, ...) use free-form ids such
+    # as "FW_AUTH_FLOW".
+    claim_id_slug = re.compile(r"^[A-Za-z0-9._-]+$")
     # A semantic key is a slash-shaped dotted path, e.g. "cli.command.scan" or
     # "config.parameter.foo" — at least one dot-separated component.
     semantic_key_pattern = re.compile(r"^[a-zA-Z0-9_]+(?:\.[a-zA-Z0-9_]+)+$")
@@ -284,8 +317,8 @@ def verify_claims_against_codebase(
         # anything malformed is "failed", anything uncheckable is "pending".
         l0_ok = (
             isinstance(claim.claim_id, str)
-            and bool(claim_id_pattern.match(claim.claim_id.strip()))
-            and claim.claim_type in allowed_claim_types
+            and bool(claim_id_slug.match(claim.claim_id.strip()))
+            and claim.claim_type in CLAIM_TYPES
             and isinstance(claim.semantic_key, str)
             and bool(semantic_key_pattern.match(claim.semantic_key.strip()))
             and isinstance(claim.subject, str)

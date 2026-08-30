@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from makewiki_skills.generator.language_generator import GeneratedDocument
+from makewiki_skills.model.document_artifact import DocumentArtifact
 from makewiki_skills.scanner.evidence_registry import EvidenceRegistry
 from makewiki_skills.verification.l0_syntax import L0SyntaxVerifier
 from makewiki_skills.verification.l1_existence import L1ExistenceVerifier
@@ -38,7 +38,7 @@ class VerificationOrchestrator:
 
     def verify_documents(
         self,
-        documents: dict[str, list[GeneratedDocument]],
+        documents: dict[str, list[DocumentArtifact]],
         wiki_dir: Path | None = None,
     ) -> ComprehensiveVerificationReport:
         """Run all L0-L5 verification layers on rendered documentation."""
@@ -63,7 +63,7 @@ class VerificationOrchestrator:
     def verify_layer(
         self,
         layer: str,
-        documents: dict[str, list[GeneratedDocument]],
+        documents: dict[str, list[DocumentArtifact]],
         wiki_dir: Path | None = None,
     ) -> LayerReport:
         """Run a single specific verification layer (e.g. 'L0', 'L1', 'L2')."""

@@ -14,7 +14,7 @@ from typing import Literal
 
 from pydantic import BaseModel, Field, computed_field
 
-from makewiki_skills.generator.language_generator import GeneratedDocument
+from makewiki_skills.model.document_artifact import DocumentArtifact
 from makewiki_skills.toolkit.command_probe import CommandProbeTool
 from makewiki_skills.toolkit.config_reader import ConfigReaderTool
 from makewiki_skills.toolkit.markdown_tools import MarkdownTool
@@ -118,7 +118,7 @@ class CodebaseVerifier:
 
     def verify(
         self,
-        documents: dict[str, list[GeneratedDocument]],
+        documents: dict[str, list[DocumentArtifact]],
     ) -> CodebaseVerificationReport:
         checks: list[CodebaseCheck] = []
         for _lang, docs in documents.items():
@@ -131,7 +131,7 @@ class CodebaseVerifier:
 
     def _check_paths(
         self,
-        doc: GeneratedDocument,
+        doc: DocumentArtifact,
         paths: list[str],
     ) -> list[CodebaseCheck]:
         real = self._get_real_paths()
@@ -148,7 +148,7 @@ class CodebaseVerifier:
 
     def _check_commands(
         self,
-        doc: GeneratedDocument,
+        doc: DocumentArtifact,
         commands: list[str],
     ) -> list[CodebaseCheck]:
         project_cmds = self._get_real_commands()
@@ -213,7 +213,7 @@ class CodebaseVerifier:
 
     def _check_config_keys(
         self,
-        doc: GeneratedDocument,
+        doc: DocumentArtifact,
         keys: list[str],
     ) -> list[CodebaseCheck]:
         real_keys = self._get_real_config_keys()
@@ -288,7 +288,7 @@ class CodebaseVerifier:
 
     @staticmethod
     def _ok(
-        doc: GeneratedDocument,
+        doc: DocumentArtifact,
         claim: str,
         claim_type: Literal["path", "command", "config_key"],
         detail: str,
@@ -306,7 +306,7 @@ class CodebaseVerifier:
 
     @staticmethod
     def _fail(
-        doc: GeneratedDocument,
+        doc: DocumentArtifact,
         claim: str,
         claim_type: Literal["path", "command", "config_key"],
         detail: str,

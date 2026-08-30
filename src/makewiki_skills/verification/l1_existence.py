@@ -5,7 +5,7 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
-from makewiki_skills.generator.language_generator import GeneratedDocument
+from makewiki_skills.model.document_artifact import DocumentArtifact
 from makewiki_skills.toolkit.command_probe import CommandProbeTool
 from makewiki_skills.toolkit.config_reader import ConfigReaderTool
 from makewiki_skills.toolkit.markdown_tools import MarkdownTool
@@ -57,7 +57,7 @@ class L1ExistenceVerifier:
 
     def verify_documents(
         self,
-        documents: dict[str, list[GeneratedDocument]],
+        documents: dict[str, list[DocumentArtifact]],
     ) -> LayerReport:
         checks: list[VerificationCheck] = []
 
@@ -76,7 +76,7 @@ class L1ExistenceVerifier:
 
     def _check_paths(
         self,
-        doc: GeneratedDocument,
+        doc: DocumentArtifact,
         paths: list[str],
     ) -> list[VerificationCheck]:
         real = self._get_real_paths()
@@ -131,7 +131,7 @@ class L1ExistenceVerifier:
 
     def _check_commands(
         self,
-        doc: GeneratedDocument,
+        doc: DocumentArtifact,
         commands: list[str],
     ) -> list[VerificationCheck]:
         project_cmds = self._get_real_commands()
@@ -142,7 +142,9 @@ class L1ExistenceVerifier:
             if not stripped:
                 continue
 
-            # 1. Check generic shell tools
+            # 1. Well-known generic shell tools: existence cannot be mechanically
+            #    proven against THIS repository, so it is a pending candidate for
+            #    the LLM, never a vacuous pass.
             if any(stripped.startswith(p) for p in _GENERIC_TOOL_PREFIXES):
                 results.append(
                     VerificationCheck(
@@ -151,10 +153,10 @@ class L1ExistenceVerifier:
                         language_code=doc.language_code,
                         claim_type="command",
                         claim_text=stripped,
-                        verified=True,
-                        status="passed",
+                        verified=False,
+                        status="pending",
                         verification_source="generic_shell_semantics",
-                        detail="Well-known generic shell tool command",
+                        detail="Well-known generic shell tool; existence in this repo not mechanically proven - pending LLM review",
                     )
                 )
                 continue
@@ -176,7 +178,8 @@ class L1ExistenceVerifier:
                 )
                 continue
 
-            # 3. Check placeholder command (templates)
+            # 3. Placeholder command (templates): a `<...>` template is not proof
+            #    the underlying command exists here - keep it a pending candidate.
             if "<" in stripped and ">" in stripped:
                 results.append(
                     VerificationCheck(
@@ -185,15 +188,19 @@ class L1ExistenceVerifier:
                         language_code=doc.language_code,
                         claim_type="command",
                         claim_text=stripped,
-                        verified=True,
-                        status="passed",
+                        verified=False,
+                        status="pending",
                         verification_source="generic_shell_semantics",
-                        detail="Contains placeholder template syntax",
+                        detail="Contains placeholder template syntax; command existence not mechanically proven - pending LLM review",
                     )
                 )
                 continue
 
-            # 4. Check if hedged with uncertainty note
+            # 4. Check if hedged with uncertainty note. A hedging caveat is a
+            #    signal the documented ground the command SUPPOSEDLY exists on was
+            #    not established — it is NOT proof of existence here. Mark it a
+            #    pending candidate for the LLM (mirroring L5's treatment of the
+            #    same hedged signal), never a vacuous pass.
             if self._is_hedged_command(doc.content, stripped):
                 results.append(
                     VerificationCheck(
@@ -202,10 +209,10 @@ class L1ExistenceVerifier:
                         language_code=doc.language_code,
                         claim_type="command",
                         claim_text=stripped,
-                        verified=True,
-                        status="passed",
+                        verified=False,
+                        status="pending",
                         verification_source="hedging_caveat",
-                        detail="Hedged with epistemic uncertainty note",
+                        detail="Hedged with epistemic uncertainty note; command existence not mechanically proven - pending LLM review",
                     )
                 )
                 continue
@@ -230,7 +237,7 @@ class L1ExistenceVerifier:
 
     def _check_config_keys(
         self,
-        doc: GeneratedDocument,
+        doc: DocumentArtifact,
         keys: list[str],
     ) -> list[VerificationCheck]:
         real_keys = self._get_real_config_keys()
@@ -269,6 +276,8 @@ class L1ExistenceVerifier:
                 )
                 continue
 
+            # An UPPER_CASE name matches the env-var pattern but is not proof the
+            # variable is actually declared anywhere here - keep it pending.
             if re.match(r"^[A-Z][A-Z0-9_]+$", key):
                 results.append(
                     VerificationCheck(
@@ -277,10 +286,10 @@ class L1ExistenceVerifier:
                         language_code=doc.language_code,
                         claim_type="config_key",
                         claim_text=key,
-                        verified=True,
-                        status="passed",
+                        verified=False,
+                        status="pending",
                         verification_source="generic_shell_semantics",
-                        detail="Standard uppercase environment variable pattern",
+                        detail="Matches uppercase env-var naming pattern; declared existence not mechanically proven - pending LLM review",
                     )
                 )
                 continue

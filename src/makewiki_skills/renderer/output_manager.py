@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from makewiki_skills.generator.language_generator import GeneratedDocument
+from makewiki_skills.model.document_artifact import DocumentArtifact
 from makewiki_skills.toolkit.filesystem import FilesystemTool
 
 
@@ -22,7 +22,7 @@ class OutputManager:
         self._delete_stale = delete_stale_files
         self._fs = FilesystemTool()
 
-    def write_documents(self, documents: dict[str, list[GeneratedDocument]]) -> list[Path]:
+    def write_documents(self, documents: dict[str, list[DocumentArtifact]]) -> list[Path]:
         written: list[Path] = []
         for _lang, docs in documents.items():
             for doc in docs:
@@ -47,7 +47,7 @@ class OutputManager:
 
     def write_index(
         self,
-        documents: dict[str, list[GeneratedDocument]],
+        documents: dict[str, list[DocumentArtifact]],
         default_language: str = "en",
     ) -> Path | None:
         del default_language
@@ -61,8 +61,8 @@ class OutputManager:
             lines.append(f"## {lang}\n\n")
 
             # Separate top-level docs from sub-pages (e.g. usage/*)
-            top_level: list[GeneratedDocument] = []
-            by_dir: dict[str, list[GeneratedDocument]] = {}
+            top_level: list[DocumentArtifact] = []
+            by_dir: dict[str, list[DocumentArtifact]] = {}
             for doc in sorted(docs, key=lambda item: item.base_name):
                 parts = doc.base_name.split("/", 1)
                 if len(parts) == 2:

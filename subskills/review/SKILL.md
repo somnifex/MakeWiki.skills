@@ -4,7 +4,7 @@ description: "Verify and review existing makewiki documentation: checks factual 
 version: "2.0.0"
 argument-hint: "[--lang <code>...]"
 license: MIT
-allowed-tools: Bash(python */scripts/bootstrap_toolkit.py) Bash(python */scripts/run_toolkit.py *) Read Glob Grep
+allowed-tools: Bash(python */scripts/bootstrap_toolkit.py) Bash(python */scripts/run_toolkit.py *) Read Write Edit Glob Grep
 ---
 
 # MakeWiki Review - L0-L5 Verification, Quality Gate & Cross-Language Parity

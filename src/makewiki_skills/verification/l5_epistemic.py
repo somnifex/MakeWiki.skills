@@ -5,7 +5,7 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
-from makewiki_skills.generator.language_generator import GeneratedDocument
+from makewiki_skills.model.document_artifact import DocumentArtifact
 from makewiki_skills.scanner.evidence_registry import EvidenceRegistry
 from makewiki_skills.toolkit.command_probe import CommandProbeTool
 from makewiki_skills.toolkit.markdown_tools import MarkdownTool
@@ -43,7 +43,15 @@ _GENERIC_TOOL_PREFIXES: list[str] = [
 
 
 class L5EpistemicVerifier:
-    """Verify that unconfirmed or inferred claims carry consistent hedging caveats."""
+    """Collect epistemic candidates; the LLM Auditor holds the verdict.
+
+    Python can mechanically locate candidates (generic shell commands, commands
+    known in the repository, hedged utterances, ungrounded assertions) but it
+    cannot adjudicate *epistemic correctness* — whether the confidence a document
+    projects matches the actual evidence. Every epistemic claim is therefore
+    emitted as a ``pending`` candidate with ``verified=False`` so the layer never
+    reports a vacuous ``passed`` on semantics.
+    """
 
     def __init__(
         self,
@@ -58,7 +66,7 @@ class L5EpistemicVerifier:
 
     def verify_documents(
         self,
-        documents: dict[str, list[GeneratedDocument]],
+        documents: dict[str, list[DocumentArtifact]],
     ) -> LayerReport:
         checks: list[VerificationCheck] = []
         known_cmds = self._get_known_commands()
@@ -72,110 +80,60 @@ class L5EpistemicVerifier:
                     if not stripped:
                         continue
 
-                    # 1. Check if it's a generic shell command
-                    if any(stripped.startswith(p) for p in _GENERIC_TOOL_PREFIXES):
-                        checks.append(
-                            VerificationCheck(
-                                layer="L5",
-                                target=doc.filename,
-                                language_code=lang,
-                                claim_type="epistemic",
-                                claim_text=stripped,
-                                verified=True,
-                                status="passed",
-                                verification_source="generic_shell_semantics",
-                                detail="Generic shell command; epistemic grounding satisfied",
-                            )
-                        )
-                        continue
-
-                    # 2. Check if command is known in repository scripts/Makefile
-                    if any(stripped.startswith(kc) or kc in stripped for kc in known_cmds):
-                        checks.append(
-                            VerificationCheck(
-                                layer="L5",
-                                target=doc.filename,
-                                language_code=lang,
-                                claim_type="epistemic",
-                                claim_text=stripped,
-                                verified=True,
-                                status="passed",
-                                verification_source="verified_from_repository",
-                                detail="Repository command verified; epistemic grounding satisfied",
-                            )
-                        )
-                        continue
-
-                    # 3. Check if command has evidence in registry
+                    is_generic = any(stripped.startswith(p) for p in _GENERIC_TOOL_PREFIXES)
+                    is_repo_cmd = any(
+                        stripped.startswith(kc) or kc in stripped for kc in known_cmds
+                    )
                     matching_facts = [
                         f for f in self._registry.query(fact_type="command")
                         if f.value and (f.value in stripped or stripped in f.value)
                     ]
-
                     is_hedged = self._is_hedged(doc.content, stripped)
 
-                    if matching_facts:
-                        best_conf = matching_facts[0].best_confidence
-                        if best_conf in ("low", "inferred") and not is_hedged:
-                            checks.append(
-                                VerificationCheck(
-                                    layer="L5",
-                                    target=doc.filename,
-                                    language_code=lang,
-                                    claim_type="epistemic",
-                                    claim_text=stripped,
-                                    verified=False,
-                                    status="failed",
-                                    verification_source="hedging_caveat",
-                                    detail=f"Command '{stripped}' has {best_conf} confidence but lacks epistemic hedging caveat",
-                                    suggested_fix="Attach [!NOTE] hedging caveat to this command code block",
-                                )
-                            )
-                        else:
-                            checks.append(
-                                VerificationCheck(
-                                    layer="L5",
-                                    target=doc.filename,
-                                    language_code=lang,
-                                    claim_type="epistemic",
-                                    claim_text=stripped,
-                                    verified=True,
-                                    status="passed",
-                                    verification_source="hedging_caveat" if is_hedged else "verified_from_repository",
-                                    detail="Properly grounded or hedged",
-                                )
-                            )
+                    if is_generic:
+                        source, text = (
+                            "generic_shell_semantics",
+                            "generic shell command candidate; epistemic verdict reserved for LLM Auditor",
+                        )
+                    elif is_repo_cmd:
+                        source, text = (
+                            "verified_from_repository",
+                            "repo command located mechanically; meaning/epistemic verdict reserved for LLM Auditor",
+                        )
+                    elif matching_facts and is_hedged:
+                        source, text = (
+                            "hedging_caveat",
+                            "evidence-backed command with hedging caveat; epistemic verdict reserved for LLM Auditor",
+                        )
+                    elif matching_facts:
+                        source, text = (
+                            "verified_from_repository",
+                            "evidence-backed command; epistemic verdict reserved for LLM Auditor",
+                        )
+                    elif is_hedged:
+                        source, text = (
+                            "hedging_caveat",
+                            "hedged command candidate; epistemic verdict reserved for LLM Auditor",
+                        )
                     else:
-                        # Ungrounded command
-                        if is_hedged:
-                            checks.append(
-                                VerificationCheck(
-                                    layer="L5",
-                                    target=doc.filename,
-                                    language_code=lang,
-                                    claim_type="epistemic",
-                                    claim_text=stripped,
-                                    verified=True,
-                                    status="passed",
-                                    verification_source="hedging_caveat",
-                                    detail="Ungrounded command is defensively hedged with uncertainty notice",
-                                )
-                            )
-                        else:
-                            checks.append(
-                                VerificationCheck(
-                                    layer="L5",
-                                    target=doc.filename,
-                                    language_code=lang,
-                                    claim_type="epistemic",
-                                    claim_text=stripped,
-                                    verified=False,
-                                    status="failed",
-                                    verification_source="hedging_caveat",
-                                    detail=f"Ungrounded command '{stripped}' is asserted without uncertainty caveat",
-                                    suggested_fix="Add uncertainty disclaimer or hedging note",
-                                )
-                            )
+                        source, text = (
+                            "heuristic",
+                            "ungrounded command candidate; epistemic verdict reserved for LLM Auditor",
+                        )
+
+                    checks.append(
+                        VerificationCheck(
+                            layer="L5",
+                            target=doc.filename,
+                            language_code=lang,
+                            claim_type="epistemic",
+                            claim_text=stripped,
+                            verified=False,
+                            status="pending",
+                            verification_source=source,
+                            detail=text,
+                        )
+                    )
 
         if not checks:
             # No L5 checks were performed. Emit an honest pending check so the

@@ -60,14 +60,58 @@ def _read(path: Path) -> str:
 
 
 def _all_documentation_files() -> list[Path]:
+    """Every documentation file that may reference CLI commands.
+
+    Covers the root docs (SKILL, AGENTS, CLAUDE, README in both languages), all
+    subskill SKILL.md files, every reference doc, any ``tasks/**`` planning
+    docs, and the launcher scripts that actually invoke the CLI. A command the
+    docs tell the user to run should resolve to a registered Typer command.
+    """
     files: list[Path] = [
-        PROJECT_ROOT / "AGENTS.md",
-        PROJECT_ROOT / "references" / "api.md",
         PROJECT_ROOT / "SKILL.md",
+        PROJECT_ROOT / "AGENTS.md",
+        PROJECT_ROOT / "CLAUDE.md",
+        PROJECT_ROOT / "README.md",
+        PROJECT_ROOT / "README.en.md",
     ]
     for sub in sorted((PROJECT_ROOT / "subskills").glob("*/SKILL.md")):
         files.append(sub)
+    for ref in sorted((PROJECT_ROOT / "references").glob("*.md")):
+        files.append(ref)
+    for task in sorted((PROJECT_ROOT / "tasks").glob("**/*.md")):
+        files.append(task)
+    for script in sorted((PROJECT_ROOT / "scripts").glob("*.py")):
+        files.append(script)
     return files
+
+
+# Words that the broad backtick scan picks up from code-fence blocks and table
+# cells but that are NOT CLI command names — prose nouns, CLI argument values,
+# and documentation vocabulary. Keeping them here lets the "every documented
+# command is registered" test run over the full doc corpus without drowning in
+# non-command tokens, while any genuinely documented-but-unregistered command
+# name still fails. This is intentionally NOT the tautological "only look at
+# tokens we already know are registered" filter.
+NON_COMMAND_TOKENS: frozenset[str] = frozenset(
+    {
+        "adjudicated",
+        "all",
+        "auto",
+        "claim",
+        "commands",
+        "configuration",
+        "description",
+        "faq",
+        "identity",
+        "installation",
+        "name",
+        "pdf",
+        "perspective",
+        "provenance",
+        "troubleshooting",
+        "version",
+    }
+)
 
 
 def _code_fence_blocks(text: str) -> list[str]:
@@ -116,7 +160,19 @@ def test_all_registered_cli_commands_are_documented():
 
 
 def test_documented_cli_commands_resolve_to_registered_typer():
-    """Every backtick-wrapped CLI command mentioned in docs is registered."""
+    """Every backtick-wrapped CLI command mentioned in the docs is registered.
+
+    This is the real (non-tautological) direction of the contract: we extract
+    every backtick token that looks like a command name from code-fence blocks
+    and table cells across the FULL documentation corpus, then assert that each
+    — excluding a small curated list of prose/vocabulary tokens — resolves to a
+    registered Typer command. A command the docs tell the user to run but that
+    was never wired up into the CLI now fails loudly.
+
+    The previous version pre-filtered ``cli_candidates`` through
+    ``REGISTERED_COMMANDS`` before asserting, which made the test pass
+    trivially (the difference of a set and a superset of it is always empty).
+    """
     pattern = re.compile(r"`([a-z][a-z0-9-]*)`")
     referenced: set[str] = set()
     for doc in _all_documentation_files():
@@ -124,19 +180,19 @@ def test_documented_cli_commands_resolve_to_registered_typer():
         for block in _code_fence_blocks(text):
             for match in pattern.finditer(block):
                 referenced.add(match.group(1))
-        # Also pull from table cells.
         for row in _table_rows(text):
             for cell in row:
                 for match in pattern.finditer(cell):
                     referenced.add(match.group(1))
-    # Filter to commands that look like CLI commands (skip shared helpers).
-    cli_candidates = {
-        name
-        for name in referenced
-        if name in REGISTERED_COMMANDS
-    }
-    extras = cli_candidates - REGISTERED_COMMANDS
-    assert not extras, "Docs reference Typer commands that are not registered: " + ", ".join(extras)
+    # The candidate set is NOT pre-filtered through REGISTERED_COMMANDS (that
+    # would make this test tautological). We only subtract a curated list of
+    # prose/vocabulary tokens; any remaining token must be a registered command.
+    documented = {name for name in referenced if name not in NON_COMMAND_TOKENS}
+    extras = documented - REGISTERED_COMMANDS
+    assert not extras, (
+        "Docs reference CLI commands that are not registered: "
+        + ", ".join(sorted(extras))
+    )
 
 
 def test_legacy_family_never_presented_as_authoritative():

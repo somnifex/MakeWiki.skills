@@ -1,5 +1,6 @@
 # MakeWiki.skills
 
+
 <p align="center">
   <strong>LLM-first, Evidence-backed, Multi-Agent Documentation Compiler for AI Coding Assistants</strong>
 </p>
@@ -154,10 +155,12 @@ MakeWiki no longer claims "zero hallucinations." It delivers **verifiable, evide
 
 ## ⚙️ Configuration (`makewiki.config.yaml`)
 
-Optional config file at the project root. Fields fall into two classes:
+Optional config file at the project root. Fields fall into four classes:
 
-- **LLM-consumed** — read by the Skill orchestrator / writers (`agent.*`, `delivery.*`, `language_profiles.*`, `documentation_policy.*`).
-- **Python-consumed** — read by the mechanical plane (`site.include_search`, `scan.*`, `review.*`, `quality.*`, `revision.*`, etc.).
+- **LLM-only** — read by the Skill orchestrator / writers (`agent.*`, `delivery.*`, `content_depth.*`, `language_profiles.*`, and the other `documentation_policy.*` fields besides the two Shared ones below).
+- **Python-only** — read by the mechanical plane (`site.*`, `scan.*`, `review.*`, `quality.*`, `revision.*`, etc.).
+- **Shared** — read by Python for mechanical enforcement AND by the LLM writer as guidance (`documentation_policy.forbid_unfounded_praise` and `documentation_policy.banned_descriptors`).
+- **Legacy-only** — empty today (the deprecated `legacy-generate` path has no live config surface).
 
 ```yaml
 output_dir: makewiki

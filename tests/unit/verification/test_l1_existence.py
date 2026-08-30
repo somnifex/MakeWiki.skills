@@ -2,7 +2,7 @@
 
 from pathlib import Path
 
-from makewiki_skills.generator.language_generator import GeneratedDocument
+from makewiki_skills.model.document_artifact import GeneratedDocument
 from makewiki_skills.verification.l1_existence import L1ExistenceVerifier
 
 
@@ -17,12 +17,38 @@ def test_l1_generic_command_marked_generic_shell_semantics(tmp_path: Path):
     report = verifier.verify_documents({"en": [doc]})
 
     assert report.layer == "L1"
-    assert report.passed
+    # Generic shell commands are candidates, not proven existence: the layer is
+    # pending, never a vacuous pass.
+    assert report.verdict == "pending"
+    assert report.passed is False
 
     generic_checks = [
         c for c in report.checks if c.verification_source == "generic_shell_semantics"
     ]
     assert len(generic_checks) >= 2
+
+
+def test_l1_generic_prefix_is_pending_not_passed(tmp_path: Path):
+    """A generic-shell-prefix command must be a pending LLM candidate, never passed.
+
+    Merely starting with ``git`` / ``pip`` / ``cd`` does not prove the command
+    exists in THIS repository.
+    """
+    doc = GeneratedDocument(
+        filename="install.md",
+        base_name="install.md",
+        language_code="en",
+        content="# Installation\n```bash\npip install -e .\n```\n",
+    )
+    verifier = L1ExistenceVerifier(tmp_path)
+    report = verifier.verify_documents({"en": [doc]})
+
+    gen = [c for c in report.checks if "pip install -e ." in c.claim_text]
+    assert len(gen) == 1
+    assert gen[0].verified is False
+    assert gen[0].status == "pending"
+    assert gen[0].verification_source == "generic_shell_semantics"
+    assert not report.passed
 
 
 def test_l1_repository_command_marked_verified_from_repository(tmp_path: Path):
@@ -58,9 +84,38 @@ def test_l1_hedged_command_marked_hedging_caveat(tmp_path: Path):
         c for c in report.checks if c.verification_source == "hedging_caveat"
     ]
     assert len(hedged_checks) == 1
-    assert hedged_checks[0].verified
+    # A hedging caveat is a signal the command's existence was not established —
+    # it is a pending candidate for the LLM, never a vacuous pass (mirrors L5's
+    # treatment of the same hedged signal).
+    assert hedged_checks[0].status == "pending"
+    assert not hedged_checks[0].verified
 
 
+def test_l1_hedged_command_is_pending_not_passed(tmp_path: Path):
+    """The hedged-caveat heuristic must not elevate a command to 'passed'.
+
+    Regression guard: this check previously emitted ``verified=True/status=passed``
+    purely because the doc hedged about it, even though Python established no
+    repository evidence for the command's existence.
+    """
+    doc = GeneratedDocument(
+        filename="usage.md",
+        base_name="usage.md",
+        language_code="en",
+        content="# Usage\n```bash\nmyapp unknown-subcommand\n```\n> [!NOTE]\n> Note: This command is inferred.\n",
+    )
+    verifier = L1ExistenceVerifier(tmp_path)
+    report = verifier.verify_documents({"en": [doc]})
+
+    hedged_checks = [
+        c for c in report.checks if c.verification_source == "hedging_caveat"
+    ]
+    assert len(hedged_checks) == 1
+    assert hedged_checks[0].status == "pending"
+    assert not hedged_checks[0].verified
+    # A layer carrying only this hedged candidate must not report "passed".
+    assert report.verdict == "pending"
+    assert report.passed is False
 def test_l1_missing_path_fails(tmp_path: Path):
     doc = GeneratedDocument(
         filename="README.md",

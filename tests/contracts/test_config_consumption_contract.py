@@ -20,6 +20,9 @@ import re
 from pathlib import Path
 
 from makewiki_skills.config import (
+    DocumentationPolicyConfig,
+    all_field_categories,
+    field_consumer_category,
     iter_config_models,
     llm_consumed_field_paths,
     python_consumed_field_paths,
@@ -55,6 +58,114 @@ def test_every_config_field_is_marked_consumed():
         if missing:
             failures.append(f"{model_name}: not declared Python or LLM consumed: {sorted(missing)}")
     assert not failures, "\n".join(failures)
+
+
+def test_config_consumer_classification_complete():
+    """Every public config field maps to EXACTLY ONE of the four categories.
+
+    This replaces the old two-bucket union with the four-way contract:
+    PYTHON_ONLY / LLM_ONLY / SHARED / LEGACY_ONLY. No field may be UNKNOWN
+    (unconsumed) and no field may claim more than one category.
+    """
+    categories = all_field_categories()
+    expected = _all_config_field_paths()
+    flat_expected = {
+        f"{model_name}.{f}"
+        for model_name, fields in expected.items()
+        for f in fields
+    }
+
+    assert set(categories) == flat_expected, (
+        "all_field_categories() must cover exactly the declared public fields; "
+        f"missing={sorted(flat_expected - set(categories))}, "
+        f"extra={sorted(set(categories) - flat_expected)}"
+    )
+
+    unknown = {p for p, cat in categories.items() if cat == "UNKNOWN"}
+    assert not unknown, "Every public config field must be consumed; UNKNOWN: " + ", ".join(sorted(unknown))
+
+    # Every category is one of the four legal values.
+    legal = {"PYTHON_ONLY", "LLM_ONLY", "SHARED", "LEGACY_ONLY"}
+    illegal = {p for p, cat in categories.items() if cat not in legal}
+    assert not illegal, "Field mapped to an illegal category: " + ", ".join(sorted(illegal))
+
+
+def test_shared_fields_are_single_categorized():
+    """The genuinely-shared documentation_policy fields are SHARED.
+
+    ``forbid_unfounded_praise`` and ``banned_descriptors`` are read by the
+    Python validator (renderer/validator.py) for mechanical enforcement AND by
+    the LLM writer as writing guidance, so they must be classified SHARED —
+    not LLM_ONLY / PYTHON_ONLY.
+    """
+    assert (
+        field_consumer_category(DocumentationPolicyConfig, "forbid_unfounded_praise")
+        == "SHARED"
+    )
+    assert (
+        field_consumer_category(DocumentationPolicyConfig, "banned_descriptors")
+        == "SHARED"
+    )
+
+
+def test_shared_fields_are_read_by_python():
+    """SHARED fields must be referenced somewhere in ``src/``.
+
+    This guards the mechanical half of SHARED: a field read only by the LLM
+    writer but marked SHARED would silently reclassify a dead or unused slot.
+    """
+    referenced: list[str] = [
+        f"{DocumentationPolicyConfig.__name__}.{field}"
+        for field in ("forbid_unfounded_praise", "banned_descriptors")
+    ]
+    src_texts: dict[str, str] = {
+        str(p): p.read_text(encoding="utf-8")
+        for p in SRC_ROOT.rglob("*.py")
+    }
+    missing: list[str] = []
+    for dotted in referenced:
+        _, _, attr = dotted.rpartition(".")
+        pattern = re.compile(
+            r"(?:\." + re.escape(attr) + r"\b|\[\s*['\"]" + re.escape(attr) + r"['\"]\s*\])"
+        )
+        if not any(pattern.search(text) for text in src_texts.values()):
+            missing.append(dotted)
+    assert not missing, "SHARED fields missing a Python read: " + ", ".join(missing)
+
+
+def test_llm_only_fields_are_not_python_read():
+    """LLM_ONLY documentation_policy fields are NOT consumed by Python.
+
+    This is the negative half of the contract: fields classified LLM_ONLY must
+    stay out of the mechanical plane. ``audience`` and friends are only
+    consulted by the Skill orchestrator / writers.
+    """
+    llm_only = [
+        field
+        for field in DocumentationPolicyConfig.model_fields
+        if field_consumer_category(DocumentationPolicyConfig, field) == "LLM_ONLY"
+    ]
+    assert llm_only, "expected some LLM_ONLY documentation_policy fields to check"
+    src_texts: dict[str, str] = {
+        str(p): p.read_text(encoding="utf-8")
+        for p in SRC_ROOT.rglob("*.py")
+    }
+    leaked: list[str] = []
+    for field in llm_only:
+        pattern = re.compile(
+            r"(?:\." + re.escape(field) + r"\b|\[\s*['\"]" + re.escape(field) + r"['\"]\s*\])"
+        )
+        # config.py itself is where the field is declared — exclude it.
+        for path, text in src_texts.items():
+            if path.endswith("config.py"):
+                continue
+            if pattern.search(text):
+                leaked.append(field)
+                break
+    assert not leaked, (
+        "LLM_ONLY documentation_policy fields are read in Python src/: "
+        + ", ".join(sorted(leaked))
+    )
 
 
 def test_python_consumed_fields_are_referenced_in_source():

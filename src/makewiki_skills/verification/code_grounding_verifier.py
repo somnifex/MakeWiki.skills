@@ -8,7 +8,7 @@ from datetime import UTC, datetime
 
 from pydantic import BaseModel, Field, computed_field
 
-from makewiki_skills.generator.language_generator import GeneratedDocument
+from makewiki_skills.model.document_artifact import DocumentArtifact
 from makewiki_skills.scanner.evidence_registry import EvidenceRegistry
 from makewiki_skills.toolkit.markdown_tools import MarkdownTool
 
@@ -71,7 +71,7 @@ class CodeGroundingVerifier:
         self._md = MarkdownTool()
         self._strict = strict
 
-    def verify(self, documents: dict[str, list[GeneratedDocument]]) -> GroundingReport:
+    def verify(self, documents: dict[str, list[DocumentArtifact]]) -> GroundingReport:
         all_claims: list[tuple[GroundingClaim, str]] = []
         violations: list[GroundingViolation] = []
         warnings: list[GroundingViolation] = []
@@ -101,7 +101,7 @@ class CodeGroundingVerifier:
             warnings=warnings,
         )
 
-    def _extract_claims(self, doc: GeneratedDocument) -> list[GroundingClaim]:
+    def _extract_claims(self, doc: DocumentArtifact) -> list[GroundingClaim]:
         claims: list[GroundingClaim] = []
         facts = self._md.extract_facts(doc.content, doc.language_code, doc.filename)
 

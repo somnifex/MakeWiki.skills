@@ -456,3 +456,97 @@ def test_l1_path_with_non_string_object_is_pending():
     )
     verified = verify_claims_against_codebase(ClaimSet(project_name="myapp", claims=[claim]), Path("."))
     assert verified.get_by_id("PATH_OBJ").verification.l1_existence == "pending"
+
+
+def test_claim_type_vocabulary_complete():
+    """CLAIM_TYPES covers the full cognitive + mechanical vocabulary, no 'ngx'."""
+    from makewiki_skills.model.claim import CLAIM_TYPES, ClaimType
+
+    expected = {
+        "command",
+        "config",
+        "path",
+        "version",
+        "workflow",
+        "persona",
+        "prerequisite",
+        "behavior",
+        "error_case",
+        "faq_topic",
+        "troubleshooting",
+        "constraint",
+        "capability",
+        "architecture",
+    }
+    assert set(CLAIM_TYPES) == expected
+    assert "ngx" not in CLAIM_TYPES
+    assert set(ClaimType.__args__) == expected
+
+
+def test_cognitive_claim_with_non_mechanical_id_passes_l0():
+    """A workflow/persona/faq_topic claim with a free-form id (no CMD_/CFG_/
+    PATH_/VER_ prefix) PASSES L0 — ids are validated as slugs, not forced to a
+    mechanical prefix."""
+    from pathlib import Path
+
+    from makewiki_skills.model.claim import Claim, ClaimSet, verify_claims_against_codebase
+
+    claims = [
+        Claim(
+            claim_id="FW_AUTH_FLOW",
+            claim_type="workflow",
+            semantic_key="workflow.auth",
+            subject="myapp",
+            predicate="authenticates_users",
+            object="login -> token -> refresh",
+        ),
+        Claim(
+            claim_id="PERSONA_CLI_USER",
+            claim_type="persona",
+            semantic_key="persona.cli_user",
+            subject="myapp",
+            predicate="assumes_role",
+            object="interactive shell user",
+        ),
+        Claim(
+            claim_id="FAQ_INSTALL",
+            claim_type="faq_topic",
+            semantic_key="faq.install",
+            subject="myapp",
+            predicate="answers_question",
+            object="how do I install?",
+        ),
+    ]
+    verified = verify_claims_against_codebase(ClaimSet(project_name="myapp", claims=claims), Path("."))
+    for c in verified.claims:
+        assert c.verification.l0_syntax == "passed", c.claim_id
+
+
+def test_claim_id_is_slug_not_mechanical_prefix():
+    """A mechanical-prefix-free but genuinely well-formed id is accepted; an id
+    carrying characters outside a stable slug (e.g. '!') is not."""
+    from pathlib import Path
+
+    from makewiki_skills.model.claim import Claim, ClaimSet, verify_claims_against_codebase
+
+    good = Claim(
+        claim_id="run.fast",
+        claim_type="command",
+        semantic_key="cli.command.run",
+        subject="myapp",
+        predicate="executes",
+        object="myapp run --fast",
+    )
+    verified = verify_claims_against_codebase(ClaimSet(project_name="myapp", claims=[good]), Path("."))
+    assert verified.get_by_id("run.fast").verification.l0_syntax == "passed"
+
+    bad = Claim(
+        claim_id="run!fast",
+        claim_type="command",
+        semantic_key="cli.command.run",
+        subject="myapp",
+        predicate="executes",
+        object="myapp run --fast",
+    )
+    verified_bad = verify_claims_against_codebase(ClaimSet(project_name="myapp", claims=[bad]), Path("."))
+    assert verified_bad.get_by_id("run!fast").verification.l0_syntax != "passed"

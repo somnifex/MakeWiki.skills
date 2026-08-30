@@ -154,10 +154,12 @@ MakeWiki 不再宣称"零幻觉"，而提供**可验证的证据驱动文档**�
 
 ## ⚙️ 配置文件 (`makewiki.config.yaml`)
 
-如需自定义生成行为，可在项目根目录放置配置文件（可选）。配置字段分为两类：
+如需自定义生成行为，可在项目根目录放置配置文件（可选）。配置字段分为四类：
 
-- **LLM-consumed**：被 Skill 编排器 / 写作者读取（`agent.*`、`delivery.*`、`language_profiles.*`、`documentation_policy.*`）。
-- **Python-consumed**：被机械平面读取（`site.include_search`、`scan.*`、`review.*`、`quality.*`、`revision.*` 等）。
+- **LLM-only**：被 Skill 编排器 / 写作者读取（`agent.*`、`delivery.*`、`content_depth.*`、`language_profiles.*` 及除下方两条外的 `documentation_policy.*`）。
+- **Python-only**：被机械平面读取（`site.*`、`scan.*`、`review.*`、`quality.*`、`revision.*` 等）。
+- **Shared**：Python 用于机械执行、LLM 作为写作约束（`documentation_policy.forbid_unfounded_praise` 与 `documentation_policy.banned_descriptors`）。
+- **Legacy-only**：目前为空（已废弃的 `legacy-generate` 路径无活动配置）。
 
 ```yaml
 output_dir: makewiki

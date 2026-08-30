@@ -140,8 +140,10 @@ def test_mechanical_repair_engine_hedging_from_codebase_report():
     assert report.total_actions > 0
     content = revised["zh-CN"][0].content
     assert "[!NOTE]" in content
-    # Canned Chinese UNKNOWN evidence marker (fixed, per-language).
-    assert "无法机械验证" in content
+    # Single canonical English UNKNOWN evidence marker — Python does not
+    # translate narrative; localization is the LLM Auditor/Writer's job.
+    assert "could not be mechanically verified against the codebase" in content
+    assert "无法机械验证" not in content
 
 
 def test_mechanical_repair_engine_harmonize_by_stable_id():
