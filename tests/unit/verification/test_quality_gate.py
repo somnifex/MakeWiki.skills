@@ -795,11 +795,14 @@ def test_l4a_pending_means_mechanical_passed_false():
 
 def test_mechanical_passed_requires_meeting_grounding_threshold():
     """REQUIREMENT: ``mechanical_passed`` must be False when the mechanical
-    grounding threshold is NOT met, even if no layer explicitly failed.
+    grounding threshold is NOT met.
 
-    The threshold is a hard gate on the mechanical plane: dipping below it while
-    L4a is not_applicable (empty) and L0/L1/L2 pass means the mechanical plane is
-    NOT genuinely passed, so ``mechanical_passed`` must be False.
+    A mechanical failure that drives the grounding score below the threshold is
+    a hard gate on the mechanical plane: even though L4a is not_applicable
+    (empty) and L0/L2 pass, the mechanical plane is NOT genuinely passed, so
+    ``mechanical_passed`` must be False. (A score below 1.0 necessarily comes
+    from a non-passing check, since the score is passed/total — this fixture
+    uses an explicit failed L1 to produce it.)
     """
     from makewiki_skills.verification.report import VerificationCheck
 

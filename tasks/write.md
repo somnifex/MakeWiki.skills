@@ -1,5 +1,6 @@
 # Task: Parallel Multilingual Writing with Subagent Self-Reflection (多语言自反思撰写)
 
+
 ## Overview
 
 Writing is Phase 3 of MakeWiki. Parallel Language Writer subagents generate
@@ -80,7 +81,7 @@ authoring knobs the Cognitive Plane consults:
   `end-user` and `user-journey`; honor them when deciding coverage and section
   order (Diátaxis is the base structure; do not contradict an explicit
   `structure_strategy`).
-- **`documentation_policy.prevent_task_oriented_sections`** — when true (the
+- **`documentation_policy.prefer_task_oriented_sections`** — when true (the
   default), prefer task/how-to-oriented sections over feature enumeration.
 - **`documentation_policy.include_architecture_analysis`** /
   **`include_directory_overview`** / **`include_source_walkthroughs`** — when a
