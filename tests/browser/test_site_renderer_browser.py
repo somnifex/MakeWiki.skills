@@ -138,6 +138,50 @@ def page(browser):
 # ---------------------------------------------------------------------------
 
 
+def test_two_pages_shared_group_render(tmp_path, browser):
+    """Regression: nav items sharing one nav_group must all render.
+
+    The Phase-3 review found that ``renderSidebar`` keyed its group index with
+    ``groups.length`` (an integer) instead of the group object, so the second
+    item in any shared group threw ``g.items.push`` on a number and blanked the
+    whole page. The earlier browser suite never caught it because its fixture
+    places exactly one page per group.
+    """
+    wiki = tmp_path / "wiki"
+    wiki.mkdir()
+    (wiki / "a.md").write_text("# Page A\n\n## Section A1\n\nbody a\n", encoding="utf-8")
+    (wiki / "b.md").write_text("# Page B\n\n## Section B1\n\nbody b\n", encoding="utf-8")
+    plan = SitePresentationPlan(
+        project_title="Shared Group",
+        navigation=[
+            SiteNavItem(document_id="a", route="/a", title="Page A",
+                        nav_group="Guide", ordering=10),
+            SiteNavItem(document_id="b", route="/b", title="Page B",
+                        nav_group="Guide", ordering=20),
+        ],
+        languages=["en"],
+        default_language="en",
+        visual=SiteVisualPreferences(theme="auto", include_search=False),
+    )
+    index = Path(SiteCompiler(plan=plan).compile(wiki, tmp_path / "out")[0])
+
+    pgctx = browser.new_context()
+    pg = pgctx.new_page()
+    pg.goto(index.as_uri() + "#/b")
+    pg.wait_for_selector("#docViewer h1")
+    # Both pages in the shared group are present in the sidebar.
+    nav = pg.evaluate("Array.from(document.querySelectorAll('#sidebar .nav-item')).map(a=>a.textContent)")
+    assert "Page A" in nav and "Page B" in nav
+    # The active page's content actually rendered.
+    assert pg.eval_on_selector("#docViewer h1", "el=>el.textContent") == "Page B"
+    # Switching to the sibling page works and marks the right nav item active.
+    pg.click('#sidebar a[data-route="/a"]')
+    pg.wait_for_selector("#docViewer h1")
+    assert pg.eval_on_selector("#docViewer h1", "el=>el.textContent") == "Page A"
+    assert pg.eval_on_selector("#sidebar .nav-item.active", "el=>el.textContent") == "Page A"
+    pgctx.close()
+
+
 def test_clicking_nav_route_renders_document(page, site_url: str):
     page.goto(site_url)
     # Click the nav link for "Quick Start" (data-route=/getting-started)
@@ -181,14 +225,19 @@ def test_wiki_link_with_fragment_navigates_to_route_and_scrolls(page, site_url: 
 
 def test_search_on_filters_and_shortcut(page, site_url: str):
     page.goto(site_url)
+    # Search is a modal: '/' opens the dialog and moves focus to the input.
+    page.keyboard.press("/")
+    page.wait_for_selector("#searchInput")
+    assert page.evaluate("document.activeElement.id") == "searchInput"
     input_el = page.locator("#searchInput")
     assert input_el.count() == 1
     input_el.fill("install")
     page.wait_for_selector(".search-result")
     results = page.locator(".search-result")
     assert results.count() >= 1
-    # '/' focuses the search box.
+    # '/' while already in the input must not re-open/conflict; the dialog stays.
     page.keyboard.press("/")
+    page.wait_for_timeout(50)
     assert page.evaluate("document.activeElement.id") == "searchInput"
 
 

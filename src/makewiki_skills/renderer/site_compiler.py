@@ -246,15 +246,19 @@ class SiteCompiler:
 <body>
   <a class="skip-link" href="#content">Skip to content</a>
   <header>
-    <button class="hamburger" id="hamburger" aria-controls="sidebar" aria-expanded="false" aria-label="Toggle navigation menu">☰</button>
+    <button class="hamburger" id="hamburger" aria-controls="sidebar" aria-expanded="false" aria-label="Toggle navigation menu">
+      <svg class="icon" viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><line x1="3" y1="6" x2="21" y2="6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><line x1="3" y1="12" x2="21" y2="12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><line x1="3" y1="18" x2="21" y2="18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+    </button>
     <a href="#/" onclick="navigateTo(siteConfig.defaultLang, '/', true); return false;" class="brand">
-      <span>📚 {html.escape(plan.visual.brand_label)}</span>
+      <span class="brand-label">{html.escape(plan.visual.brand_label)}</span>
       <span class="badge">Offline Docs</span>
     </a>
     <div class="nav-actions">
       {search_box_html}
       <select id="langSelect" aria-label="Choose language"></select>
-      <button class="theme-btn" id="themeToggle" aria-label="Toggle color theme">🌓</button>
+      <button class="theme-btn" id="themeToggle" aria-label="Toggle color theme">
+        <svg class="icon-icon" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>
+      </button>
     </div>
   </header>
 
@@ -291,58 +295,133 @@ class SiteCompiler:
 # small head f-string.
 # ---------------------------------------------------------------------------
 
-_SEARCH_BOX_HTML = """<div class="search-box">
-      <span class="search-icon">🔍</span>
-      <input type="text" id="searchInput" class="search-input" placeholder="Search docs..." aria-label="Search documentation" />
-      <div id="searchPanel" class="search-panel" hidden></div>
-    </div>"""
+_SEARCH_BOX_HTML = """<button type="button" class="search-trigger" id="searchTrigger"
+        aria-label="Search documentation" aria-haspopup="dialog" aria-controls="searchDialog">
+      <svg class="icon" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><circle cx="11" cy="11" r="7" fill="none" stroke="currentColor" stroke-width="2"/><line x1="16.5" y1="16.5" x2="21" y2="21" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+      <span class="search-word">Search</span>
+      <span class="search-kbd">Ctrl K</span>
+    </button>
+    <dialog id="searchDialog" class="search-dialog" aria-label="Search documentation">
+      <div class="search-dialog-head">
+        <svg class="icon" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><circle cx="11" cy="11" r="7" fill="none" stroke="currentColor" stroke-width="2"/><line x1="16.5" y1="16.5" x2="21" y2="21" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+        <input type="text" id="searchInput" class="search-input" placeholder="Search docs…  (Esc to close)"
+               aria-label="Search documentation" role="combobox" aria-expanded="false"
+               aria-controls="searchPanel" aria-autocomplete="list" />
+      </div>
+      <div id="searchPanel" class="search-panel" role="listbox" aria-live="polite"></div>
+    </dialog>"""
 
 _SPA_CSS = """
+    /* ====================================================================
+       Design tokens. One semantic name per value, shared by light and dark
+       (each theme assigns its own values to the SAME names, so no component
+       ever branches on theme or reaches for its own hex). The renderer binds
+       plan.visual.accent_color into --color-accent (+ derived hover/subtle/
+       contrast); when absent the built-in accent below applies.
+       ==================================================================== */
     :root {
-      --bg-primary: #ffffff;
-      --bg-secondary: #f8fafc;
-      --bg-sidebar: #f1f5f9;
-      --border-color: #e2e8f0;
-      --text-primary: #0f172a;
-      --text-secondary: #475569;
-      --text-muted: #94a3b8;
-      --accent: #2563eb;
-      --accent-hover: #1d4ed8;
-      --code-bg: #1e293b;
-      --code-text: #f8fafc;
-      --alert-note-bg: #eff6ff;
-      --alert-note-border: #3b82f6;
-      --alert-warn-bg: #fffbeb;
-      --alert-warn-border: #f59e0b;
+      color-scheme: light;
+      /* color */
+      --color-bg: #ffffff;
+      --color-surface: #f8fafc;
+      --color-sidebar: #f1f5f9;
+      --color-border: #e2e8f0;
+      --color-text: #0f172a;
+      --color-muted: #475569;
+      --color-faint: #64748b;
+      --color-accent: #2563eb;
+      --color-accent-hover: #1d4ed8;
+      --color-accent-subtle: #eff6ff;
+      --color-accent-contrast: #ffffff;
+      --color-code-bg: #1e293b;
+      --color-code-text: #f8fafc;
+      --color-code-inline-bg: #f1f5f9;
+      --color-code-inline-border: #cbd5e1;
+      --color-code-inline-text: #be185d;
+      --color-callout-note-bg: #eff6ff;
+      --color-callout-note-border: #3b82f6;
+      --color-callout-warn-bg: #fffbeb;
+      --color-callout-warn-border: #f59e0b;
+      --color-callout-tip-bg: #f0fdf4;
+      --color-callout-tip-border: #22c55e;
+      --color-callout-danger-bg: #fef2f2;
+      --color-callout-danger-border: #ef4444;
+      --color-overlay: rgba(15, 23, 42, 0.45);
+      /* typography */
+      --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans CJK SC", "Source Han Sans SC", sans-serif;
+      --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "SF Mono", monospace;
+      --text-xs: 0.75rem;
+      --text-sm: 0.85rem;
+      --text-base: 1rem;
+      --text-lg: 1.05rem;
+      --text-xl: 1.2rem;
+      --text-2xl: 1.5rem;
+      --text-3xl: 2rem;
+      --text-mono: 0.875rem;
+      --line-body: 1.6;
+      --line-cjk: 1.7;
+      /* spacing (4px base) */
+      --space-1: 0.25rem;
+      --space-2: 0.5rem;
+      --space-3: 0.75rem;
+      --space-4: 1rem;
+      --space-6: 1.5rem;
+      --space-8: 2rem;
+      --space-10: 2.5rem;
+      --space-14: 3.5rem;
+      /* layout */
+      --content-width: 820px;
+      --layout-max: 1280px;
       --sidebar-width: 280px;
       --toc-width: 240px;
-      color-scheme: light;
+      --header-height: 56px;
+      --main-gutter: clamp(1.25rem, 5vw, 3rem);
+      /* radius */
+      --radius-sm: 4px;
+      --radius-md: 6px;
+      --radius-lg: 8px;
+      --radius-full: 9999px;
+      /* elevation + stacking */
+      --shadow-dropdown: 0 10px 30px rgba(0, 0, 0, 0.15);
+      --z-header: 50;
+      --z-drawer: 45;
+      --z-modal: 100;
     }
     [data-theme="dark"] {
-      --bg-primary: #0f172a;
-      --bg-secondary: #1e293b;
-      --bg-sidebar: #131d31;
-      --border-color: #334155;
-      --text-primary: #f8fafc;
-      --text-secondary: #cbd5e1;
-      --text-muted: #64748b;
-      --accent: #38bdf8;
-      --accent-hover: #0ea5e9;
-      --code-bg: #0b1120;
-      --code-text: #e2e8f0;
-      --alert-note-bg: #172554;
-      --alert-note-border: #38bdf8;
-      --alert-warn-bg: #451a03;
-      --alert-warn-border: #f59e0b;
       color-scheme: dark;
+      --color-bg: #0f172a;
+      --color-surface: #1e293b;
+      --color-sidebar: #131d31;
+      --color-border: #334155;
+      --color-text: #f8fafc;
+      --color-muted: #cbd5e1;
+      --color-faint: #94a3b8;
+      --color-accent: #38bdf8;
+      --color-accent-hover: #0ea5e9;
+      --color-accent-subtle: #1e3a5f;
+      --color-accent-contrast: #082f49;
+      --color-code-bg: #0b1120;
+      --color-code-text: #e2e8f0;
+      --color-code-inline-bg: #1e293b;
+      --color-code-inline-border: #334155;
+      --color-code-inline-text: #f0abfc;
+      --color-callout-note-bg: #172554;
+      --color-callout-note-border: #38bdf8;
+      --color-callout-warn-bg: #451a03;
+      --color-callout-warn-border: #f59e0b;
+      --color-callout-tip-bg: #052e16;
+      --color-callout-tip-border: #22c55e;
+      --color-callout-danger-bg: #450a0a;
+      --color-callout-danger-border: #ef4444;
+      --color-overlay: rgba(0, 0, 0, 0.55);
     }
     * { box-sizing: border-box; margin: 0; padding: 0; }
     html { scroll-behavior: smooth; }
     body {
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-      background: var(--bg-primary);
-      color: var(--text-primary);
-      line-height: 1.6;
+      font-family: var(--font-sans);
+      background: var(--color-bg);
+      color: var(--color-text);
+      line-height: var(--line-body);
       display: flex;
       flex-direction: column;
       min-height: 100vh;
@@ -351,286 +430,426 @@ _SPA_CSS = """
       position: absolute;
       left: -9999px;
       top: 0;
-      background: var(--accent);
-      color: #fff;
-      padding: 0.5rem 1rem;
+      background: var(--color-accent);
+      color: var(--color-accent-contrast);
+      padding: var(--space-2) var(--space-4);
       z-index: 200;
-      border-radius: 0 0 6px 0;
+      border-radius: 0 0 var(--radius-md) 0;
     }
     .skip-link:focus { left: 0; }
+
+    /* --- header: compact toolbar with a designed width budget --- */
     header {
-      height: 60px;
-      background: var(--bg-secondary);
-      border-bottom: 1px solid var(--border-color);
+      height: var(--header-height);
+      background: var(--color-surface);
+      border-bottom: 1px solid var(--color-border);
       display: flex;
       align-items: center;
-      justify-content: space-between;
-      gap: 1rem;
-      padding: 0 1.5rem;
+      gap: var(--space-4);
+      padding: 0 var(--space-4);
       position: sticky;
       top: 0;
-      z-index: 50;
+      z-index: var(--z-header);
     }
+    header > * { flex-shrink: 1; min-width: 0; }
     .hamburger {
       display: none;
+      flex-shrink: 0;
+      min-width: 44px;
+      min-height: 44px;
       background: transparent;
       border: none;
-      color: var(--text-primary);
-      font-size: 1.5rem;
+      border-radius: var(--radius-md);
+      color: var(--color-text);
       cursor: pointer;
       line-height: 1;
+      align-items: center;
+      justify-content: center;
+      padding: 0;
     }
     .brand {
       display: flex;
       align-items: center;
-      gap: 0.75rem;
+      gap: var(--space-3);
       font-weight: 700;
-      font-size: 1.15rem;
-      color: var(--text-primary);
+      font-size: 1.05rem;
+      color: var(--color-text);
       text-decoration: none;
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
+      flex: 1;
     }
+    .brand .brand-label { overflow: hidden; text-overflow: ellipsis; }
     .badge {
-      background: var(--accent);
-      color: white;
-      font-size: 0.75rem;
+      background: var(--color-accent);
+      color: var(--color-accent-contrast);
+      font-size: var(--text-xs);
       padding: 2px 8px;
-      border-radius: 9999px;
+      border-radius: var(--radius-full);
       font-weight: 600;
       flex-shrink: 0;
     }
     .nav-actions {
       display: flex;
       align-items: center;
-      gap: 1rem;
+      gap: var(--space-2);
       flex-shrink: 0;
     }
-    .search-box { position: relative; }
-    .search-input {
-      padding: 0.4rem 0.8rem 0.4rem 2rem;
-      border-radius: 6px;
-      border: 1px solid var(--border-color);
-      background: var(--bg-primary);
-      color: var(--text-primary);
-      font-size: 0.875rem;
-      width: 220px;
-      transition: width 0.2s;
+    .search-trigger {
+      display: flex;
+      align-items: center;
+      gap: var(--space-2);
+      height: 34px;
+      padding: 0 var(--space-3);
+      border-radius: var(--radius-md);
+      border: 1px solid var(--color-border);
+      background: var(--color-bg);
+      color: var(--color-faint);
+      font-family: var(--font-sans);
+      font-size: var(--text-sm);
+      cursor: pointer;
+      width: 200px;
+      justify-content: flex-start;
     }
-    .search-input:focus { width: 300px; outline: 2px solid var(--accent); }
-    .search-icon {
-      position: absolute;
-      left: 8px;
-      top: 50%;
-      transform: translateY(-50%);
-      color: var(--text-muted);
-      font-size: 0.85rem;
-      pointer-events: none;
+    .search-trigger .search-word { flex: 1; text-align: left; }
+    .search-trigger .search-kbd {
+      font-family: var(--font-mono);
+      font-size: 0.7rem;
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-sm);
+      padding: 1px 5px;
+      color: var(--color-faint);
+      white-space: nowrap;
+    }
+    .search-trigger:hover { border-color: var(--color-accent); color: var(--color-text); }
+    .search-trigger .icon { flex-shrink: 0; }
+
+    select, button.theme-btn {
+      flex-shrink: 0;
+      height: 34px;
+      padding: 0 var(--space-3);
+      border-radius: var(--radius-md);
+      border: 1px solid var(--color-border);
+      background: var(--color-bg);
+      color: var(--color-text);
+      cursor: pointer;
+      font-size: var(--text-sm);
+      font-family: var(--font-sans);
+    }
+    button.theme-btn {
+      min-width: 44px;
+      min-height: 44px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0;
+      color: var(--color-muted);
+    }
+    button.theme-btn:hover { color: var(--color-text); border-color: var(--color-accent); }
+    .icon, .icon-icon { display: block; }
+
+    /* --- search dialog --- */
+    .search-dialog {
+      border: none;
+      padding: 0;
+      border-radius: var(--radius-lg);
+      background: var(--color-bg);
+      color: var(--color-text);
+      width: min(640px, 92vw);
+      box-shadow: var(--shadow-dropdown);
+      z-index: var(--z-modal);
+    }
+    .search-dialog::backdrop { background: var(--color-overlay); }
+    .search-dialog-head {
+      display: flex;
+      align-items: center;
+      gap: var(--space-3);
+      padding: var(--space-3) var(--space-4);
+      border-bottom: 1px solid var(--color-border);
+      color: var(--color-faint);
+    }
+    .search-dialog-head .search-input {
+      flex: 1;
+      min-width: 0;
+      border: none;
+      outline: none;
+      background: transparent;
+      color: var(--color-text);
+      font-size: var(--text-lg);
+      font-family: var(--font-sans);
     }
     .search-panel {
-      position: absolute;
-      top: calc(100% + 6px);
-      right: 0;
-      width: 400px;
-      max-width: 90vw;
-      background: var(--bg-primary);
-      border: 1px solid var(--border-color);
-      border-radius: 8px;
-      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
-      max-height: 70vh;
+      max-height: 60vh;
       overflow-y: auto;
-      z-index: 100;
+      padding: var(--space-1);
     }
     .search-result {
       display: block;
-      padding: 0.7rem 1rem;
+      padding: var(--space-3) var(--space-3);
       cursor: pointer;
-      border-bottom: 1px solid var(--border-color);
+      border-radius: var(--radius-md);
       text-decoration: none;
     }
-    .search-result:last-child { border-bottom: none; }
-    .search-result:hover, .search-result.active { background: var(--bg-secondary); }
-    .search-result-title { font-weight: 600; color: var(--text-primary); }
-    .search-result-title em { color: var(--accent); font-style: normal; }
-    .search-result-snippet { font-size: 0.8rem; color: var(--text-secondary); }
-    .search-empty { padding: 1rem; color: var(--text-muted); font-size: 0.9rem; }
-    select, button.theme-btn {
-      padding: 0.4rem 0.8rem;
-      border-radius: 6px;
-      border: 1px solid var(--border-color);
-      background: var(--bg-primary);
-      color: var(--text-primary);
-      cursor: pointer;
-      font-size: 0.875rem;
-    }
+    .search-result.active, .search-result:hover { background: var(--color-accent-subtle); }
+    .search-result[aria-selected="true"] { background: var(--color-accent-subtle); }
+    .search-result-title { font-weight: 600; color: var(--color-text); }
+    .search-result-title em { color: var(--color-accent); font-style: normal; }
+    .search-result-snippet { font-size: var(--text-sm); color: var(--color-muted); }
+    .search-empty { padding: var(--space-4); color: var(--color-muted); font-size: var(--text-sm); }
+
+    /* --- three-column layout --- */
     .layout { display: flex; flex: 1; min-height: 0; }
     #sidebar {
       width: var(--sidebar-width);
-      background: var(--bg-sidebar);
-      border-right: 1px solid var(--border-color);
-      padding: 1.5rem 1rem;
-      height: calc(100vh - 60px);
+      background: var(--color-sidebar);
+      border-right: 1px solid var(--color-border);
+      padding: var(--space-6) var(--space-4);
+      height: calc(100vh - var(--header-height));
       position: sticky;
-      top: 60px;
+      top: var(--header-height);
       overflow-y: auto;
       flex-shrink: 0;
     }
-    .nav-group { margin-bottom: 1.5rem; }
+    .nav-group { margin-bottom: var(--space-6); }
     .nav-group-title {
-      font-size: 0.75rem;
+      font-size: var(--text-xs);
       text-transform: uppercase;
       font-weight: 700;
-      color: var(--text-muted);
-      margin-bottom: 0.5rem;
-      padding-left: 0.5rem;
+      color: var(--color-faint);
+      margin-bottom: var(--space-2);
+      padding-left: var(--space-2);
       letter-spacing: 0.05em;
     }
     .nav-item {
-      display: block;
-      padding: 0.4rem 0.75rem;
-      color: var(--text-secondary);
+      display: flex;
+      align-items: center;
+      padding: var(--space-2) var(--space-3);
+      min-height: 44px; /* >= WCAG 2.5.5 touch target */
+      color: var(--color-muted);
       text-decoration: none;
-      border-radius: 6px;
+      border-radius: var(--radius-md);
       font-size: 0.9rem;
       margin-bottom: 2px;
       transition: background 0.15s, color 0.15s;
       cursor: pointer;
     }
-    .nav-item.child { padding-left: 1.5rem; font-size: 0.85rem; }
-    .nav-item:hover { background: var(--border-color); color: var(--text-primary); }
-    .nav-item.active { background: var(--accent); color: white; font-weight: 600; }
+    .nav-item.child { padding-left: var(--space-6); font-size: var(--text-sm); }
+    .nav-item:hover { background: var(--color-border); color: var(--color-text); }
+    .nav-item.active { background: var(--color-accent); color: var(--color-accent-contrast); font-weight: 600; }
     main {
       flex: 1;
-      padding: 2.5rem 3.5rem;
-      max-width: 1200px;
-      display: flex;
-      gap: 2rem;
       min-width: 0;
+      padding: var(--space-8) var(--main-gutter);
+      max-width: var(--layout-max);
+      margin: 0 auto;
+      display: flex;
+      gap: var(--space-8);
+      width: 100%;
     }
-    #docViewer { flex: 1; min-width: 0; max-width: 820px; }
+    #docViewer { flex: 1; min-width: 0; max-width: var(--content-width); overflow-x: auto; }
     #tocPanel {
       width: var(--toc-width);
       flex-shrink: 0;
       position: sticky;
-      top: 80px;
+      top: calc(var(--header-height) + var(--space-6));
       height: fit-content;
       align-self: flex-start;
-      font-size: 0.85rem;
-      border-left: 1px solid var(--border-color);
-      padding-left: 1rem;
+      font-size: var(--text-sm);
+      border-left: 1px solid var(--color-border);
+      padding-left: var(--space-4);
     }
-    #tocPanel h4 { text-transform: uppercase; font-size: 0.7rem; color: var(--text-muted); letter-spacing: 0.05em; margin-bottom: 0.6rem; }
-    #tocPanel a { display: block; color: var(--text-secondary); text-decoration: none; padding: 0.2rem 0; border-left: 2px solid transparent; padding-left: 0.6rem; }
-    #tocPanel a:hover { color: var(--text-primary); }
-    #tocPanel a.active { color: var(--accent); border-left-color: var(--accent); font-weight: 600; }
-    #tocPanel a.lvl-3 { padding-left: 1.4rem; font-size: 0.8rem; }
-    #docViewer h1 { font-size: 2.2rem; margin-bottom: 1rem; color: var(--text-primary); }
-    #docViewer h2 { font-size: 1.5rem; margin-top: 2rem; margin-bottom: 0.75rem; border-bottom: 1px solid var(--border-color); padding-bottom: 0.3rem; }
-    #docViewer h3 { font-size: 1.2rem; margin-top: 1.5rem; margin-bottom: 0.5rem; }
-    #docViewer h4 { font-size: 1.05rem; margin-top: 1.2rem; margin-bottom: 0.4rem; }
-    #docViewer p { margin-bottom: 1rem; color: var(--text-secondary); font-size: 1.05rem; }
-    #docViewer ul, #docViewer ol { margin-left: 1.5rem; margin-bottom: 1rem; color: var(--text-secondary); }
-    #docViewer li { margin-bottom: 0.35rem; }
+    #tocPanel h4 { text-transform: uppercase; font-size: var(--text-xs); color: var(--color-faint); letter-spacing: 0.05em; margin-bottom: var(--space-2); }
+    #tocPanel a { display: block; color: var(--color-muted); text-decoration: none; padding: var(--space-1) 0; border-left: 2px solid transparent; padding-left: var(--space-2); }
+    #tocPanel a:hover { color: var(--color-text); }
+    #tocPanel a.active { color: var(--color-accent); border-left-color: var(--color-accent); font-weight: 600; }
+    #tocPanel a.lvl-3 { padding-left: var(--space-6); font-size: var(--text-sm); }
+
+    /* --- document typography scale --- */
+    #docViewer h1 { font-size: var(--text-3xl); font-weight: 700; line-height: 1.25; margin-bottom: var(--space-4); color: var(--color-text); }
+    #docViewer h2 { font-size: var(--text-2xl); font-weight: 650; line-height: 1.3; margin-top: var(--space-8); margin-bottom: var(--space-3); border-bottom: 1px solid var(--color-border); padding-bottom: 0.3rem; color: var(--color-text); }
+    #docViewer h3 { font-size: var(--text-xl); font-weight: 650; line-height: 1.35; margin-top: var(--space-6); margin-bottom: var(--space-2); color: var(--color-text); }
+    #docViewer h4 { font-size: var(--text-lg); font-weight: 600; line-height: 1.4; margin-top: var(--space-4); margin-bottom: var(--space-1); color: var(--color-text); }
+    #docViewer p {
+      margin-bottom: var(--space-4);
+      color: var(--color-text);
+      font-size: var(--text-lg);
+      line-height: var(--line-body);
+      max-width: 72ch;
+      overflow-wrap: break-word;
+    }
+    #docViewer ul, #docViewer ol { margin-left: var(--space-6); margin-bottom: var(--space-4); color: var(--color-text); overflow-wrap: break-word; }
+    #docViewer ul ul, #docViewer ol ol, #docViewer ul ol, #docViewer ol ul { margin-left: var(--space-6); }
+    #docViewer li { margin-bottom: var(--space-2); line-height: var(--line-body); }
+    #docViewer p, #docViewer li, #docViewer td { overflow-wrap: break-word; }
+    #docViewer :lang(zh-CN) p, #docViewer :lang(zh-CN) li, html[lang="zh-CN"] #docViewer p, html[lang="zh-CN"] #docViewer li {
+      line-height: var(--line-cjk);
+    }
+
+    /* --- code blocks: fixed header strip (language + copy) on the slab --- */
     #docViewer pre {
-      background: var(--code-bg);
-      color: var(--code-text);
-      padding: 1rem;
-      border-radius: 8px;
-      overflow-x: auto;
-      margin-bottom: 1.5rem;
+      background: var(--color-code-bg);
+      color: var(--color-code-text);
+      padding: 0;
+      border-radius: var(--radius-lg);
+      overflow: hidden;
+      margin-bottom: var(--space-6);
       position: relative;
-      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-      font-size: 0.9rem;
+      font-family: var(--font-mono);
+      font-size: var(--text-mono);
     }
+    .code-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: var(--color-surface);
+      color: var(--color-faint);
+      font-family: var(--font-mono);
+      font-size: var(--text-xs);
+      padding: var(--space-2) var(--space-3);
+      border-bottom: 1px solid var(--color-border);
+      border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+    }
+    .code-header .code-lang { text-transform: uppercase; letter-spacing: 0.04em; }
+    .code-scroll { overflow-x: auto; padding: var(--space-4); }
+    #docViewer pre code { font-family: var(--font-mono); font-size: inherit; }
+
+    /* --- inline code: a neutral chip, NOT the accent (link colour) --- */
     #docViewer code {
-      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-family: var(--font-mono);
       font-size: 0.9em;
-      background: var(--bg-secondary);
-      padding: 0.15rem 0.35rem;
-      border-radius: 4px;
-      color: var(--accent);
+      background: var(--color-code-inline-bg);
+      border: 1px solid var(--color-code-inline-border);
+      color: var(--color-code-inline-text);
+      padding: 0.1rem 0.35rem;
+      border-radius: var(--radius-sm);
     }
-    #docViewer pre code { background: transparent; padding: 0; color: inherit; }
-    #docViewer a { color: var(--accent); text-decoration: none; }
-    #docViewer a:hover { text-decoration: underline; color: var(--accent-hover); }
-    .wiki-link { color: var(--accent); font-weight: 500; cursor: pointer; }
-    .wiki-link:hover { text-decoration: underline; }
-    .external-link { color: var(--accent); font-size: 0.95em; }
+    #docViewer pre code { background: transparent; border: none; padding: 0; color: inherit; }
+
+    /* --- links --- */
+    #docViewer a { color: var(--color-accent); text-decoration: underline; text-underline-offset: 2px; }
+    #docViewer a:hover { text-decoration: underline; color: var(--color-accent-hover); }
+    #docViewer a:visited { color: var(--color-accent-hover); }
+    .wiki-link { color: var(--color-accent); font-weight: 500; cursor: pointer; text-decoration: underline; text-underline-offset: 2px; }
+    .external-link { color: var(--color-accent); font-size: 0.95em; }
     .copy-btn {
-      position: absolute;
-      top: 0.5rem;
-      right: 0.5rem;
-      background: rgba(255,255,255,0.15);
+      background: var(--color-accent);
       border: none;
-      color: white;
-      padding: 2px 8px;
-      border-radius: 4px;
-      font-size: 0.75rem;
+      color: var(--color-accent-contrast);
+      padding: var(--space-1) var(--space-2);
+      border-radius: var(--radius-sm);
+      font-size: var(--text-xs);
+      font-family: var(--font-sans);
       cursor: pointer;
+      min-width: 56px;
+      min-height: 44px; /* >= WCAG 2.5.5 touch target */
     }
-    .copy-btn:hover { background: rgba(255,255,255,0.3); }
-    #docViewer table { width: 100%; border-collapse: collapse; margin: 1.5rem 0; display: block; overflow-x: auto; }
-    #docViewer th, #docViewer td { border: 1px solid var(--border-color); padding: 0.6rem 0.9rem; text-align: left; font-size: 0.95rem; }
-    #docViewer th { background: var(--bg-secondary); font-weight: 600; }
+    .copy-btn:hover { background: var(--color-accent-hover); }
+
+    /* --- tables --- */
+    #docViewer table { width: 100%; border-collapse: collapse; margin: var(--space-6) 0; display: block; overflow-x: auto; }
+    #docViewer th, #docViewer td { border: 1px solid var(--color-border); padding: var(--space-3) var(--space-3); text-align: left; font-size: var(--text-sm); vertical-align: top; line-height: var(--line-body); }
+    #docViewer th { background: var(--color-surface); font-weight: 600; }
+
+    /* --- callouts (note / tip / warning / danger) vs plain blockquote --- */
     #docViewer blockquote {
-      border-left: 4px solid var(--alert-note-border);
-      background: var(--alert-note-bg);
-      padding: 0.8rem 1rem;
-      border-radius: 0 6px 6px 0;
-      margin: 1.2rem 0;
+      border-left: 4px solid var(--color-border);
+      background: transparent;
+      color: var(--color-muted);
+      padding: var(--space-1) var(--space-4);
+      margin: var(--space-4) 0;
+      font-style: italic;
     }
-    .alert-warn { border-left-color: var(--alert-warn-border); background: var(--alert-warn-bg); }
-    #docViewer hr { border: 0; border-top: 1px solid var(--border-color); margin: 2rem 0; }
+    #docViewer .callout {
+      border-left: 4px solid var(--color-callout-note-border);
+      background: var(--color-callout-note-bg);
+      padding: var(--space-3) var(--space-4);
+      border-radius: 0 var(--radius-md) var(--radius-md) 0;
+      margin: var(--space-6) 0;
+      font-style: normal;
+      color: var(--color-text);
+    }
+    #docViewer .callout .callout-label {
+      display: block;
+      font-size: var(--text-xs);
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: var(--space-1);
+    }
+    #docViewer .callout.note { border-left-color: var(--color-callout-note-border); background: var(--color-callout-note-bg); }
+    #docViewer .callout.tip { border-left-color: var(--color-callout-tip-border); background: var(--color-callout-tip-bg); }
+    #docViewer .callout.warning { border-left-color: var(--color-callout-warn-border); background: var(--color-callout-warn-bg); }
+    #docViewer .callout.danger { border-left-color: var(--color-callout-danger-border); background: var(--color-callout-danger-bg); }
+    #docViewer .callout.note .callout-label { color: var(--color-callout-note-border); }
+    #docViewer .callout.tip .callout-label { color: var(--color-callout-tip-border); }
+    #docViewer .callout.warning .callout-label { color: var(--color-callout-warn-border); }
+    #docViewer .callout.danger .callout-label { color: var(--color-callout-danger-border); }
+    #docViewer hr { border: 0; border-top: 1px solid var(--color-border); margin: var(--space-8) 0; }
     .fallback-banner {
-      background: var(--alert-warn-bg);
-      border: 1px solid var(--alert-warn-border);
-      color: var(--text-secondary);
-      padding: 0.6rem 1rem;
-      border-radius: 6px;
-      font-size: 0.9rem;
-      margin-bottom: 1.5rem;
+      background: var(--color-callout-warn-bg);
+      border: 1px solid var(--color-callout-warn-border);
+      color: var(--color-text);
+      padding: var(--space-2) var(--space-4);
+      border-radius: var(--radius-md);
+      font-size: var(--text-sm);
+      margin-bottom: var(--space-6);
     }
     .footer-note {
-      margin-top: 3rem;
-      padding-top: 1.5rem;
-      border-top: 1px solid var(--border-color);
-      color: var(--text-muted);
-      font-size: 0.85rem;
+      margin-top: var(--space-10);
+      padding-top: var(--space-6);
+      border-top: 1px solid var(--color-border);
+      color: var(--color-faint);
+      font-size: var(--text-sm);
       display: flex;
       justify-content: space-between;
+      gap: var(--space-4);
     }
     .overlay {
       display: none;
       position: fixed;
       inset: 0;
-      background: rgba(0, 0, 0, 0.4);
-      z-index: 40;
+      background: var(--color-overlay);
+      z-index: var(--z-drawer);
     }
-    :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+    :focus-visible { outline: 2px solid var(--color-accent); outline-offset: 2px; }
+    .nav-item.active:focus-visible, .badge:focus-visible { outline-color: var(--color-accent-contrast); }
+    .search-dialog:focus-visible { outline: none; }
+
     @media (max-width: 1100px) { #tocPanel { display: none; } }
+
     @media (max-width: 768px) {
-      header { padding: 0 0.75rem; height: 56px; }
-      .hamburger { display: block; }
+      header { padding: 0 var(--space-3); }
+      .hamburger { display: flex; }
       .brand .badge { display: none; }
-      .search-input, .search-input:focus { width: 120px; }
+      .search-trigger { width: 44px; padding: 0; justify-content: center; }
+      .search-trigger .search-word, .search-trigger .search-kbd { display: none; }
+      .search-trigger .icon { width: 20px; height: 20px; }
       .layout { flex-direction: column; }
       #sidebar {
         position: fixed;
-        top: 56px;
+        top: var(--header-height);
         left: 0;
         bottom: 0;
         width: var(--sidebar-width);
         height: auto;
         transform: translateX(-100%);
-        transition: transform 0.25s ease;
-        z-index: 45;
+        visibility: hidden;
+        transition: transform 0.25s ease, visibility 0.25s;
+        z-index: var(--z-drawer);
         box-shadow: 2px 0 8px rgba(0,0,0,0.1);
       }
-      #sidebar.open { transform: translateX(0); }
+      #sidebar.open { transform: translateX(0); visibility: visible; }
       .overlay.open { display: block; }
-      main { padding: 1.5rem 1rem; flex-direction: column; }
+      main { padding: var(--space-6) var(--space-4); flex-direction: column; }
       #docViewer { overflow-x: auto; }
+      #docViewer p { max-width: none; }
+    }
+    @media (max-width: 420px) {
+      header { gap: var(--space-2); }
+      .brand { font-size: 0.95rem; }
+      .nav-actions { gap: var(--space-1); }
+      #langSelect { max-width: 64px; padding: 0 var(--space-2); }
     }
 """
 
@@ -722,7 +941,7 @@ _SPA_JS = """
           let g = groupIndex[ni.group];
           if (g === undefined) {
             g = { name: ni.group, items: [] };
-            groupIndex[ni.group] = groups.length;
+            groupIndex[ni.group] = g;
             groups.push(g);
           }
           g.items.push(ni);
@@ -744,11 +963,19 @@ _SPA_JS = """
           a.textContent = itemTitle(ni, currentLang);
           a.href = '#' + ni.route;
           a.setAttribute('data-route', ni.route);
+          if (isActive) a.setAttribute('aria-current', 'page');
           a.onclick = (e) => { e.preventDefault(); navigateTo(currentLang, ni.route, true); };
           grp.appendChild(a);
         });
         sidebar.appendChild(grp);
       });
+
+      // Keep the current page in view on long nav so the user never loses their
+      // place (the sidebar scrolls independently per its fixed-height overflow).
+      const activeEl = sidebar.querySelector('.nav-item.active');
+      if (activeEl && activeEl.scrollIntoView) {
+        try { activeEl.scrollIntoView({ block: 'nearest' }); } catch (err) { /* never fails init */ }
+      }
     }
 
     // --- language + native names ---
@@ -784,6 +1011,32 @@ _SPA_JS = """
       if (resolved === 'dark') { root.setAttribute('data-theme', 'dark'); root.style.colorScheme = 'dark'; }
       else { root.setAttribute('data-theme', 'light'); root.style.colorScheme = 'light'; }
       root.setAttribute('data-theme-resolved', resolved);
+      // The effective theme drives the contrast text placed on top of the
+      // accent chips; recompute it whenever the theme actually changes.
+      bindAccent();
+    }
+
+    // Bind the plan's chosen accent (and derived hue) into the token layer so a
+    // single --color-accent recolors the whole surface. Mechanical and
+    // parametric: falls back silently when the plan omits it.
+    function bindAccent() {
+      const accent = siteConfig.visual && siteConfig.visual.accentColor;
+      const root = document.documentElement;
+      // Contrast text that sits on top of an accent-filled chip. Derived from
+      // the *effective* theme (dark theme -> light text, light theme -> dark
+      // text) rather than the accent's own luminance: this is deterministic,
+      // keeps the pair high-contrast for any plan-provided hue, and never does
+      // perceptual color math in JS. Falls back to the CSS token when needed.
+      const effectiveDark = root.getAttribute('data-theme') === 'dark';
+      root.style.setProperty('--color-accent-contrast', effectiveDark ? '#f8fafc' : '#0f172a');
+      if (!accent) return;
+      root.style.setProperty('--color-accent', accent);
+      // Derive a hover from the accent by darkening (light theme) or
+      // lightening (dark); a naive RGB step toward black/white.
+      const r = parseInt(accent.slice(1, 3), 16), g = parseInt(accent.slice(3, 5), 16), b = parseInt(accent.slice(5, 7), 16);
+      const step = effectiveDark ? 24 : -24;
+      const c = (v) => { const n = Math.max(0, Math.min(255, v + step)); return n.toString(16).padStart(2, '0'); };
+      root.style.setProperty('--color-accent-hover', '#' + c(r) + c(g) + c(b));
     }
 
     function initTheme() {
@@ -791,6 +1044,7 @@ _SPA_JS = """
       const pref = stored || siteConfig.visual.theme || 'auto';
       const resolved = pref === 'auto' ? (prefersDark() ? 'dark' : 'light') : pref;
       applyTheme(resolved);
+      bindAccent();
       if (pref === 'auto' && window.matchMedia) {
         window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', (e) => {
           if (((() => { try { return localStorage.getItem('site-theme'); } catch (err) { return null; } })() || siteConfig.visual.theme || 'auto') === 'auto') {
@@ -809,16 +1063,34 @@ _SPA_JS = """
       try { localStorage.setItem('site-theme', next); window.__themePref = next; } catch (e) {}
     }
 
-    // --- mobile drawer ---
+    // --- mobile drawer (off-canvas, with focus trap + restoration) ---
+
+    let drawerLastFocus = null;
 
     function openDrawer() {
       const sidebar = document.getElementById('sidebar');
       const overlay = document.getElementById('overlay');
       const burger = document.getElementById('hamburger');
+      drawerLastFocus = document.activeElement;
       sidebar.classList.add('open');
+      sidebar.setAttribute('aria-hidden', 'false');
       overlay.hidden = false;
       overlay.classList.add('open');
       burger.setAttribute('aria-expanded', 'true');
+      // Inert everything outside the drawer so keyboard users cannot Tab into
+      // off-canvas links; move focus into the drawer's first nav link. The
+      // focus move is deferred a frame so the browser's default click-focus on
+      // the hamburger doesn't override it (the handler runs before the click's
+      // focus restoration).
+      document.getElementById('content') && (document.getElementById('content').inert = true);
+      burger.inert = false;
+      // The hamburger's mousedown is prevented (see init) so nothing re-asserts
+      // focus on the button. Defer the move one frame: the drawer's visibility
+      // flips to visible on the next style recalc, and only then is the first
+      // link actually focusable (focusing while it still computes hidden is a
+      // silent no-op).
+      const firstLink = sidebar.querySelector('a');
+      if (firstLink) requestAnimationFrame(() => { firstLink.focus(); });
     }
 
     function closeDrawer() {
@@ -826,8 +1098,13 @@ _SPA_JS = """
       const overlay = document.getElementById('overlay');
       const burger = document.getElementById('hamburger');
       sidebar.classList.remove('open');
+      sidebar.setAttribute('aria-hidden', 'true');
       if (overlay) { overlay.hidden = true; overlay.classList.remove('open'); }
+      document.getElementById('content') && (document.getElementById('content').inert = false);
       burger.setAttribute('aria-expanded', 'false');
+      // Restore focus to whichever control opened the drawer.
+      if (drawerLastFocus && drawerLastFocus.focus) drawerLastFocus.focus();
+      drawerLastFocus = null;
     }
 
     // --- document rendering (inject pre-rendered HTML) ---
@@ -872,20 +1149,28 @@ _SPA_JS = """
       }
     }
 
-    // --- code copy (event-delegated) ---
+    // --- code copy (event-delegated per block, with a fixed header strip) ---
 
     function attachCopyButtons() {
       const viewer = document.getElementById('docViewer');
       viewer.querySelectorAll('pre').forEach(pre => {
         if (pre.querySelector('.copy-btn')) return;
+        const code = pre.querySelector('code');
+        const langMatch = code && code.className ? String(code.className).match(/language-([A-Za-z0-9_+-]+)/) : null;
+        const lang = langMatch ? langMatch[1] : 'code';
+        const header = document.createElement('div');
+        header.className = 'code-header';
+        const langLabel = document.createElement('span');
+        langLabel.className = 'code-lang';
+        langLabel.textContent = lang;
         const btn = document.createElement('button');
         btn.className = 'copy-btn';
         btn.textContent = 'Copy';
         btn.setAttribute('aria-label', 'Copy code block');
         btn.addEventListener('click', (e) => {
           e.stopPropagation();
-          const code = pre.querySelector('code');
-          const text = code ? code.innerText : pre.innerText;
+          const c = pre.querySelector('code');
+          const text = c ? c.innerText : pre.innerText;
           const done = () => {
             const orig = btn.textContent;
             btn.textContent = 'Copied!';
@@ -906,7 +1191,13 @@ _SPA_JS = """
             fallback();
           }
         });
-        pre.appendChild(btn);
+        header.appendChild(langLabel);
+        header.appendChild(btn);
+        pre.insertBefore(header, pre.firstChild);
+        // The code body scrolls horizontally inside the slab, under the strip.
+        const scroll = document.createElement('div');
+        scroll.className = 'code-scroll';
+        if (code) { pre.appendChild(scroll); scroll.appendChild(code); }
       });
     }
 
@@ -995,12 +1286,18 @@ _SPA_JS = """
       const panel = document.getElementById('searchPanel');
       if (!panel) return;
       panel.innerHTML = '';
+      if (!query) {
+        const hint = document.createElement('div');
+        hint.className = 'search-empty';
+        hint.textContent = 'Start typing to search page titles, headings, and body text.';
+        panel.appendChild(hint);
+        return;
+      }
       if (!results.length) {
         const empty = document.createElement('div');
         empty.className = 'search-empty';
-        empty.textContent = 'No results for "' + query + '"';
+        empty.textContent = 'No pages match "' + query + '". Try "deploy", "config", or "handler".';
         panel.appendChild(empty);
-        panel.hidden = false;
         return;
       }
       results.forEach(r => {
@@ -1008,6 +1305,8 @@ _SPA_JS = """
         a.className = 'search-result';
         a.href = '#' + r.route;
         a.setAttribute('data-route', r.route);
+        a.setAttribute('role', 'option');
+        a.setAttribute('aria-selected', 'false');
         const title = document.createElement('div');
         title.className = 'search-result-title';
         const qIdx = r.titleLower.indexOf(query);
@@ -1023,31 +1322,71 @@ _SPA_JS = """
         a.appendChild(snip);
         a.addEventListener('click', (e) => {
           e.preventDefault();
-          closeSearch();
+          closeSearch(true);
           navigateTo(currentLang, r.route, true);
         });
+        a.addEventListener('mousemove', () => setActiveResult(a));
         panel.appendChild(a);
       });
-      panel.hidden = false;
+    }
+
+    function setActiveResult(el) {
+      const panel = document.getElementById('searchPanel');
+      const input = document.getElementById('searchInput');
+      panel.querySelectorAll('.search-result').forEach((r, i) => {
+        const active = r === el;
+        r.classList.toggle('active', active);
+        r.setAttribute('aria-selected', active ? 'true' : 'false');
+        if (active && input) input.setAttribute('aria-activedescendant', r.id || ('sr-' + i));
+      });
+      if (el && el.scrollIntoView) { try { el.scrollIntoView({ block: 'nearest' }); } catch (err) {} }
+    }
+
+    let searchActiveIndex = -1;
+
+    function moveActive(delta) {
+      const panel = document.getElementById('searchPanel');
+      const items = panel.querySelectorAll('.search-result');
+      if (!items.length) return;
+      searchActiveIndex = (searchActiveIndex + delta + items.length) % items.length;
+      setActiveResult(items[searchActiveIndex]);
+    }
+
+    function openSearch() {
+      const dialog = document.getElementById('searchDialog');
+      const input = document.getElementById('searchInput');
+      if (!dialog || !input) return;
+      if (!dialog.open) {
+        try { dialog.showModal(); } catch (err) { return; }
+      }
+      // Seeding the panel before opening keeps the empty state announced and
+      // visible (not a blank region) for assistive tech on first open.
+      renderSearchResults('', []);
+      input.focus();
+    }
+
+    function closeSearch(restore) {
+      const dialog = document.getElementById('searchDialog');
+      const input = document.getElementById('searchInput');
+      if (dialog && dialog.open) dialog.close();
+      if (input) input.value = '';
+      if (restore) {
+        const trigger = document.getElementById('searchTrigger');
+        if (trigger) trigger.focus();
+      }
     }
 
     function handleSearch(e) {
       const query = e.target.value.toLowerCase().trim();
-      const panel = document.getElementById('searchPanel');
-      if (!panel) return;
-      if (!query) { panel.hidden = true; return; }
+      const input = document.getElementById('searchInput');
+      if (input) input.setAttribute('aria-expanded', 'true');
+      searchActiveIndex = -1;
+      if (!query) { renderSearchResults('', []); return; }
       if (!searchIndex) searchIndex = buildSearchIndex();
       const results = searchIndex.filter(r =>
         r.titleLower.indexOf(query) !== -1 || r.text.indexOf(query) !== -1
       ).slice(0, 12);
       renderSearchResults(query, results);
-    }
-
-    function closeSearch() {
-      const panel = document.getElementById('searchPanel');
-      const input = document.getElementById('searchInput');
-      if (panel) panel.hidden = true;
-      if (input) input.value = '';
     }
 
     // --- wiki-link slug resolution (kept for contract; wiki links render with
@@ -1078,33 +1417,61 @@ _SPA_JS = """
       document.getElementById('themeToggle').addEventListener('click', toggleTheme);
 
       const searchInput = document.getElementById('searchInput');
-      if (searchInput) {
+      const searchTrigger = document.getElementById('searchTrigger');
+      const searchDialog = document.getElementById('searchDialog');
+      if (searchInput && searchTrigger) {
+        searchTrigger.addEventListener('click', openSearch);
         searchInput.addEventListener('input', handleSearch);
-        searchInput.addEventListener('focus', () => {
-          if (searchInput.value && searchInput.value.trim()) handleSearch({ target: searchInput });
-        });
         searchInput.addEventListener('keydown', (e) => {
-          if (e.key === 'Escape') closeSearch();
+          if (e.key === 'ArrowDown') { e.preventDefault(); moveActive(1); }
+          else if (e.key === 'ArrowUp') { e.preventDefault(); moveActive(-1); }
+          else if (e.key === 'Enter') {
+            const active = document.querySelector('#searchPanel .search-result.active');
+            const target = active || document.querySelector('#searchPanel .search-result');
+            if (target) {
+              e.preventDefault();
+              closeSearch(true);
+              navigateTo(currentLang, target.getAttribute('data-route'), true);
+            }
+          }
+          else if (e.key === 'Escape') closeSearch(true);
         });
-        document.addEventListener('click', (e) => {
-          const panel = document.getElementById('searchPanel');
-          if (panel && !panel.contains(e.target) && e.target.id !== 'searchInput') panel.hidden = true;
-        });
+        // Native <dialog> gives us focus trapping + ::backdrop for free.
+        if (searchDialog) {
+          searchDialog.addEventListener('cancel', (e) => { e.preventDefault(); closeSearch(true); });
+          // Closing on a backdrop click (the click lands on the dialog itself).
+          searchDialog.addEventListener('click', (e) => {
+            if (e.target === searchDialog) closeSearch(true);
+          });
+          searchDialog.addEventListener('close', () => {
+            searchInput.value = '';
+            if (searchInput) searchInput.setAttribute('aria-expanded', 'false');
+            const panel = document.getElementById('searchPanel');
+            if (panel) panel.innerHTML = '';
+          });
+        }
         document.addEventListener('keydown', (e) => {
-          if ((e.key === '/' && document.activeElement !== searchInput) ||
+          if ((e.key === '/' && document.activeElement !== searchInput && !e.metaKey && !e.ctrlKey && !e.altKey) ||
               ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k')) {
             e.preventDefault();
-            searchInput.focus();
+            openSearch();
           }
         });
       }
 
       const burger = document.getElementById('hamburger');
-      if (burger) burger.addEventListener('click', () => {
-        const sidebar = document.getElementById('sidebar');
-        if (sidebar.classList.contains('open')) closeDrawer();
-        else openDrawer();
-      });
+      if (burger) {
+        // Don't let the browser focus the hamburger on mousedown: openDrawer
+        // moves focus into the drawer and this would race/override it. Keyboard
+        // activation (Enter/Space -> click) is unaffected because it fires the
+        // click event without a mousedown.
+        burger.addEventListener('mousedown', (e) => e.preventDefault());
+        burger.addEventListener('click', () => {
+          const sidebar = document.getElementById('sidebar');
+          if (sidebar.classList.contains('open')) closeDrawer();
+          else openDrawer();
+        });
+      }
       const overlay = document.getElementById('overlay');
       if (overlay) overlay.addEventListener('click', closeDrawer);
       document.addEventListener('keydown', (e) => {

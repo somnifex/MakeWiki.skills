@@ -118,10 +118,47 @@ def _link_open(tokens: Sequence[Token], idx: int, options: OptionsDict, env: Env
 _RENDERER_RULES["heading_open"] = _heading_open
 _RENDERER_RULES["link_open"] = _link_open
 
+# A deterministic callout convention: a blockquote whose first paragraph begins
+# with a bracketed keyword is rendered as a typed callout (note/tip/warning/
+# danger) with an accessible type label. The type is authored by the LLM in the
+# Markdown; this transform is purely mechanical (a documented syntax -> class),
+# never a semantic judgment about the content.
+_CALLOUT_RE = re.compile(
+    r"<blockquote>\s*<p>\s*\[!(\s*)(NOTE|TIP|WARNING|DANGER)(\s*)\]\s*", re.IGNORECASE
+)
+_CALLOUT_LABELS = {
+    "NOTE": "Note",
+    "TIP": "Tip",
+    "WARNING": "Warning",
+    "DANGER": "Danger",
+}
+
+
+def _apply_callouts(html: str) -> str:
+    """Turn ``> [!TYPE]`` blockquotes into typed callouts, leaving plain
+    blockquotes untouched, so a quote is never stylistically confused with an
+    admonition."""
+    out: list[str] = []
+    last = 0
+    for m in _CALLOUT_RE.finditer(html):
+        out.append(html[last : m.start()])
+        kind = m.group(2).upper()
+        label = _CALLOUT_LABELS[kind]
+        # Rewrite the opening: blockquote gets the callout class, a labelled
+        # span is inserted before the remaining paragraph text (marker dropped).
+        out.append(
+            f'<blockquote class="callout {kind.lower()}"><p>'
+            f'<span class="callout-label">{label}</span>'
+        )
+        last = m.end()
+    out.append(html[last:])
+    return "".join(out)
+
 
 def render_markdown_document(md: str, *, route_map: Mapping[str, str]) -> str:
     """Render one Markdown document to HTML, resolving wiki links against
     ``route_map`` (a mapping of document id -> route) and re-seeding heading ids
     per call."""
     env: EnvType = {"route_map": route_map, "heading_ids": set()}
-    return cast(str, _PARSER.render(md, env))
+    rendered = cast(str, _PARSER.render(md, env))
+    return _apply_callouts(rendered)
