@@ -215,6 +215,11 @@ class SemanticModelProvenance(BaseModel):
     ``llm`` fields are authored by LLM subagents and never invented by Python.
     ``unknown`` marks a section Python could not prove — Python returns
     UNKNOWN instead of guessing.
+
+    The provenance entries for ``user_tasks`` / ``usage_examples`` / ``faq`` /
+    ``troubleshooting`` / ``command_groups`` are V2-compatibility documentation
+    fields; they are kept for serialization parity but are NOT the canonical
+    authority for V3 page planning (that is the DocumentationModel).
     """
 
     source: Literal["llm", "python", "hybrid", "unknown"] = "hybrid"
@@ -240,11 +245,19 @@ class SemanticModel(BaseModel):
 
     ``identity``/``installation``/``configuration``/``commands`` may be populated
     deterministically by Python when evidence exists. All *cognitive* fields —
-    ``user_tasks``, ``usage_examples``, ``faq``, ``platform_notes``,
-    ``troubleshooting``, ``command_groups``, ``compatibility_matrix``,
+    ``usage_examples``, ``platform_notes``, ``compatibility_matrix``,
     ``health_checks``, ``deployment_notes``, ``log_paths``, ``env_vars`` — are
     LLM-authored input. Python validates their schema, renders them, and
     verifies them, but never synthesizes their content.
+
+    .. note:: V2-compatibility documentation fields (``user_tasks``,
+       ``usage_examples``, ``faq``, ``troubleshooting``, ``command_groups``)
+       are preserved for backward compatibility only. They are **NOT** the
+       canonical authority for V3 page planning: in V3 the audience / goal /
+       capability / journey / page-structure semantics come from the
+       ``DocumentationModel`` (``references/v3/DOCUMENTATION_MODEL.md``). These
+       legacy fields are carried forward without breaking serialization, but V3
+       PageSpecs must be derived from ``DocumentationModel``, not from these.
     """
 
     model_id: str = ""
@@ -257,6 +270,10 @@ class SemanticModel(BaseModel):
     configuration: list[ConfigSection] = Field(default_factory=list)
     env_vars: list[EnvVar] = Field(default_factory=list)
     commands: list[Command] = Field(default_factory=list)
+    # --- V2-compatibility documentation fields (NOT V3 page-planning authority) ---
+    # These are kept for backward compatibility and are NOT the canonical input to
+    # V3 Page Planning. V3 page / audience / journey semantics come from the
+    # DocumentationModel; Python keeps these fields only for serialization parity.
     user_tasks: list[UserTask] = Field(default_factory=list)
     usage_examples: list[UsageExample] = Field(default_factory=list)
     faq: list[FAQItem] = Field(default_factory=list)
