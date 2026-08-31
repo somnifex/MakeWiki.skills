@@ -47,8 +47,11 @@ first. (This has now been completed through Phase L; see per-phase status.)
 `tasks/document-model.md`, `tasks/plan-pages.md`, `tasks/write-page.md`,
 `tasks/revise.md`, `tasks/integrate.md`.
 
-**REMAINING:** none. Legacy `scan` / `write` / `rebattle` / `review` task files
-were intentionally retained (not deleted).
+**REMAINING:** none. Legacy `scan` / `write` task files were later **rewritten to
+V3** (see the V3 legacy cleanup): `scan.md` now documents optional mechanical
+fact assistance + Explorer-family recovery / blind-coverage focus variants;
+`write.md` now documents the one-`PageSpec`-×-one-language writer contract. `tasks/rebattle.md`
+was already V3-hardened (escalation); `tasks/review.md` is V3.
 
 **ACCEPTANCE:** V3 task prompt contracts present, V2 flow not yet switched — met.
 
@@ -211,7 +214,9 @@ Evidence are optional mechanical assistance, never prerequisites. Legacy
 `scan` / `write` / `rebattle` task files remain as compatibility references.
 (Equivalent to the V3-K1 micro task.)
 
-**REMAINING:** none.
+**REMAINING:** none. (`scan.md` / `write.md` were subsequently rewritten to V3 in
+the V3 legacy cleanup; `rebattle.md` is the V3 escalation contract. The preserved
+V2 `SearchLedger` parser in Python is backward-compat only.)
 
 **ACCEPTANCE:** SKILL.md authoritative flow is V3; legacy tasks are compatibility — met.
 
@@ -278,22 +283,29 @@ scaffolding is in place).
 
 ## Phase P — Documentation sync
 
-**STATUS: PARTIAL**
+**STATUS: DONE**
 
 **IMPLEMENTED:**
 - `README.md` and `README.en.md` were updated to the V3 authoritative pipeline
-  (this session, V3-A5 / V3-A6): main flow, CLI table, LLM-designed page
-  hierarchy, persona/operator/API-reference mentions.
+  (V3-A5 / V3-A6): main flow, CLI table, LLM-designed page hierarchy,
+  persona/operator/API-reference mentions.
+- `AGENTS.md` and `CLAUDE.md` were updated to the V3 pipeline (Phase 2,
+  commit `4a59b0a`): authoritative flow, stable role families + dynamic
+  `SubtaskSpec`, `Explorer` (not `Scout`), ReBattle = escalation, Recovery
+  **Explorer**.
+- `references/architecture.md` describes the V3 `authoritative_pipeline`
+  (Investigation/Explorer, DocumentationModel, DocumentationPlan/PageSpecs,
+  Reviewer / **Final Semantic Auditor**); the `architecture_before` block
+  remains only as a labeled historical comparison.
+- `CHANGELOG.md` current `[Unreleased]` section describes the V3 flow;
+  historical released entries legitimately record the V2 flow.
 
-**REMAINING:**
-- `AGENTS.md`, `CLAUDE.md`, `CHANGELOG.md`, and `references/architecture.md`
-  still describe the **V2 authoritative flow** (Census → Scout → ReBattle →
-  Writer → Auditor). Per the Phase P rule "只有已经实现的能力才能写进去", these
-  must be updated to the V3 flow once their edits are scheduled. Not changed by
-  the Phase-A cleanup (out of its MODIFY-ONLY scope).
+**REMAINING:** none (V2 shadow authority tracked here has been resolved; see
+the V3 legacy cleanup commit). CHANGELOG historical entries keep V2 wording as
+accurate release history.
 
 **ACCEPTANCE:** README/README.en/AGENTS/CLAUDE/CHANGELOG/references/architecture
-all reflect only implemented capability — **not yet fully met**.
+all reflect only implemented capability — **met**.
 
 ---
 

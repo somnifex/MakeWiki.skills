@@ -12,21 +12,37 @@
 /makewiki --lang en --lang zh-CN --theme dark
 ```
 
-## 3. Autonomous Execution Flow
+## 3. Execution Flow (V3 pipeline)
 
-1. **Phase 0 (Census)**: Census detects Go + Node ecosystems, monorepo workspaces, Docker/CI configs. Main Agent dynamically plans parallel specialized scouts from the Archetype Library.
-2. **Phase 1 (Scout)**:
-   - `Scout-Structure`: Maps `docker-compose.yml`, `go.mod`, `package.json`, Makefile.
-   - `Scout-Surface`: Discovers 40+ REST API routes, Cobra CLI flags, and environment variables.
-3. **Phase 2 (ReBattle)**:
-   - `DX Debater`: Drafts 5-minute quickstart with Docker and local binary setup.
-   - `AST Truth Debater`: Rejects unreleased experimental flags by checking Gin handler AST.
-   - `Ops Debater`: Extracts environment variables and per-service port bindings from Docker Compose.
-   - `Judge`: Adjudicates claims and synthesizes canonical `SemanticModel`.
-4. **Phase 3 (Writers)**: Parallel English and Chinese writers produce 25 pages each.
-5. **Phase 4 (Review)**: Mechanical check confirms 100% code block parity and zero AI clichés.
-6. **Phase 5 (Site)**: Compiles standalone SPA static wiki at `makewiki/site/index.html`.
-7. **Export & Sync**:
+1. **Orientation**: Main Agent reads high-information entries, forms an initial
+   hypothesis, identifies end-user + operator + developer personas and major semantic
+   domains (backend, frontend, ops/deployment, public & management APIs). Authors a
+   `RepositoryBrief` + `InvestigationPlan` of coherent domains. `census` detects
+   Go + Node ecosystems, monorepo workspaces, Docker/CI configs — **optional** raw
+   evidence only, never a topology authority.
+2. **Investigation**: Explorer subtasks (one coherent semantic domain each) return
+   evidence-backed `ClaimBundle`s — e.g. the API surface (40+ REST routes), runtime
+   config/env, deployment topology. A **Blind Coverage Reviewer** (Explorer-family
+   focus variant) independently re-explores to catch hidden entrypoints; a **Recovery
+   Explorer** handles any mechanical-tool failures via direct inspection.
+3. **Semantic Synthesis**: Semantic Analyst reconciles the brief, plan, and all
+   `ClaimBundle`s into the canonical `SemanticModel`. Ordinary ambiguity is re-checked
+   against evidence; only a genuinely hard dispute escalates to adversarial ReBattle
+   (a deterministic `rebattle-diff` organizer never decides truth).
+4. **Documentation Modeling & Page Planning**: Documentation Architect produces a
+   `DocumentationModel` (personas, capabilities, journeys, interface references incl.
+   operator/management-API surfaces where evidence supports them), a `DocumentationPlan`,
+   and one `PageSpec` per page.
+5. **Writing**: Parallel Language Writers author 25 pages per language — one
+   `PageSpec` × one language each, natively, never machine-translated, with stable
+   `[[id:...]]` / section markers for 100% cross-language block parity.
+6. **Review → Revision**: Read-only Page Reviewer emits `ReviewFindings`; a separate
+   Revision Agent implements them; re-review confirms completion (bounded rounds).
+7. **Integration & Verify**: Integrator authors `SitePresentationPlan` from approved
+   page specs; Python runs `verify-docs` (L0–L5) and the Final Semantic Auditor emits
+   the authoritative `SemanticAuditBundle`.
+8. **Site & Deliver**: Compiles the standalone SPA static wiki at
+   `makewiki/site/index.html`, then exports bundles:
 
    ```bash
    python scripts/run_toolkit.py export makewiki --format all --lang zh-CN

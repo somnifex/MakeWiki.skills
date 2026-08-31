@@ -51,8 +51,9 @@ the `evidence` JSON and adds:
 2. **Implementation Perspective**: Functions, AST arguments, unreleased features.
 3. **Deployment & Enterprise Perspective**: Compatibility requirements, environment variables, health check commands, error logs.
 
-If mechanical tools encounter errors or unparsed files, spawn a **Recovery Scout**
-for direct cognitive file inspection.
+If mechanical tools encounter errors or unparsed files, spawn a **Recovery
+Explorer** (an Explorer-family focus variant, see `tasks/scan.md`) for direct
+cognitive file inspection.
 
 The multi-perspective analysis must **directly inspect the tree** (Glob /
 Grep / Read / `ls` / `find` / `git ls-files`), not only read the Python
@@ -76,7 +77,7 @@ project_brief:
   version: ""
   purpose: ""                       # LLM-written, grounded in evidence
   repo_traits: ""                   # Sourced from census facts
-  execution_topology: ""            # Dynamically synthesized scout roles
+  execution_topology: ""            # Explorer-family subtasks / focus variants (structured per InvestigationPlan)
   target_users: []
   project_type: ""
 

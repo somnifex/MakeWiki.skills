@@ -122,7 +122,7 @@ authoritative_pipeline:
     cognitive_subagents:
       - "Reviewer (READ-ONLY) - grounding, documentation fitness, audience fit, api_contract, cross-language, epistemic; emits ReviewFindings; does NOT edit pages in place"
       - "Revision Agent - implements ONLY the flagged pages"
-      - "Auditor - L3 behavior, L4b prose-parity, L5 epistemic review; emits the SemanticAuditBundle (preserved)"
+      - "Final Semantic Auditor - L3 behavior, L4b prose-parity, L5 epistemic review, cross-page semantic consistency; emits the SemanticAuditBundle (preserved)"
     mechanical_helper: "run_toolkit.py verify-docs <target> --semantic-audit <file>  # L0-L5 unified run + Quality Gate"
     revision_loop: "A separate Revision Agent implements ReviewFindings; a fresh read-only re-review decides completion (bounded by agent.max_audit_rounds, max 2 rounds per page)"
     anti_cliche: "Anti-cliché prose rewriting is the LLM Writer/Revision Agent's job, never a mechanical rewrite"

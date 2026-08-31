@@ -478,8 +478,8 @@ role in sequence (no semantics are lost, only wall-clock).
 | Role / trigger                                | Canonical spec                               | Output / verdict |
 | :---                                          | :---                                         | :---             |
 | Investigation / Explorer (one semantic domain) | `tasks/investigate.md`                       | `ClaimBundle`    |
-| Recovery (mechanical-tool failure)            | `tasks/scan.md` §4                           | direct-inspection facts |
-| Blind coverage (complex / large repos)        | `tasks/scan.md` §5                           | independent re-exploration |
+| Recovery (mechanical-tool failure)            | `tasks/scan.md` §2                           | `ClaimBundle` via direct inspection |
+| Blind coverage (complex / large repos)        | `tasks/scan.md` §3                           | independent re-exploration |
 | Debater (hard-conflict escalation only)       | `tasks/rebattle.md`                          | adjudicated dispute → Semantic Synthesis |
 | Language Writer (one `PageSpec` × one language) | `tasks/write.md`, `tasks/write-page.md`     | native draft page (stable `[[id:...]]` + section markers) |
 | Reviewer (read-only)                          | `tasks/review.md`, `tasks/revise.md`          | `ReviewFindings` → revised draft → re-review |
