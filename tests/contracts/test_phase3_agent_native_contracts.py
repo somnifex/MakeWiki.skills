@@ -202,14 +202,34 @@ def test_search_ledger_to_claim_bundle_literal_migration():
 
 
 def test_search_ledger_to_claim_bundle_defaults_identity_empty():
-    """Without caller identity, Python must not guess bundle domain/id."""
+    """An all-empty call cannot produce a valid completed ClaimBundle.
+
+    Python must not guess bundle identity, and V3-P1-03 forbids emitting an empty
+    ClaimBundle as if investigation were complete — so an empty call raises rather
+    than silently returning a blank shell.
+    """
     ledger = SearchLedger(role="Scout")
-    bundle = ledger.to_claim_bundle()
-    assert bundle.id == ""
-    assert bundle.domain == ""
-    assert bundle.producer_subtask == ""
-    assert bundle.summary == ""
-    assert bundle.claims == []
+    with pytest.raises(ValueError):
+        ledger.to_claim_bundle()
+
+
+def test_search_ledger_to_claim_bundle_requires_identity_and_substance():
+    """Migration requires caller-supplied identity/summary and at least one claim /
+    unresolved / follow-up — never a blank or content-free bundle."""
+    # Blank identity, but substance present via unresolved.
+    ledger = SearchLedger(role="Scout", unresolved=["SSL not confirmed"])
+    with pytest.raises(ValueError):
+        ledger.to_claim_bundle()
+
+    # Full identity but no claims / unresolved / follow-ups.
+    ledger2 = SearchLedger(role="Scout")
+    with pytest.raises(ValueError):
+        ledger2.to_claim_bundle(
+            bundle_id="claims.x",
+            domain="d",
+            producer_subtask="p",
+            summary="s",
+        )
 
 
 def test_search_ledger_markdown_parser_unchanged_by_conversion():
@@ -227,7 +247,12 @@ def test_search_ledger_markdown_parser_unchanged_by_conversion():
     md = ledger.to_markdown()
     parsed = parse_search_ledger_markdown(md)
     # Conversion is a pure projection; parser output is unaffected by it.
-    _ = ledger.to_claim_bundle(bundle_id="claims.x")
+    _ = ledger.to_claim_bundle(
+        bundle_id="claims.config-runtime",
+        domain="config-runtime",
+        producer_subtask="investigate.config-runtime",
+        summary="Config and runtime semantics.",
+    )
     parsed2 = parse_search_ledger_markdown(ledger.to_markdown())
     assert parsed2 == parsed
 
@@ -247,7 +272,12 @@ def test_orchestration_state_v3_artifact_slots_round_trip():
             ),
             important_unknowns=["Exact auth model for the admin API."],
         ),
-        investigation_plan=InvestigationPlan(project_hypothesis="acme-cli"),
+        investigation_plan=InvestigationPlan(
+            project_hypothesis="acme-cli",
+            no_investigation_reason=(
+                "Survey-only round-trip check; no domain investigation needed here."
+            ),
+        ),
         subtasks=[
             SubtaskSpec(
                 id="investigate.channel-management",

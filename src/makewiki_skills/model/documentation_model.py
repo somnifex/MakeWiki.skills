@@ -12,9 +12,11 @@ See ``references/v3/DOCUMENTATION_MODEL.md``.
 
 This module (Phase G) implements the DocumentationModel: ``Persona``,
 ``Capability``, ``Journey``, ``Concept``, ``ReferenceItem``, ``DocumentationGap``,
-the container ``DocumentationModel`` (task G1), and the interface models
+the container ``DocumentationModel`` (task G1), the interface models
 ``InterfaceReference`` / ``HttpOperationReference`` with their parameter /
-request / response supporting structures (task G2).
+request / response supporting structures (task G2), and the
+``InterfaceDisposition`` contract recording where each important interface
+operation goes (``DOCUMENTATION_MODEL`` §7.1).
 
 Interface references are *part of the DocumentationModel* — they are NOT
 Python-generated OpenAPI. Every unproven field stays ``None`` / omitted / the
@@ -29,7 +31,7 @@ from __future__ import annotations
 
 from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 #: Forbid unknown keys so a hand-authored model with a typo'd or unexpected key
 #: fails loudly at validation time instead of being silently dropped.
@@ -405,12 +407,82 @@ class CliCommandReference(BaseModel):
     confidence: _Confidence = "medium"
 
 
+class InterfaceDisposition(BaseModel):
+    """The recorded disposition of one important interface operation
+    (``DOCUMENTATION_MODEL`` §7.1, ``API_REFERENCE`` §13.1).
+
+    For every interface operation the Document Architect deems *important*, an
+    explicit disposition is recorded rather than silently omitted: which operations
+    land on which page, which are deliberately omitted, and which are unresolved.
+
+    ``disposition`` is an LLM-authored judgment restricted to the four contract
+    values below (Python never decides which operation is important or which page
+    it belongs on). Python only validates that the disposition is *self-consistent*
+    with the disposition kind:
+
+    - ``documented`` / ``grouped`` → ``page_id`` must be non-empty (the operation
+      has a concrete page target).
+    - ``omitted`` → ``reason`` must be non-empty (a semantic explanation such as
+      internal-only — never a silent drop).
+    - ``unresolved`` → ``gap_id`` must be non-empty (pointing at a
+      ``documentation_gap`` — never pretending to be covered).
+
+    ``page_id`` / ``reason`` / ``gap_id`` / ``operation_id`` are optional strings
+    so that unproven fields stay ``""`` rather than being guessed; the validator
+    only enforces the fields each disposition kind requires.
+    """
+
+    model_config = _MODEL_CONFIG
+
+    operation_id: str = ""
+    disposition: Literal[
+        "documented", "grouped", "omitted", "unresolved"
+    ] = "unresolved"
+    page_id: str = ""
+    reason: str = ""
+    gap_id: str = ""
+
+    @model_validator(mode="after")
+    def _require_self_consistent_disposition(self) -> InterfaceDisposition:
+        """Enforce the per-disposition field requirements.
+
+        Python only checks that an LLM-authored disposition is structurally
+        complete for its kind — it never decides which operation is important,
+        whether it should be documented, or which page it belongs on.
+        """
+        if not self.operation_id.strip():
+            raise ValueError(
+                "InterfaceDisposition.operation_id must not be blank"
+            )
+        if self.disposition in ("documented", "grouped"):
+            if not self.page_id.strip():
+                raise ValueError(
+                    "documented/grouped disposition must carry a non-blank page_id"
+                )
+        elif self.disposition == "omitted":
+            if not self.reason.strip():
+                raise ValueError(
+                    "omitted disposition must carry a non-blank reason "
+                    "(e.g. internal-only)"
+                )
+        elif self.disposition == "unresolved":
+            if not self.gap_id.strip():
+                raise ValueError(
+                    "unresolved disposition must carry a non-blank gap_id "
+                    "(pointing at a documentation_gap)"
+                )
+        return self
+
+
 class DocumentationModel(BaseModel):
     """The Documentation Architect's audience / goal model.
 
     All fields are LLM-authored; Python only validates the schema and serializes —
     it never infers an entry. ``interface_references`` holds ``InterfaceReference``
-    models (HTTP operations per ``API_REFERENCE``)."""
+    models (HTTP operations per ``API_REFERENCE``). ``interface_dispositions``
+    records the explicit disposition of each important interface operation
+    (``DOCUMENTATION_MODEL`` §7.1); it defaults to an empty list for
+    backward compatibility."""
 
     model_config = _MODEL_CONFIG
 
@@ -420,4 +492,5 @@ class DocumentationModel(BaseModel):
     concepts: list[Concept] = Field(default_factory=list)
     references: list[ReferenceItem] = Field(default_factory=list)
     interface_references: list[InterfaceReference] = Field(default_factory=list)
+    interface_dispositions: list[InterfaceDisposition] = Field(default_factory=list)
     documentation_gaps: list[DocumentationGap] = Field(default_factory=list)

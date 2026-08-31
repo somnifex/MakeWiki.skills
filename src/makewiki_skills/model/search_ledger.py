@@ -101,6 +101,12 @@ class SearchLedger(BaseModel):
         ``summary``) are supplied by the caller (the Main Agent LLM), never
         guessed by Python. This does not run the Markdown parser; it only wraps
         already-parsed ledger data, so parser behavior is unchanged.
+
+        A migrated bundle must not be a completed-empty shell: the caller must
+        supply non-blank identity and summary, and there must be at least one
+        claim / unresolved / recommended follow-up to migrate. If not, this raises
+        a ``ValueError`` rather than emitting an artifact that would masquerade as
+        a completed investigation (``ARTIFACT_CONTRACTS`` §3, V3-P1-03).
         """
         claims: list[Claim] = []
         for scout in self.claims:
@@ -126,6 +132,23 @@ class SearchLedger(BaseModel):
                     ],
                     uncertainty=None,
                 )
+            )
+        if (
+            not bundle_id.strip()
+            or not domain.strip()
+            or not producer_subtask.strip()
+            or not summary.strip()
+        ):
+            raise ValueError(
+                "SearchLedger.to_claim_bundle requires non-blank bundle_id, "
+                "domain, producer_subtask, and summary (the Main Agent LLM must "
+                "supply bundle identity; Python must not guess it)"
+            )
+        if not (claims or self.unresolved or self.recommended_followups):
+            raise ValueError(
+                "SearchLedger.to_claim_bundle has nothing to migrate (no claims, "
+                "no unresolved, no recommended follow-ups) — refusing to emit an "
+                "empty ClaimBundle as if investigation were complete"
             )
         return ClaimBundle(
             id=bundle_id,
