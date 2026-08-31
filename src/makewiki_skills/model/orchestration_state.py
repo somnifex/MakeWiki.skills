@@ -13,6 +13,7 @@ from typing import Any
 from pydantic import BaseModel, Field
 
 from makewiki_skills.model.documentation_model import DocumentationModel
+from makewiki_skills.model.documentation_plan import DocumentationPlan
 from makewiki_skills.model.page_spec import PageSpec
 from makewiki_skills.model.v3_artifacts import (
     InvestigationPlan,
@@ -89,7 +90,7 @@ class OrchestrationState(BaseModel):
     conflicts: list[ConflictRecord] = Field(default_factory=list)
     unresolved_questions: list[str] = Field(default_factory=list)
     semantic_model: dict[str, Any] | None = None
-    documentation_plan: dict[str, Any] | None = None
+    documentation_plan: DocumentationPlan | None = None
     audit_status: dict[str, Any] | None = None
     delivery_status: dict[str, Any] | None = None
     # --- V3 cognitive artifact slots (LLM-authored; Python only stores/validates) ---
@@ -98,8 +99,11 @@ class OrchestrationState(BaseModel):
     repository_brief: RepositoryBrief | None = None
     investigation_plan: InvestigationPlan | None = None
     subtasks: list[SubtaskSpec] = Field(default_factory=list)
-    # ``documentation_model`` and ``page_specs`` are typed V3 artifacts (Phase
-    # G / H / I) — stored as actual models, not free dicts.
+    # ``documentation_model``, ``documentation_plan`` and ``page_specs`` are
+    # typed V3 artifacts (Phase G / H / I) — stored as actual models, not free
+    # dicts. ``documentation_plan`` default None; a legacy dict fixture authored
+    # against the ``persona`` / ``from`` contract is coerced by pydantic into a
+    # :class:`~makewiki_skills.model.documentation_plan.DocumentationPlan`.
     documentation_model: DocumentationModel | None = None
     page_specs: list[PageSpec] = Field(default_factory=list)
     updated_at: str = Field(default_factory=lambda: datetime.now(UTC).isoformat())
