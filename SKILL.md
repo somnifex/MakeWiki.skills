@@ -139,9 +139,9 @@ authoritative_pipeline:
 
   review_and_revision:
     cognitive_subagents:
-      - "Reviewer (READ-ONLY) — grounding, documentation fitness, audience fit, api_contract, cross-language, epistemic; emits ReviewFindings; does NOT edit pages in place"
+      - "Page Reviewer (READ-ONLY) — documentation fitness, audience fit, task completeness, operator completeness, API contract completeness, obvious unsupported/grounding defects, page-local cross-language issues; emits ReviewFindings; does NOT edit pages in place"
       - "Revision Agent — implements ONLY the flagged pages; a fresh re-review decides completion (max 2 rounds, then escalate to Orchestrator)"
-      - "Auditor — L3 behavior, L4b prose-parity, L5 epistemic review; emits the SemanticAuditBundle (preserved)"
+      - "Final Semantic Auditor — L3 behavior verdicts, L4b cross-language semantic parity, L5 epistemic standing, cross-page semantic consistency; emits the SemanticAuditBundle (preserved); does NOT re-run Documentation/Page Review (page splitting, persona IA, how-to structure, PageSpec existence)"
     mechanical: "python run_toolkit.py verify-docs <target> --semantic-audit <file>  # L0-L5 unified run + Quality Gate"
 
   integration:
@@ -478,12 +478,12 @@ role in sequence (no semantics are lost, only wall-clock).
 | Role / trigger                                | Canonical spec                               | Output / verdict |
 | :---                                          | :---                                         | :---             |
 | Investigation / Explorer (one semantic domain) | `tasks/investigate.md`                       | `ClaimBundle`    |
-| Recovery (mechanical-tool failure)            | `tasks/scan.md` §4                           | direct-inspection facts |
-| Blind coverage (complex / large repos)        | `tasks/scan.md` §5                           | independent re-exploration |
+| Recovery (mechanical-tool failure)            | `tasks/scan.md` §2                           | `ClaimBundle` via direct inspection |
+| Blind coverage (complex / large repos)        | `tasks/scan.md` §3                           | independent re-exploration |
 | Debater (hard-conflict escalation only)       | `tasks/rebattle.md`                          | adjudicated dispute → Semantic Synthesis |
 | Language Writer (one `PageSpec` × one language) | `tasks/write.md`, `tasks/write-page.md`     | native draft page (stable `[[id:...]]` + section markers) |
-| Reviewer (read-only)                          | `tasks/review.md`, `tasks/revise.md`         | `ReviewFindings` → revised draft → re-review |
-| Auditor (L3 / L4b / L5)                       | §3A `SemanticAuditBundle`                    | `semantic_audit.json` |
+| Reviewer (read-only)                          | `tasks/review.md`, `tasks/revise.md`          | `ReviewFindings` → revised draft → re-review |
+| Final Semantic Auditor (L3 / L4b / L5)        | §3A `SemanticAuditBundle`, §10               | `semantic_audit.json` |
 
 The legacy `SearchLedger` format (`<search_ledger>`) and its parser remain a
 preserved V2 asset: `src/makewiki_skills/model/search_ledger.py` (
@@ -624,12 +624,15 @@ rubric, never a mandatory filename list.
 
 ### 7. Review
 
-1. A **read-only Reviewer** evaluates each drafted page against its evidence
-   slice and the cross-language contract (see `tasks/review.md`), in one or
-   more modes: `grounding`, `documentation_fitness`, `audience_fit`,
-   `api_contract`, `cross_language`, `epistemic`.
-2. The Reviewer emits a structured **`ReviewFindings`** artifact. It **does
-   not** edit pages in place.
+1. A **read-only Page Reviewer** evaluates each drafted page for page-local fitness
+   and completeness against its evidence slice and the cross-language contract (see
+   `tasks/review.md`): documentation fitness, audience fit, task completeness,
+   operator completeness, API contract completeness, obvious unsupported / grounding
+   defects, and page-local cross-language issues.
+2. The Reviewer emits a structured **`ReviewFindings`** artifact. It **does not**
+   edit pages in place. It may flag obvious behavior / epistemic problems, but it
+   does **not** build the final authoritative L3 / L4b / L5 verdicts or the
+   `SemanticAuditBundle` — those are the **Final Semantic Auditor's** job (§10).
 
 ### 8. Revision
 
@@ -659,10 +662,14 @@ python <makewiki_root>/scripts/run_toolkit.py build-site <output_dir> --theme au
 1. Python runs `python <makewiki_root>/scripts/run_toolkit.py verify-docs
    <target>` to compute the mechanical layers (L0 / L1 / L2 / L4a) and list
    pending semantic review items.
-2. The Auditor performs the L3 behavior / L4b prose-parity / L5 epistemic
-   review and emits the authoritative `SemanticAuditBundle`
+2. The **Final Semantic Auditor** performs the L3 behavior verdicts / L4b
+   cross-language semantic parity / L5 epistemic standing / cross-page semantic
+   consistency review and emits the authoritative `SemanticAuditBundle`
    (`semantic_audit.json`) **last**, so its `documents_digest` matches the final
-   audited markdown set.
+   audited markdown set. It does **not** re-run the earlier Documentation / Page
+   Review stages — it does not re-check page splitting, persona IA soundness,
+   how-to structure polish, or whether a `PageSpec` should exist (those feed in
+   from the Page Reviewer and the Documentation/Page Planning stages).
 3. Re-run `verify-docs --semantic-audit <output_dir>/semantic_audit.json` to
    verify the Quality Gate:
    ```bash

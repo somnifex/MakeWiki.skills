@@ -1,115 +1,91 @@
-# Task: Autonomous Repo Fact Census & Dynamic Reconnaissance (代码库事实普查与动态勘探)
+# Task: Mechanical Fact Assistance & Explorer-Family Focus Variants (机械事实辅助与勘探族焦点变体)
 
 ## Overview
 
-Reconnaissance is Phase 0 & 1 of the MakeWiki pipeline. **Scout Subagents**
-autonomously explore the repository structure, code paths, and developer interfaces,
-returning structured **Search Ledgers**. The Python toolkit provides the mechanical
-counterpart: `census` extracts raw verifiable repository traits (file counts, languages,
-manifests, entrypoints, configs, tests, CI/infra, monorepo shape, ecosystems, tool warnings),
-and `evidence` (alias `scan`) returns a facts-only JSON bundle.
+Repository orientation and investigation in V3 are **cognitive, LLM-owned**.
+This task documents two supporting concerns:
 
-The boundary is strict: Python measures **facts**; the LLM decides **meaning**.
-Python is an auditable evidence channel, never an infallible authority: if Python evidence
-conflicts with direct source inspection, the Main Agent investigates directly.
-
----
-
-## 1. Repository Fact Census & Dynamic Subagent Planning (Phase 0)
-
-In Phase 0, the Main Agent executes `makewiki census .` (or `python run_toolkit.py census .`)
-to extract objective repository traits. The Main Agent then evaluates the repository shape
-and dynamically synthesizes the Scout topology within configured upper bounds (`agent.max_subagents`, host `max_parallelism`):
-
-- **Lightweight / Single-module Projects**: Consolidated scouts (e.g. Structure + Surface)
-- **Standard Multi-component Projects**: Dedicated scouts per domain (Structure, Runtime/CLI, Tests, Config)
-- **Complex / Polyglot / Monorepos**: Parallel specialized scouts synthesized dynamically
+1. **Optional mechanical fact assistance** — the Python `census` / `evidence` /
+   `coverage` commands return raw, verifiable repository traits and facts.
+   They are **optional supporting material, never a prerequisite or an
+   authority**: they never decide semantic domains, meaning, visibility,
+   abstraction, or the investigation topology. The LLM (Repository Orientation,
+   Explorer) owns all interpretation (see `tasks/orient.md`, `tasks/investigate.md`,
+   `references/v3/BASELINE.md` §3.1).
+2. **Explorer-family focus variants** — when mechanical tooling fails or a
+   complex repo risks hidden entrypoints, the Main Agent dispatches a
+   **Recovery Explorer** or a **Blind Coverage Reviewer**. Both are *focus
+   variants* of the stable **Explorer** role family (see `tasks/investigate.md`),
+   not new architecture-level role families, and neither changes what
+   investigation produces (`ClaimBundle`s, never V2 `SearchLedger`s).
 
 ---
 
-## 2. Dynamic Scout Synthesis & Search Loop (Phase 1)
+## 1. Mechanical Facts Are Optional Assistance, Never an Authority
 
-The Main Agent does not deploy a fixed list of 8 scouts. Instead, it drives an autonomous
-**Search Loop** asking:
-1. *What do I still not understand about the system?*
-2. *What important repository areas are unexplored?*
-3. *Which facts are single-source or lack sufficient corroboration?*
-4. *Which tool failures need recovery?*
-5. *Which claims conflict?*
+The Main Agent may run `census` / `evidence` / `coverage` on the target to obtain
+objective, verifiable traits (file counts, languages, manifests, commands, config
+keys, paths). Key boundaries:
 
-Scouts are synthesized dynamically based on Census findings and ongoing investigation needs:
-- **Structure Scout**: Explores package layouts, build systems, manifests, and monorepo boundaries.
-- **Runtime / CLI Scout**: Traces process entrypoints, CLI parsers, subcommands, and flags.
-- **Config & Env Scout**: Analyzes configuration schemas, env vars, defaults, and priority overrides.
-- **Test & Behavior Scout**: Inspects test fixtures, assertions, and operational behaviors.
-- **Deployment / CI Scout**: Analyzes workflows, Dockerfiles, Kubernetes manifests, and cloud deploy steps.
-- **Domain Specialists**: Synthesized on-demand (e.g., `FFI Bindings Scout`, `Plugin Ecosystem Scout`, `Fork Provenance Scout`, `Migration Scout`).
-
----
-
-## 3. Scout Deliverable: Structured Search Ledger
-
-Every Scout directly inspects the codebase using `Glob`, `Grep`, `Read`, and `Bash`
-(`ls` / `find` / `git ls-files`) and terminates its investigation by outputting a structured
-`<search_ledger>` block:
-
-```markdown
-<search_ledger>
-# Role: [Synthesized Scout Role Name]
-**Confidence:** [0.0 - 1.0]
-
-## Searched Areas
-- [Architectural component or module inspected]
-
-## Paths Inspected
-- `path/to/inspected_file.py`
-
-## Claims & Evidence
-1. **[claim_id]**: [Concrete factual assertion discovered]
-   - *Evidence*: `path/to/file.py:L10-L25`
-2. **[claim_id]** **[CONFLICT]**: [Assertion that contradicts another source, e.g. README vs code]
-   - *Evidence*: `README.md:L5`, `src/config.py:L40`
-
-## Unresolved
-- [Unclear behaviors, missing definitions, or ambiguous configurations]
-
-## Unexplored
-- [Directories or subsystems observed but left for follow-up inspection]
-
-## Recommended Follow-ups
-- [Specific areas or specialized scouts recommended for subsequent exploration]
-</search_ledger>
-```
+- **Optional**: orientation and investigation proceed from direct `Glob` / `Grep` /
+  `Read` inspection even when Python tooling is skipped. Census is **not** a
+  mandatory Phase 0 prerequisite; it does not dictate the investigation plan.
+- **Facts only**: `census` measures traits; `evidence` returns a facts-only JSON
+  bundle; `coverage` reports which files/configs/tests/manifests were discovered
+  vs inspected vs pruned. Python never interprets meaning.
+- **Evidence channel, not authority**: if Python evidence conflicts with direct
+  source inspection, the Main Agent investigates directly.
+- **Never a topology authority**: investigation decomposition is decided by the
+  authored `InvestigationPlan` (`tasks/investigate.md` §1) — never "synthesized
+  from census needs" (BASELINE §3.1).
 
 ---
 
-## 4. Recovery Scout Protocol
+## 2. Recovery Explorer (mechanical-tool failure)
 
 When mechanical extraction encounters errors or degraded coverage, the Main Agent
-dynamically spawns a **Recovery Scout**:
+spawns a **Recovery Explorer** — an Explorer-family focus variant. It is **not** a
+separate "Recovery Scout" role family.
 
-- **Trigger Conditions**:
-  - Mechanical tool throws AST parsing error, syntax error, or unhandled file format.
-  - Scanner returns 0 facts or skips a known critical directory.
-  - A Scout returns `confidence < 0.7` or flags critical paths in `unresolved`.
-  - Conflicting evidence between doc comments and implementation.
-- **Recovery Mandate**:
-  - Recovery Scout relies exclusively on direct cognitive codebase inspection (`Glob`, `Grep`, `Read`).
-  - Directly reads raw source files, extracts ground-truth symbols/schemas/entrypoints, and resolves ambiguities.
-  - Emits a definitive Search Ledger to unblock subsequent phases.
+- **Trigger conditions**:
+  - Mechanical tool throws an AST / syntax / unhandled-format error.
+  - Scanner returns 0 facts or skips a known-critical directory.
+  - A claim sets `confidence: low` or flags critical paths as `unresolved`.
+  - Evidence conflicts between doc comments and implementation.
+- **Mandate**: relies exclusively on **direct cognitive inspection**
+  (`Glob`, `Grep`, `Read`); reads raw source, extracts ground-truth
+  symbols/schemas/entrypoints, and resolves ambiguities directly.
+- **Output**: returns a **`ClaimBundle`** for its domain (per
+  `tasks/investigate.md` §3), never a V2 `<search_ledger>` block. The preserved
+  V2 `SearchLedger` parser (`src/makewiki_skills/model/search_ledger.py`) remains
+  only as a backward-compatibility asset for legacy bundles; new work emits
+  `ClaimBundle`s.
 
 ---
 
-## 5. Blind Coverage Reviewer Protocol
+## 3. Blind Coverage Reviewer (complex / large repositories)
 
-For complex, large, or polyglot repositories, the Main Agent deploys an independent
-**Blind Coverage Reviewer** before moving to ReBattle or Writing:
+For complex, large, or polyglot repositories, the Main Agent may deploy an
+independent **Blind Coverage Reviewer** — also an Explorer-family focus variant —
+before publishing reviewed drafts:
 
-- **Blind Independence**:
-  - The Blind Coverage Reviewer is **NOT** given the Search Ledgers of previous Scouts or any generated drafts.
-  - It receives only the raw repository path and Census traits.
-- **Objective**:
-  - Independently re-explores the codebase to identify hidden entrypoints, forgotten sub-packages, undeclared plugins, config overrides, or missing workflows.
-- **Discrepancy Loop**:
-  - The Main Agent compares the Blind Reviewer's findings with the existing claims pool.
-  - If unexpected core subsystems were missed or placed in `unexplored`, the Main Agent updates its search plan and dispatches targeted scouts before proceeding.
+- **Blind independence**: the reviewer is **not** given prior `ClaimBundle`s or
+  generated drafts — only the raw repository path and, optionally, census traits.
+  It independently re-explores to surface hidden entrypoints, forgotten
+  sub-packages, undeclared plugins, config overrides, or missing workflows.
+- **Discrepancy loop**: the Main Agent compares the reviewer's findings against
+  the existing claim pool. If unexpected core subsystems were missed or placed in
+  `unresolved` / `newly_discovered_areas`, the Main Agent updates the
+  `InvestigationPlan` and dispatches targeted Explorer subtasks before proceeding.
+
+---
+
+## 4. Boundaries
+
+- Neither variant is a new role family; both are synthesized as Explorer-family
+  focus variants against the stable role families (SKILL §6).
+- Neither variant makes IA decisions, adjudicates semantic meaning, or writes
+  documentation — they produce `ClaimBundle`s / findings for the Main Agent.
+- Census / evidence / coverage never replace LLM judgment of what the repository
+  means, never decide visibility/abstraction, and never set the investigation
+  topology.
