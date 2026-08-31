@@ -24,7 +24,7 @@ from __future__ import annotations
 
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 #: Forbid unknown keys so a hand-authored artifact with a typo'd or unexpected
 #: key fails loudly at validation time instead of being silently dropped.
@@ -44,6 +44,21 @@ class RepositoryHypothesis(BaseModel):
     purpose: str = ""
     type: str = ""
     confidence: Literal["high", "medium", "low"] = "medium"
+
+    @model_validator(mode="after")
+    def _require_hypothesis_text(self) -> RepositoryHypothesis:
+        """The hypothesis's key prose (``name`` / ``purpose``) must not be blank.
+
+        An Orientation that produces no working hypothesis is not a usable
+        RepositoryBrief. `type` / `confidence` keep their LLM-authored defaults;
+        Python does not infer them.
+        """
+        if not self.name.strip() or not self.purpose.strip():
+            raise ValueError(
+                "RepositoryHypothesis.name and purpose must not be blank "
+                "(a working hypothesis of what the project is)"
+            )
+        return self
 
 
 class LikelyUser(BaseModel):
@@ -73,6 +88,15 @@ class HighInformationSource(BaseModel):
 
     path: str = ""
     reason: str = ""
+
+    @model_validator(mode="after")
+    def _require_path_and_reason(self) -> HighInformationSource:
+        """A flagged high-information source must name its path and why."""
+        if not self.path.strip() or not self.reason.strip():
+            raise ValueError(
+                "HighInformationSource.path and reason must not be blank"
+            )
+        return self
 
 
 class ExistingDocumentation(BaseModel):
@@ -107,6 +131,21 @@ class RepositoryBrief(BaseModel):
     )
     important_unknowns: list[str] = Field(default_factory=list)
     orientation_notes: list[str] = Field(default_factory=list)
+
+    @model_validator(mode="after")
+    def _require_investigation_signal(self) -> RepositoryBrief:
+        """A Brief must carry at least one investigation signal.
+
+        ``major_areas`` may be absent, but then at least one ``important_unknown``
+        must be recorded — otherwise the Brief is an empty shell that produces
+        nothing to investigate.
+        """
+        if not self.major_areas and not self.important_unknowns:
+            raise ValueError(
+                "RepositoryBrief must have at least one major_area or one "
+                "important_unknown"
+            )
+        return self
 
 
 #: Allowed subtask types. Validated only — Python never selects or schedules
@@ -160,6 +199,32 @@ class SubtaskSpec(BaseModel):
     depends_on: list[str] = Field(default_factory=list)
     stop_conditions: list[str] = Field(default_factory=list)
 
+    @model_validator(mode="after")
+    def _require_executable_contract(self) -> SubtaskSpec:
+        """A SubtaskSpec must describe executable work, not an empty shell.
+
+        ``id``, ``goal``, and ``expected_output.type`` / ``expected_output.id``
+        must be non-blank and at least one ``stop_condition`` must be present so
+        a subtask cannot run unbounded with no defined output. ``questions`` /
+        ``scope_hint`` / ``depends_on`` may be empty. ``type`` is already
+        constrained to the SubtaskType vocabulary. Python only checks structural
+        completeness — it never judges whether the ``goal`` is semantically good
+        nor schedules the subtask.
+        """
+        if not self.id.strip():
+            raise ValueError("SubtaskSpec.id must not be blank")
+        if not self.goal.strip():
+            raise ValueError("SubtaskSpec.goal must not be blank")
+        if not self.expected_output.type.strip() or not self.expected_output.id.strip():
+            raise ValueError(
+                "SubtaskSpec.expected_output.type and .id must not be blank"
+            )
+        if not self.stop_conditions:
+            raise ValueError(
+                "SubtaskSpec must declare at least one stop_condition"
+            )
+        return self
+
 
 class InvestigationPlanDomain(BaseModel):
     """One coherent semantic domain the InvestigationPlan targets.
@@ -207,6 +272,13 @@ class ClaimEvidence(BaseModel):
     symbol_or_location: str = ""
     rationale: str = ""
 
+    @model_validator(mode="after")
+    def _require_path_and_rationale(self) -> ClaimEvidence:
+        """A provenance pointer must name a path and explain why it supports."""
+        if not self.path.strip() or not self.rationale.strip():
+            raise ValueError("ClaimEvidence.path and rationale must not be blank")
+        return self
+
 
 class Claim(BaseModel):
     """A single, evidence-backed assertion about stable behavior or an interface.
@@ -227,6 +299,32 @@ class Claim(BaseModel):
     abstraction: str = ""
     evidence: list[ClaimEvidence] = Field(default_factory=list)
     uncertainty: str | None = None
+
+    @model_validator(mode="after")
+    def _require_grounded_claim(self) -> Claim:
+        """A claim must be real text and at least minimally grounded.
+
+        ``id`` / ``statement`` / ``semantic_key`` must be non-blank, and the
+        claim must carry either at least one ``evidence`` item or an explicit
+        ``uncertainty``. ``evidence=[]`` with ``uncertainty=None`` is forbidden:
+        an ungrounded, un-hedged assertion would otherwise masquerade as valid
+        canonical output. Python only checks this structural grounding — it never
+        judges whether evidence actually supports the statement (that is an LLM /
+        verification concern).
+        """
+        if not self.id.strip():
+            raise ValueError("Claim.id must not be blank")
+        if not self.statement.strip():
+            raise ValueError("Claim.statement must not be blank")
+        if not self.semantic_key.strip():
+            raise ValueError("Claim.semantic_key must not be blank")
+        uncertainty_blank = not self.uncertainty or not self.uncertainty.strip()
+        if not self.evidence and uncertainty_blank:
+            raise ValueError(
+                "Claim must carry at least one evidence item or an explicit "
+                "non-blank uncertainty"
+            )
+        return self
 
 
 class ScopeExpansion(BaseModel):

@@ -118,6 +118,23 @@ The exact granularity is the Architect's judgment, driven by persona, operation 
 risk — not by a fixed rule. Operator/admin API pages must surface roles, side effects,
 idempotency, pagination, and destructive operations where proven.
 
+### 4.1 Resolve every interface disposition to a page
+
+Every important interface operation modeled in Documentation Modeling carries a
+`disposition` (`documented | grouped | omitted | unresolved`). Page Planning must resolve
+each one:
+
+- `documented` / `grouped` → the recorded `page_id` must actually be produced as a
+  `PageSpec` (or an intentional, recorded exception).
+- `omitted` → no page; the `reason` must remain recorded (the omission is deliberate, not a
+  silent gap).
+- `unresolved` → the referenced `documentation_gap` must be carried forward; it cannot be
+  silently dropped at planning time.
+
+Python may later validate that every important operation has a disposition and that every
+`documented`/`grouped` one has a corresponding `PageSpec`, but it must never decide which
+operations are important or invent a page target.
+
 ---
 
 ## 5. PageSpec is the Writer's contract

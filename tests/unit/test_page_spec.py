@@ -47,14 +47,58 @@ def test_page_spec_serialization_round_trip():
     assert rebuilt.language == "zh-CN"
 
 
-def test_page_spec_defaults_are_empty():
-    spec = PageSpec()
-    payload = spec.model_dump_json()
-    rebuilt = PageSpec.model_validate_json(payload)
-    assert rebuilt == spec
-    assert rebuilt.audience == []
-    assert rebuilt.required_sections == []
-    assert rebuilt.related_pages == []
+def test_page_spec_rejects_empty_shell():
+    """An empty PageSpec is no page at all and must be rejected.
+
+    A Writer must be handed a concrete page: non-blank ``page_id`` /
+    ``title_intent`` / ``user_goal`` plus at least one ``audience`` and one
+    ``required_section``.
+    """
+    with pytest.raises(ValidationError):
+        PageSpec()
+
+
+def test_page_spec_rejects_blank_page_id():
+    with pytest.raises(ValidationError):
+        PageSpec(
+            page_id="  ",
+            page_type="feature_guide",
+            title_intent="Channel Management",
+            user_goal="Configure upstream channels.",
+            audience=["admin"],
+            required_sections=["overview"],
+        )
+
+
+def test_page_spec_rejects_empty_audience():
+    with pytest.raises(ValidationError):
+        PageSpec(
+            page_id="admin/channel-management",
+            page_type="feature_guide",
+            title_intent="Channel Management",
+            user_goal="Configure upstream channels.",
+            audience=[],
+            required_sections=["overview"],
+        )
+
+
+def test_page_spec_rejects_empty_required_sections():
+    with pytest.raises(ValidationError):
+        PageSpec(
+            page_id="admin/channel-management",
+            page_type="feature_guide",
+            title_intent="Channel Management",
+            user_goal="Configure upstream channels.",
+            audience=["admin"],
+            required_sections=[],
+        )
+
+
+def test_page_spec_allows_empty_optional_facts_and_related_pages():
+    """``optional_facts`` / ``forbidden_topics`` / ``related_pages`` may be empty."""
+    spec = _sample_spec()
+    assert spec.optional_facts == []
+    assert spec.forbidden_topics == ["ORM implementation details"]
 
 
 def test_page_type_validates_allowed_vocabulary():
@@ -63,8 +107,15 @@ def test_page_type_validates_allowed_vocabulary():
 
 
 def test_page_type_accepts_all_contract_values():
+    base = {
+        "page_id": "p",
+        "title_intent": "T",
+        "user_goal": "G",
+        "audience": ["admin"],
+        "required_sections": ["overview"],
+    }
     for value in PageType.__args__:
-        assert PageSpec.model_validate({"page_type": value}).page_type == value
+        assert PageSpec.model_validate({**base, "page_type": value}).page_type == value
 
 
 def test_page_spec_rejects_unknown_keys():

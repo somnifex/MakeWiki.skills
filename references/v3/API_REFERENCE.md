@@ -299,6 +299,27 @@ operator side effects documented
 
 Python 可以未来辅助统计已有 operation IDs，但不能决定哪些 operation 是“major”。
 
+## 13.1 Interface coverage disposition
+
+对每个被视为重要的 interface operation，Documentation Architect 必须显式给出
+disposition，而不是静默遗漏：
+
+```yaml
+interface_disposition:
+  operation_id: channel.create
+  disposition: documented   # documented | grouped | omitted | unresolved
+  page_id: reference/management-api/channels/create
+  reason: ""                # omitted 时必填（如 internal-only）
+  gap_id: ""                # unresolved 时必填
+```
+
+- `documented` / `grouped`：必须记录 `page_id`。
+- `omitted`：必须有语义理由（internal-only、不适合 persona、利益低等）。
+- `unresolved`：必须指向一个 `documentation_gap`。
+
+这保证“哪些操作进文档、哪些不进”是显式决策，Python 以后只能验证 disposition
+是否存在/是否完整，不能决定哪个 operation 重要或该放哪页。
+
 ## 14. Runtime exclusion
 
 V3 不要求：

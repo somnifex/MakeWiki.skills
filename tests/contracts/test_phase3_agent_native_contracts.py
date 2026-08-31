@@ -16,6 +16,11 @@ from pathlib import Path
 import pytest
 
 from makewiki_skills.evals import aggregate, runner, scorer
+from makewiki_skills.model.documentation_model import (
+    Capability,
+    DocumentationModel,
+    Persona,
+)
 from makewiki_skills.model.orchestration_state import (
     AgentRecord,
     ClaimRecord,
@@ -23,6 +28,7 @@ from makewiki_skills.model.orchestration_state import (
     OrchestrationState,
     ToolFailureRecord,
 )
+from makewiki_skills.model.page_spec import PageSpec
 from makewiki_skills.model.search_ledger import (
     ScoutClaim,
     SearchLedger,
@@ -32,6 +38,8 @@ from makewiki_skills.model.v3_artifacts import (
     ClaimBundle,
     InvestigationPlan,
     RepositoryBrief,
+    RepositoryHypothesis,
+    SubtaskOutputSpec,
     SubtaskSpec,
 )
 
@@ -183,7 +191,9 @@ def test_search_ledger_to_claim_bundle_literal_migration():
     assert claim.abstraction == "unknown"
     assert claim.evidence[0].path == "src/config.py:12"
     assert claim.evidence[0].symbol_or_location == ""
-    assert claim.evidence[0].rationale == ""
+    # B3 requires a non-blank rationale; the legacy conversion records a literal
+    # neutral marker (Python cannot invent a semantic rationale).
+    assert claim.evidence[0].rationale != ""
     assert bundle.unresolved == ["Whether SSL is enabled by default"]
     assert bundle.recommended_followups == ["Recovery Scout for legacy addon"]
     # Non-literal sources are not force-mapped into semantic slots.
@@ -232,9 +242,10 @@ def test_orchestration_state_v3_artifact_slots_round_trip():
     state = OrchestrationState(
         user_goal="Generate V3 documentation",
         repository_brief=RepositoryBrief(
-            project_hypothesis=RepositoryBrief().project_hypothesis.model_copy(
-                update={"name": "acme-cli", "purpose": "Manage channels."}
-            )
+            project_hypothesis=RepositoryHypothesis(
+                name="acme-cli", purpose="Manage channels."
+            ),
+            important_unknowns=["Exact auth model for the admin API."],
         ),
         investigation_plan=InvestigationPlan(project_hypothesis="acme-cli"),
         subtasks=[
@@ -242,10 +253,28 @@ def test_orchestration_state_v3_artifact_slots_round_trip():
                 id="investigate.channel-management",
                 type="investigation",
                 goal="Understand channel configuration.",
+                expected_output=SubtaskOutputSpec(
+                    type="ClaimBundle", id="claims.channel-management"
+                ),
+                stop_conditions=["Every important claim has evidence."],
             )
         ],
-        documentation_model={"personas": [], "capabilities": []},
-        page_specs=[{"page_id": "channel-management", "page_type": "concept"}],
+        documentation_model=DocumentationModel(
+            personas=[
+                Persona(id="operator", name="Operator", goals=["deploy safely"])
+            ],
+            capabilities=[Capability(id="channel.manage", name="Manage channels")],
+        ),
+        page_specs=[
+            PageSpec(
+                page_id="channel-management",
+                page_type="concept",
+                title_intent="Channel Management",
+                user_goal="Understand channel management.",
+                audience=["operator"],
+                required_sections=["overview"],
+            )
+        ],
     )
     reloaded = OrchestrationState.from_json(state.to_json())
     assert reloaded == state
@@ -254,8 +283,11 @@ def test_orchestration_state_v3_artifact_slots_round_trip():
     assert reloaded.investigation_plan is not None
     assert len(reloaded.subtasks) == 1
     assert reloaded.subtasks[0].id == "investigate.channel-management"
-    assert reloaded.documentation_model == {"personas": [], "capabilities": []}
-    assert reloaded.page_specs[0]["page_id"] == "channel-management"
+    # documentation_model is now a typed DocumentationModel, not a free dict.
+    assert reloaded.documentation_model is not None
+    assert reloaded.documentation_model.personas[0].name == "Operator"
+    assert reloaded.documentation_model.capabilities[0].id == "channel.manage"
+    assert reloaded.page_specs[0].page_id == "channel-management"
 
 
 def test_orchestration_state_v3_slots_default_empty():

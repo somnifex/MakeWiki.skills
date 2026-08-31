@@ -12,6 +12,8 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
+from makewiki_skills.model.documentation_model import DocumentationModel
+from makewiki_skills.model.page_spec import PageSpec
 from makewiki_skills.model.v3_artifacts import (
     InvestigationPlan,
     RepositoryBrief,
@@ -96,10 +98,10 @@ class OrchestrationState(BaseModel):
     repository_brief: RepositoryBrief | None = None
     investigation_plan: InvestigationPlan | None = None
     subtasks: list[SubtaskSpec] = Field(default_factory=list)
-    # documentation_model / page_specs have no dedicated Pydantic model yet;
-    # they are stored as the authored YAML/JSON structures until Phase G / H.
-    documentation_model: dict[str, Any] | None = None
-    page_specs: list[dict[str, Any]] = Field(default_factory=list)
+    # ``documentation_model`` and ``page_specs`` are typed V3 artifacts (Phase
+    # G / H / I) — stored as actual models, not free dicts.
+    documentation_model: DocumentationModel | None = None
+    page_specs: list[PageSpec] = Field(default_factory=list)
     updated_at: str = Field(default_factory=lambda: datetime.now(UTC).isoformat())
 
     def to_json(self, indent: int = 2) -> str:

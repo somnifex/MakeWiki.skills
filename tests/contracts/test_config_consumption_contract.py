@@ -109,9 +109,20 @@ def test_llm_only_fields_are_not_python_read():
         if field_consumer_category(DocumentationPolicyConfig, field) == "LLM_ONLY"
     ]
     assert llm_only, "expected some LLM_ONLY documentation_policy fields to check"
+    # Pure schema/serialization model files are not config consumers: their
+    # attributes (e.g. ``PageSpec.audience`` / ``HttpOperationReference.audience``)
+    # are page-spec / interface schema fields, unrelated to the LLM_ONLY config
+    # field ``documentation_policy.audience``. Excluding them keeps this contract
+    # focused on genuine config reads while avoiding a name-collision false
+    # positive from the PageSpec structural validator.
+    non_config_schema_files = {
+        "page_spec.py",
+        "documentation_model.py",
+    }
     src_texts: dict[str, str] = {
         str(p): p.read_text(encoding="utf-8")
         for p in SRC_ROOT.rglob("*.py")
+        if p.name not in non_config_schema_files
     }
     leaked: list[str] = []
     for field in llm_only:

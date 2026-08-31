@@ -113,7 +113,15 @@ class SearchLedger(BaseModel):
                     visibility=["unknown"],
                     abstraction="unknown",
                     evidence=[
-                        ClaimEvidence(path=cite, symbol_or_location="", rationale="")
+                        # Legacy citations carry only a source path, no rationale.
+                        # B3 requires a non-blank rationale; Python cannot invent a
+                        # semantic one, so it records a literal, neutral marker that
+                        # says the citation was migrated verbatim.
+                        ClaimEvidence(
+                            path=cite,
+                            symbol_or_location="",
+                            rationale=f"legacy citation migrated verbatim: {cite}",
+                        )
                         for cite in scout.evidence_citations
                     ],
                     uncertainty=None,

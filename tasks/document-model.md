@@ -169,6 +169,30 @@ idempotency, pagination, rate limits) with every unproven field kept at `UNKNOWN
 or omitted — **never guessed**. Each `InterfaceReference` is part of the DocumentationModel;
 it is not a Python-generated OpenAPI.
 
+### 7.1 Interface disposition (interface 去向)
+
+For every interface operation the Architect deems **important**, record an explicit
+disposition rather than silently omitting it:
+
+```yaml
+interface_disposition:
+  operation_id: channel.create
+  disposition: documented   # documented | grouped | omitted | unresolved
+  page_id: reference/management-api/channels/create
+  reason: ""                # required when omitted (e.g. internal-only)
+  gap_id: ""                # required when unresolved
+```
+
+Rules:
+
+- `documented` / `grouped` → must carry `page_id`.
+- `omitted` → must carry a semantic `reason` (e.g. internal-only, not for the target
+  persona).
+- `unresolved` → must point to a `documentation_gap`; never claim covered.
+
+Python may later validate *that a disposition exists and is complete*, but must never
+decide which operation is important or which page it belongs on.
+
 ---
 
 ## 8. DocumentationGap

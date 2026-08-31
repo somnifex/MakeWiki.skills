@@ -154,6 +154,37 @@ CLI interface
 
 HTTP 细节见 `API_REFERENCE.md`。
 
+### 7.1 Interface disposition（接口去向）
+
+对每个被视为**重要**的 interface operation，Documentation Architect 必须显式
+给出 disposition，不能静默遗漏：
+
+```yaml
+# 对每个重要 operation 记录其去向
+interface_disposition:
+  operation_id: channel.create
+  disposition: documented   # documented | grouped | omitted | unresolved
+  page_id: reference/management-api/channels/create   # documented/grouped 时必填
+  reason: ""                # omitted 时必填（如 internal-only）
+  gap_id: ""                # unresolved 时必填（指向 documentation_gap）
+```
+
+disposition 只允许四个值：
+
+```text
+documented     # 该 operation 落到一个专属页面
+grouped        # 该 operation 归入一个共享/分组页面
+omitted        # 明确不记录，必须给出语义理由（如 internal-only）
+unresolved     # 无法确定去向，必须记录 gap
+```
+
+- `documented` / `grouped`：必须记录 `page_id`。
+- `omitted`：必须有语义理由（例如 internal-only、不适合目标 persona）。
+- `unresolved`：必须记录 `gap_id`，不能假装已覆盖。
+
+Python 以后只能验证“每个重要 operation 是否都有 disposition / 字段是否完整”，
+**不能**决定哪个 operation 属于重要、也不能决定某个 operation 应该去哪个页面。
+
 ## 8. DocumentationGap
 
 重要能力无法完整文档化时不要隐藏。

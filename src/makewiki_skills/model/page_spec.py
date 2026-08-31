@@ -16,7 +16,7 @@ from __future__ import annotations
 
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 #: Forbid unknown keys so a hand-authored PageSpec with a typo'd or unexpected
 #: key fails loudly at load time instead of being silently dropped.
@@ -62,3 +62,27 @@ class PageSpec(BaseModel):
     documentation_refs: list[str] = Field(default_factory=list)
     related_pages: list[str] = Field(default_factory=list)
     language: str = ""
+
+    @model_validator(mode="after")
+    def _require_writable_contract(self) -> PageSpec:
+        """A PageSpec must be a real page contract, not an empty shell.
+
+        ``page_id`` / ``title_intent`` / ``user_goal`` must be non-blank and both
+        ``audience`` and ``required_sections`` must be non-empty, so a Writer is
+        always handed a concrete page with a documented intent and structure
+        (``PAGE_SPEC`` §2). ``optional_facts`` / ``forbidden_topics`` /
+        ``related_pages`` may be empty. ``page_type`` is already constrained to
+        the allowed vocabulary; Python never auto-judges a page type nor
+        auto-generates ``required_sections``.
+        """
+        if not self.page_id.strip():
+            raise ValueError("PageSpec.page_id must not be blank")
+        if not self.title_intent.strip():
+            raise ValueError("PageSpec.title_intent must not be blank")
+        if not self.user_goal.strip():
+            raise ValueError("PageSpec.user_goal must not be blank")
+        if not self.audience:
+            raise ValueError("PageSpec must declare at least one audience")
+        if not self.required_sections:
+            raise ValueError("PageSpec must declare at least one required_section")
+        return self

@@ -69,16 +69,55 @@ def test_repository_brief_serialization_round_trip():
     assert rebuilt == brief
 
 
-def test_repository_brief_defaults_are_empty():
-    """An empty handoff serializes to empty lists / unknowns, never guessed."""
-    brief = RepositoryBrief()
-    payload = brief.model_dump_json()
-    rebuilt = RepositoryBrief.model_validate_json(payload)
-    assert rebuilt == brief
-    assert rebuilt.project_hypothesis.name == ""
-    assert rebuilt.project_hypothesis.confidence == "medium"
-    assert rebuilt.likely_users == []
-    assert rebuilt.important_unknowns == []
+def test_repository_brief_rejects_empty_shell():
+    """An Orientation that outputs nothing to investigate is not a valid Brief.
+
+    ``major_areas`` may be empty, but then at least one ``important_unknown``
+    must be present; ``project_hypothesis`` key prose must be non-blank.
+    """
+    with pytest.raises(ValidationError):
+        RepositoryBrief()
+
+
+def test_repository_brief_requires_project_hypothesis_text():
+    """The hypothesis's ``name`` / ``purpose`` must not be blank."""
+    with pytest.raises(ValidationError):
+        RepositoryBrief(
+            project_hypothesis=RepositoryHypothesis(
+                name="", purpose="  ", type="CLI tool"
+            ),
+            major_areas=[
+                MajorArea(id="x", meaning_hypothesis="A domain.")
+            ],
+        )
+
+
+def test_repository_brief_accepts_unknowns_instead_of_areas():
+    """``major_areas`` may be empty as long as an ``important_unknown`` exists."""
+    brief = RepositoryBrief(
+        project_hypothesis=RepositoryHypothesis(
+            name="acme", purpose="route channels", type="CLI tool"
+        ),
+        major_areas=[],
+        important_unknowns=["Exact auth model."],
+    )
+    assert brief.important_unknowns == ["Exact auth model."]
+
+
+def test_repository_brief_rejects_empty_high_information_source():
+    """A flagged high-information source must carry both ``path`` and ``reason``."""
+    with pytest.raises(ValidationError):
+        RepositoryBrief(
+            project_hypothesis=RepositoryHypothesis(
+                name="acme", purpose="route channels", type="CLI tool"
+            ),
+            high_information_sources=[
+                HighInformationSource(path="README.md", reason="  ")
+            ],
+            major_areas=[
+                MajorArea(id="x", meaning_hypothesis="A domain.")
+            ],
+        )
 
 
 def test_repository_brief_rejects_unknown_keys():
@@ -120,14 +159,62 @@ def test_subtask_spec_serialization_round_trip():
     assert rebuilt == subtask
 
 
-def test_subtask_spec_defaults_are_empty():
-    subtask = SubtaskSpec()
-    payload = subtask.model_dump_json()
-    rebuilt = SubtaskSpec.model_validate_json(payload)
-    assert rebuilt == subtask
-    assert rebuilt.id == ""
-    assert rebuilt.scope_hint == []
-    assert rebuilt.depends_on == []
+def test_subtask_spec_defaults_are_rejected():
+    """An empty SubtaskSpec describes no executable work and must be rejected.
+
+    It must carry a non-blank ``id`` / ``goal``, a fully-specified
+    ``expected_output``, and at least one ``stop_condition``.
+    """
+    with pytest.raises(ValidationError):
+        SubtaskSpec()
+
+
+def test_subtask_spec_rejects_blank_id():
+    with pytest.raises(ValidationError):
+        SubtaskSpec(
+            id="  ",
+            goal="Understand the management API.",
+            expected_output=SubtaskOutputSpec(
+                type="ClaimBundle", id="claims.management-api"
+            ),
+            stop_conditions=["Major operations identified."],
+        )
+
+
+def test_subtask_spec_rejects_empty_goal():
+    with pytest.raises(ValidationError):
+        SubtaskSpec(
+            id="investigate.management-api",
+            goal="",
+            expected_output=SubtaskOutputSpec(
+                type="ClaimBundle", id="claims.management-api"
+            ),
+            stop_conditions=["Major operations identified."],
+        )
+
+
+def test_subtask_spec_rejects_incomplete_expected_output():
+    """``expected_output.type`` and ``expected_output.id`` must both be set."""
+    with pytest.raises(ValidationError):
+        SubtaskSpec(
+            id="investigate.management-api",
+            goal="Understand the management API.",
+            expected_output=SubtaskOutputSpec(type="", id=""),
+            stop_conditions=["Major operations identified."],
+        )
+
+
+def test_subtask_spec_rejects_empty_stop_conditions():
+    """A subtask must declare at least one stop_condition (no unbounded runs)."""
+    with pytest.raises(ValidationError):
+        SubtaskSpec(
+            id="investigate.management-api",
+            goal="Understand the management API.",
+            expected_output=SubtaskOutputSpec(
+                type="ClaimBundle", id="claims.management-api"
+            ),
+            stop_conditions=[],
+        )
 
 
 def test_subtask_spec_validates_type_vocabulary():
@@ -136,8 +223,14 @@ def test_subtask_spec_validates_type_vocabulary():
 
 
 def test_subtask_type_accepts_all_contract_values():
+    base = {
+        "id": "subtask.placeholder",
+        "goal": "Placeholder goal.",
+        "expected_output": {"type": "ClaimBundle", "id": "claims.placeholder"},
+        "stop_conditions": ["Placeholder stop condition."],
+    }
     for value in SubtaskType.__args__:
-        assert SubtaskSpec.model_validate({"type": value}).type == value
+        assert SubtaskSpec.model_validate({**base, "type": value}).type == value
 
 
 def test_subtask_spec_rejects_unknown_keys():
@@ -166,6 +259,7 @@ def _sample_investigation_plan() -> InvestigationPlan:
                 expected_output=SubtaskOutputSpec(
                     type="ClaimBundle", id="claims.channel-management"
                 ),
+                stop_conditions=["Every important claim has evidence."],
             )
         ],
         coverage_questions=["Can every domain be grounded?"],
@@ -256,8 +350,13 @@ def test_visibility_abstraction_are_opaque_strings():
         claims=[
             Claim(
                 id="c1",
+                statement="Admin can create a provider channel.",
+                semantic_key="channel.create",
                 visibility=["public", "operator"],
                 abstraction="interface",
+                evidence=[
+                    ClaimEvidence(path="src/", rationale="Source inspection.")
+                ],
             )
         ]
     )
@@ -265,13 +364,83 @@ def test_visibility_abstraction_are_opaque_strings():
     assert claim.visibility == ["public", "operator"]
     assert claim.abstraction == "interface"
     # A novel / unknown-classification string is stored as authored, not rejected.
-    bundle2 = ClaimBundle(claims=[Claim(id="c2", abstraction="some_new_kind")])
+    bundle2 = ClaimBundle(
+        claims=[
+            Claim(
+                id="c2",
+                statement="A provisionally grounded claim.",
+                semantic_key="provisional",
+                abstraction="some_new_kind",
+                uncertainty="Not yet fully confirmed.",
+            )
+        ]
+    )
     assert bundle2.claims[0].abstraction == "some_new_kind"
 
 
 def test_claim_bundle_rejects_unknown_keys():
     with pytest.raises(ValidationError):
         ClaimBundle.model_validate({"inferred_personas": []})
+
+
+def test_claim_rejects_empty_shell():
+    """A claim must carry non-blank id / statement / semantic_key."""
+    with pytest.raises(ValidationError):
+        ClaimBundle(
+            claims=[
+                Claim(
+                    id="",
+                    statement="",
+                    semantic_key="",
+                    evidence=[
+                        ClaimEvidence(path="src/", rationale="Source inspection.")
+                    ],
+                )
+            ]
+        )
+
+
+def test_claim_rejects_no_evidence_and_no_uncertainty():
+    """``evidence=[]`` with ``uncertainty=None`` is forbidden: an ungrounded,
+    un-hedged assertion must not pass as valid canonical output."""
+    with pytest.raises(ValidationError):
+        ClaimBundle(
+            claims=[
+                Claim(
+                    id="channel.create",
+                    statement="Admin can create a provider channel.",
+                    semantic_key="channel.create",
+                )
+            ]
+        )
+
+
+def test_claim_accepts_explicit_uncertainty_without_evidence():
+    """An un-evidenced claim is tolerable only when it carries explicit uncertainty."""
+    claim = Claim(
+        id="auth.model",
+        statement="Exact auth model is not yet confirmed.",
+        semantic_key="auth.model",
+        uncertainty="Disputed across sources; needs follow-up.",
+    )
+    assert claim.uncertainty is not None
+
+
+def test_claim_rejects_empty_evidence_item():
+    """Each evidence item must carry both ``path`` and ``rationale``."""
+    with pytest.raises(ValidationError):
+        ClaimBundle(
+            claims=[
+                Claim(
+                    id="channel.create",
+                    statement="Admin can create a provider channel.",
+                    semantic_key="channel.create",
+                    evidence=[
+                        ClaimEvidence(path="src/", rationale="  ")
+                    ],
+                )
+            ]
+        )
 
 
 def _sample_review_findings() -> ReviewFindings:
