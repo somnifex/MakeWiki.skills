@@ -53,6 +53,14 @@ documentation_policy:
   include_architecture_analysis: false
   include_directory_overview: false
   include_source_walkthroughs: false
+  # Seed / permission switches, not Python auto-inference toggles. Setting these
+  # true only lowers the threshold for the Documentation Architect to LOOK for an
+  # operator persona / public-or-management API surface. A false value here does
+  # not forbid the LLM from identifying operator/API coverage under strong
+  # evidence — behavior still follows the current SKILL / config ownership
+  # contract (Python never infers personae or API meaning).
+  include_operator_persona: false
+  include_api_reference: false
   forbid_unfounded_praise: true
   banned_descriptors:
     - powerful
