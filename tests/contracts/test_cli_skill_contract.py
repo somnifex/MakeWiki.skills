@@ -95,6 +95,7 @@ NON_COMMAND_TOKENS: frozenset[str] = frozenset(
         "claim",
         "commands",
         "configuration",
+        "confidence",
         "constants",
         "description",
         "faq",
