@@ -1,10 +1,13 @@
 # MakeWiki V3 — Config Migration Note
 
-> **Design only.** This document designs the migration of `makewiki.config.yaml`
+> **Design + implementation record.** This document designs and records the
 >
-> **not** change `src/makewiki_skills/config.py`. Later, independent Micro Tasks
+> accepted and its Micro Tasks (M-L1a..d, §6) are **implemented**: the additive
 >
-> first, then split into Micro Tasks).
+> (M-L1b / M-L1c) and are exposed in the default YAMLs, the audience fields are
+>
+> documented (M-L1d). Sections 1–5 record the design; §6 records the implemented
+>
 
 ## 1. Purpose & scope
 
@@ -258,30 +261,34 @@ Guiding principles:
 | `agent.*`                                       | unchanged (docs only)                    | none                                                                | none                                    |
 
 `extra="forbid"` note: the two new fields are **model defaults**, not YAML keys
-users must write, so existing config files load unchanged. Once they are added
-in an implementing Micro Task, both must also be listed in
+users must write, so existing config files load unchanged. As implemented
+(M-L1b / M-L1c), both are listed in
 `DocumentationPolicyConfig._LLM_CONSUMED_FIELDS` and referenced in the
 authoritative Skill layer in the same change (the LLM-referencing contract test
 fails otherwise).
 
-## 6. Sequencing (independent Micro Tasks, after this note is accepted)
+## 6. Sequencing (independent Micro Tasks, implementation status)
 
-1. **M-L1a** — Re-document `documentation_policy.audience` + `delivery.audience`
+Each Micro Task below is **implemented** as of the V3 refactor (all four landed;
+see MIGRATION_PLAN.md Phase M, STATUS: DONE). They are recorded here in advisory
+order (semantics before additive fields so the contract stays green at every
+commit); each was independent and small, and none required the next.
 
-   semantics (SKILL.md §2 / `tasks/write.md` wording only; no config.py change).
-2. **M-L1b** — Add `documentation_policy.include_operator_persona` (config.py +
+1. **M-L1a** — *DONE.* Re-documented `documentation_policy.audience` +
 
-   `_LLM_CONSUMED_FIELDS` + `tasks/document-model.md` + `tasks/write.md`).
-3. **M-L1c** — Add `documentation_policy.include_api_reference` (config.py +
+   `delivery.audience` as seed hints (config.py docstrings + SKILL.md "seed
+   hints" wording; no config.py field change).
+2. **M-L1b** — *DONE.* Added `documentation_policy.include_operator_persona`
 
-   `_LLM_CONSUMED_FIELDS` + `tasks/plan-pages.md` + `tasks/write*.md`).
-4. **M-L1d** — Document `agent.*` parallelism semantics (SKILL.md §4 /
+   (config.py + `_LLM_CONSUMED_FIELDS` + `tasks/document-model.md` +
+   `tasks/write.md` + default YAMLs).
+3. **M-L1c** — *DONE.* Added `documentation_policy.include_api_reference`
 
-   SUBTASK_PROTOCOL only; no config.py change).
+   (config.py + `_LLM_CONSUMED_FIELDS` + `tasks/plan-pages.md` +
+   `tasks/write*.md` + default YAMLs).
+4. **M-L1d** — *DONE.* Documented `agent.*` parallelism semantics (SKILL.md §2 /
 
-Each step is independent and small; none requires the next. Order above is
-advisory (semantics before additive fields so the contract stays green at every
-commit).
+   §4 / SUBTASK_PROTOCOL; no config.py change).
 
 ## 7. Guardrails / non-goals
 

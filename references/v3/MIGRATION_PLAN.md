@@ -1,20 +1,26 @@
 # MakeWiki V3 Migration Plan — Status Document
 
+
 > **Live status, not a todo list.** This file records, per Phase, whether the
+> V3 migration work is actually implemented in the current tree (commit
+> `2de2039`), so a local agent does **not** re-run already-completed V3
+> migration tasks.
 >
-> local agent does **not** re-run already-completed V3 migration tasks.
+> STATUS vocabulary:
+> - `DONE` — implemented and verified against current source
+> - `PARTIAL` — some but not all of the phase is implemented
+> - `TODO` — not started
 >
-> STATUS vocabulary: `DONE` (implemented and verified) / `PARTIAL` (some but not
->
-> actually has), `REMAINING` (what is still missing), and `ACCEPTANCE` (the
->
-> guessed.
+> Each phase lists `IMPLEMENTED` (what is really present now), `REMAINING`
+> (what is still missing), and `ACCEPTANCE` (when the phase counts as complete).
+> Status is judged from `src/` and the authoritative `SKILL.md` / `tasks/`, **not**
+> from this plan's older text.
 
 ## Strategy
 
 Original direction: build the new path first, then switch the authoritative
 flow, then clean up legacy descriptions. Do not rewrite the root `SKILL.md`
-first. (This has now been completed through Phase L; see per-phase status.)
+first. (This has now been completed through Phase M/P; see per-phase status.)
 
 ---
 
@@ -78,18 +84,26 @@ validates/serializes — met.
 
 ## Phase D — OrchestrationState V3 compatibility
 
-**STATUS: DONE** (with a structural note)
+**STATUS: DONE**
 
-**IMPLEMENTED:** `src/makewiki_skills/model/orchestration_state.py` carries
-`repository_brief`, `investigation_plan`, `documentation_model` (dict),
-`page_specs` (list of dict).
+**IMPLEMENTED:** `src/makewiki_skills/model/orchestration_state.py` now carries
+every V3 handoff artifact as an **actual typed Pydantic model** (not free dicts):
 
-**REMAINING:** `documentation_model` / `page_specs` are carried as free `dict`s;
-there is no dedicated Pydantic model for them on `OrchestrationState` (they do
-have dedicated models in `documentation_model.py` / `page_spec.py`). No Python
-scheduler was introduced (correct — Python only serializes/validates).
+- `repository_brief: RepositoryBrief | None`,
+  `investigation_plan: InvestigationPlan | None`,
+  `subtasks: list[SubtaskSpec]`;
+- `documentation_model: DocumentationModel | None` (Phase G / H model);
+- `documentation_plan: DocumentationPlan | None` — coerced by pydantic from a
+  legacy `persona` / `from` dict fixture (Phase K model);
+- `page_specs: list[PageSpec]` (Phase I model).
 
-**ACCEPTANCE:** V3 state fields exist, no Python scheduler — met.
+A legacy `dict` authored against the older contract is still coerced into the
+typed `DocumentationPlan`, so backward compatibility is preserved.
+
+**REMAINING:** none. No Python scheduler was introduced (correct — Python only
+serializes/validates; the Main Agent LLM owns scheduling).
+
+**ACCEPTANCE:** V3 state fields exist as typed models, no Python scheduler — met.
 
 ---
 
@@ -126,12 +140,18 @@ ReBattle CLI (`rebattle-diff`) retained as a deterministic organizer.
 
 **STATUS: DONE**
 
-**IMPLEMENTED:** `documentation_model.py` `DocumentationModel` models
-personas / capabilities / journeys / concepts / references /
-interface_references / documentation_gaps. Old `SemanticModel` fields
-(user_tasks/faq/troubleshooting) remain readable for compatibility.
+**IMPLEMENTED:** `documentation_model.py` `DocumentationModel` is a formal
+Pydantic model modeling personas / capabilities / journeys / concepts /
+references / interface_references / interface_dispositions / documentation_gaps.
+It is typed onto `OrchestrationState.documentation_model` and consumed by the
+Page-Planning / Writer cognitive chain. Old `SemanticModel` fields
+(user_tasks/faq/troubleshooting) remain intact for compatibility.
 
-**REMAINING:** none.
+**REMAINING:** none for this phase. Note (architecture boundary, not a gap): the
+deterministic CLI loader/digest (`verify-model`) still covers `SemanticModel`
+only — the LLM-authored DocumentationModel is validated on load by pydantic and
+carried via OrchestrationState, never given a semantic digest by Python (Python
+never computes semantic coverage).
 
 **ACCEPTANCE:** new persona/capability/journey model present without deleting legacy
 SemanticModel fields — met.
@@ -142,16 +162,21 @@ SemanticModel fields — met.
 
 **STATUS: DONE**
 
-**IMPLEMENTED:** `InterfaceReference` + `HttpOperationReference` in
-`documentation_model.py`; `tasks/document-model.md` §7 / §10 require the
-Architect to explicitly consider operator / management-API / API-reference
-surfaces where evidence supports them.
+**IMPLEMENTED:** `documentation_model.py` models the full interface-reference
+family, all first-class Pydantic models: `InterfaceReference` (by `kind` — HTTP
+/ admin / management API, RPC, webhook, health, CLI, config) plus its
+`HttpOperationReference`, `CliCommandReference`, `ConfigReference`,
+`OperationalEndpointReference`, and the `InterfaceDisposition` contract
+(recorded disposition per important interface operation: documented / grouped /
+omitted / unresolved). `tasks/document-model.md` §7 / §10 require the Architect
+to explicitly consider operator / management-API / API-reference surfaces where
+evidence supports them.
 
 **REMAINING:** none. No framework-specific extractors were added (correct;
 content is LLM-authored).
 
-**ACCEPTANCE:** interface/API schema contracts present; Architect prompt
-considers operator/API surfaces — met.
+**ACCEPTANCE:** interface/API schema contracts present across HTTP / CLI / config /
+operational references; Architect prompt considers operator/API surfaces — met.
 
 ---
 
@@ -159,12 +184,18 @@ considers operator/API surfaces — met.
 
 **STATUS: DONE**
 
-**IMPLEMENTED:** `page_spec.py` `PageSpec`; `tasks/write-page.md` exists; SKILL.md
+**IMPLEMENTED:** `page_spec.py` `PageSpec` is a formal Pydantic model, typed onto
+`OrchestrationState.page_specs`, and consumed by the mechanical helper
+`plan_page_consistency_errors()` in `documentation_plan.py` (cross-checks plan
+page refs against the PageSpec set). `tasks/write-page.md` exists; SKILL.md
 §9.6 defines each Writer as writing exactly **one PageSpec × one language**
 (no "one language writer writes the whole suite" default). Stable block IDs,
 section markers, native multilingual writing, anti-cliché policy retained.
 
-**REMAINING:** none.
+**REMAINING:** none. (No `verify-model`-style digest for PageSpecs; like the
+DocumentationModel, they are pydantic-validated and carried via
+OrchestrationState / the plan-consistency helper — the semantic suitability of a
+spec is LLM-owned.)
 
 **ACCEPTANCE:** Writer switched to `PageSpec × language` — met.
 
@@ -189,17 +220,20 @@ edits Markdown in place" contract was replaced.)
 
 **STATUS: DONE**
 
-**IMPLEMENTED:** `DocumentationPlan` is the IA-upstream contract (YAML described
-in `tasks/plan-pages.md`); the Integrator maps it to `SitePresentationPlan`
-(`tasks/integrate.md`, SKILL.md §8 / §9.9). Python `SiteCompiler` renders the
-plan only. Navigation is **recursive**: `site_presentation.py` recurses
-`children` with no depth cap, and the two-level limitation was removed
-(this session, V3-A3).
+**IMPLEMENTED:** `DocumentationPlan` is now a **formal Pydantic model** in
+`documentation_plan.py` (`DocumentationSection` / `DocumentationRelation` /
+`DocumentationPlan`, with plan↔PageSpec cross-check via
+`plan_page_consistency_errors()`), typed onto `OrchestrationState.documentation_plan`
+and described in `tasks/plan-pages.md`. The Integrator maps it to
+`SitePresentationPlan` (`tasks/integrate.md`, SKILL.md §8 / §9.9). Python
+`SiteCompiler` renders the plan only. Navigation is **recursive**:
+`site_presentation.py` recurses `children` with no depth cap (a two-level
+limitation was removed), verified by `test_site_presentation.py`.
 
-**REMAINING:** none. (`DocumentationPlan` has no dedicated Pydantic class — it is
-an LLM-authored YAML contract; acceptable.)
+**REMAINING:** none.
 
-**ACCEPTANCE:** recursive navigation allowed; renderer has no IA authority — met.
+**ACCEPTANCE:** DocumentationPlan is a typed model; recursive navigation allowed;
+renderer has no IA authority — met.
 
 ---
 
@@ -224,26 +258,41 @@ V2 `SearchLedger` parser in Python is backward-compat only.)
 
 ## Phase M — Config cleanup
 
-**STATUS: PARTIAL**
+**STATUS: DONE**
 
 **IMPLEMENTED:**
-- `references/v3/config-migration.md` is a **design-only** note covering
-  `delivery.audience`, `documentation_policy.audience`, operator persona, API
-  reference controls, and agent parallelism — including the additive seed
-  hints `documentation_policy.include_operator_persona` / `include_api_reference`
-  and the independent M-L1a..d micro tasks.
+- `references/v3/config-migration.md` documents the design: audience re-scoped as
+  **seed hints**, additive operator/API seed switches, and `agent.*` as
+  budget/safety ceilings.
+- `src/makewiki_skills/config.py` declares both
+  `DocumentationPolicyConfig.include_operator_persona` and
+  `include_api_reference` as LLM_ONLY additive seed switches (both present in
+  `_LLM_CONSUMED_FIELDS`). No `config.operator.*` / `config.api.*` block was
+  added (by design). Audience fields (`documentation_policy.audience`,
+  `delivery.audience`) are documented as seed hints on the config model.
+- The **default YAML exposes both seeds**: root `makewiki.config.yaml`, the
+  `init-config` template (`subskills/init/templates/default.config.yaml`), and
+  `templates/config.yaml` all list `include_operator_persona` /
+  `include_api_reference` with explanatory comments.
+- All four micro tasks landed:
+  - **M-L1a** (re-document audience semantics as seed hints) — config.py
+    docstrings + SKILL.md "seed hints" wording.
+  - **M-L1b** (add `include_operator_persona`) — config.py + Skill layer
+    (`tasks/document-model.md`).
+  - **M-L1c** (add `include_api_reference`) — config.py + Skill layer
+    (`tasks/plan-pages.md`, `tasks/write*.md`).
+  - **M-L1d** (document `agent.*` parallelism semantics) — SKILL.md §2 / §4 and
+    the config `AgentConfig` docstring (budgets/ceilings, never promises).
+- `agent.max_parallelism` remains default `10`: the accepted design
+  (config-migration.md §3.4 / §4.5) is *document, don't restructure*, so the
+  earlier "re-baseline to a more conservative value" idea was superseded — it is
+  **not** an open gap.
 
-**REMAINING:**
-- `src/makewiki_skills/config.py` is **unchanged**: neither
-  `include_operator_persona` nor `include_api_reference` is present
-  (grep count = 0). The M-L1a..d micro tasks (re-document audience semantics;
-  add the two seed fields; document `agent.*` parallelism) are **not**
-  implemented.
-- `agent.max_parallelism` default has not been re-baselined to a more
-  conservative value.
+**REMAINING:** none.
 
-**ACCEPTANCE:** audience fields re-documented / migrated toward persona-aware
-planning and the additive operator/API seeds present — **not yet met**.
+**ACCEPTANCE:** audience fields re-documented as seed hints toward persona-aware
+planning, and the additive operator/API seeds present in config + default YAML —
+**met**.
 
 ---
 
@@ -312,10 +361,17 @@ all reflect only implemented capability — **met**.
 ## Full-suite checkpoints
 
 The plan suggested full-suite runs at the ends of Phases C, D, G, J, L, N, P.
-Given the above statuses, all designated phases are at `DONE` or `PARTIAL`, and
-the contract tests covering the authoritative flow/SKILL surface are green after
-each doc-level change. When the Phase M / Phase P `REMAINING` items land, run the
-full suite again.
+Given the above statuses, every designated phase is at `DONE`, and the contract
+tests covering the authoritative flow / SKILL surface are green after each
+doc-level change (V3 refactor complete through Phase M/P).
+
+**Known boundary (not a gap in this refactor):** the deterministic CLI
+loader/digest (`verify-model`) validates `SemanticModel` only. The V3
+LLM-authored artifacts — `DocumentationModel`, `DocumentationPlan`, `PageSpecs`
+— are pydantic-validated on load and carried on `OrchestrationState` (and, for
+the plan, cross-checked by `plan_page_consistency_errors`), but Python
+deliberately does not digest or score semantic/judgment content in them. This is
+the documented two-plane boundary, not unimplemented work.
 
 ## Explicitly deferred
 
