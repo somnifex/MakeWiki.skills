@@ -331,3 +331,76 @@ V3 不要求：
 - screenshot。
 
 如果后续 renderer 支持 interactive API UI，那是 presentation enhancement，不是 V3 semantic prerequisite。
+
+## 15. Presentation — static renderer contract
+
+InterfaceReference → renderer 的映射是**纯机械**的：静态 renderer 只把已建模的
+`InterfaceReference` / `PageSpec` 数据展开成页面元素，不做任何语义推断，也不回读
+源码。
+
+### 15.1 The renderer is mechanical
+
+renderer：
+
+- 不读取源码；
+- 不推断 auth / permission；
+- 不补写 errors / responses；
+- 不改变 confidence；
+- 不生成任何缺失字段；
+- 不决定接口重要性、分组或页面归属。
+
+它只消费 `DocumentationModel.interface_references` 与对应的 `PageSpec`。所有被
+展示的内容都必须在语义层先由 LLM 确立为事实；renderer 只负责呈现，不是证据通道。
+
+### 15.2 Static InterfaceReference → presentation mapping
+
+对每个 `InterfaceReference`（HTTP operation / CLI command / config item /
+operational endpoint），renderer 按页面目标输出固定区域。每个区域都来自 artifact
+中已经存在的字段；字段缺失或为 UNKNOWN 时，renderer 输出"未提供"或隐藏该区域，
+绝不填充猜测值：
+
+```text
+operation header   <- operation id / title（来自 PageSpec.title_intent）
+method + path      <- method + path（CLI/config 用 kind 专属呈现，字段已建模）
+audience/permission<- audience + required role（仅当已建模）
+authentication     <- auth（仅当已建模，不推断）
+parameter table    <- path/query/header 参数（name、type、required、description）
+request schema     <- request body（SchemaField / schema_items）
+responses          <- status + response schema（来自已建模 responses）
+errors             <- error conditions（ApiErrorSpec）
+examples           <- 已建模的 request/response 示例
+operator notes     <- operational_notes / side effects / idempotency / pagination
+evidence note      <- evidence_refs + confidence 原样呈现
+```
+
+### 15.3 What the renderer must NOT do
+
+renderer 不得：
+
+- 从路径/方法名猜测 auth、purpose 或错误语义（见 COGNITIVE_BOUNDARY
+
+  "Mechanical evidence is not semantic authority"）；
+- 为缺失的 response/error 生成"漂亮但虚假"的 Swagger 形状；
+- 提升或改写 confidence；
+- 把 disposition 为 `omitted` / `unresolved` 的 operation 渲染成已文档化页面；
+- 实现 interactive Try It / live probing。
+
+### 15.4 Unmodeled fields stay unmodeled
+
+语义层未确认的字段（例如确切的具体 400 响应 JSON）在 renderer 中只能：
+
+- 省略对应区域；或
+- 明确标注"未从仓库证据确认"（UNKNOWN discipline）。
+
+renderer 不得生成猜测数据来补全版面。
+
+### 15.5 Confidence and evidence are preserved verbatim
+
+renderer 必须原样呈现 `evidence_refs` 与 `confidence`，不做数值变更、不做摘要
+重写。这些由建模层设定，renderer 只是展示通道。
+
+### 15.6 Interactive Try It is out of scope
+
+V3 的静态 renderer 不实现 Try it out / live server / online Swagger UI（见 §14
+Runtime exclusion）。若未来支持 interactive UI，那是 presentation enhancement，
+不改变本契约。

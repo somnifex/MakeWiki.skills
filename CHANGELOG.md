@@ -7,6 +7,49 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+### V3 authoritative pipeline
+
+MakeWiki's authoritative flow is now the V3 pipeline —
+
+`Repository Orientation → Investigation → Semantic Synthesis → Documentation
+Modeling → Page Planning → Writing → Review → Revision → Integration → Verify
+→ Deliver` — with the two-plane Cognitive Authority Boundary enforced across
+every phase.
+
+- **Authoritative pipeline**: `SKILL.md` declares the V3 flow with explicit
+  per-phase roles; the LLM owns repository understanding, semantic synthesis,
+  documentation planning, page splitting, and semantic review, while Python
+  stays mechanical (validation, serialization, path/schema/parity/digest
+  checks, site build, export).
+- **DocumentationModel**: a first-class Documentation Architect layer turns
+  "what the software is" into "what each audience must understand or
+  accomplish" — personas, capabilities, journeys, concepts, references,
+  interface references, and documentation gaps. The authoritative audience is
+  `DocumentationModel.personas` (config `audience` fields are seed hints only).
+- **PageSpec**: Page Planning produces one `PageSpec` per page as the Writer's
+  direct contract (page type, audience, user goal, required sections,
+  forbidden topics, evidence refs); writers never hold global information
+  architecture authority.
+- **Independent Review / Revision**: the Reviewer is read-only and emits
+  `ReviewFindings`; a separate Revision Agent implements only flagged pages; a
+  fresh independent re-review decides completion.
+- **Operator & API reference**: operator/admin personas are first-class; typed
+  interface models were added (`SchemaField`, `ApiErrorSpec`, `PaginationSpec`,
+  `CliCommandReference`, `ConfigReference`, `OperationalEndpointReference`),
+  and every interface operation carries an explicit `disposition`
+  (`documented` / `grouped` / `omitted` / `unresolved`) that Page Planning
+  resolves to a `PageSpec` or a recorded gap. New evidence-gated metadata seed
+  switches (`documentation_policy.include_operator_persona`,
+  `documentation_policy.include_api_reference`) were added.
+- **Recursive navigation**: the site presentation no longer imposes a fixed
+  two-level menu limit — `SiteCompiler` recurses `children` without a depth
+  cap.
+- **Contract hardening**: contract tests assert the authority split
+  (`tests/contracts/test_site_ia_authority_contract.py`), that every
+  documented CLI command resolves to a registered Typer command, that every
+  config field is LLM- or Python-consumed (no dead config), and that the
+  auditor loop is budgeted by `agent.max_audit_rounds`.
+
 ### Config ownership, authoritative orchestration, and legacy contract
 
 Clarified that the authoritative `/makewiki` configuration governs LLM
