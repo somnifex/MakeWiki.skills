@@ -121,8 +121,8 @@ idempotency, pagination, and destructive operations where proven.
 ### 4.1 Resolve every interface disposition to a page
 
 Every important interface operation modeled in Documentation Modeling carries a
-`disposition` (`documented | grouped | omitted | unresolved`). Page Planning must resolve
-each one:
+`disposition` (`documented`, `grouped`, `omitted`, or `unresolved`). Page Planning must
+resolve each one:
 
 - `documented` / `grouped` → the recorded `page_id` must actually be produced as a
   `PageSpec` (or an intentional, recorded exception).
