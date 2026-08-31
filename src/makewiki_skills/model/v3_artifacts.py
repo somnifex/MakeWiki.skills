@@ -8,8 +8,9 @@ classify, or invent any field's semantic content from filenames, keywords, or
 patterns.
 
 Phase C implements these validation models incrementally. This module currently
-holds the ``RepositoryBrief`` model only; later phases add ``InvestigationPlan``,
-``SubtaskSpec``, ``ClaimBundle``, and ``ReviewFindings`` models in the same file.
+holds the ``RepositoryBrief`` and ``SubtaskSpec`` models; later phases add
+``InvestigationPlan``, ``ClaimBundle``, and ``ReviewFindings`` models in the same
+file.
 
 All models use ``extra="forbid"`` so a hand-authored artifact with a typo'd or
 unexpected key fails loudly at load time instead of being silently dropped,
@@ -107,3 +108,55 @@ class RepositoryBrief(BaseModel):
     )
     important_unknowns: list[str] = Field(default_factory=list)
     orientation_notes: list[str] = Field(default_factory=list)
+
+
+#: Allowed subtask types. Validated only — Python never selects or schedules
+#: subtasks nor decides which is "ready".
+SubtaskType = Literal[
+    "orientation",
+    "investigation",
+    "semantic_synthesis",
+    "conflict_resolution",
+    "documentation_modeling",
+    "page_planning",
+    "writing",
+    "review",
+    "revision",
+    "integration",
+]
+
+
+class SubtaskOutputSpec(BaseModel):
+    """The expected artifact a subtask produces (type + stable id).
+
+    The expected/target artifact type and id are authored by the orchestrating
+    LLM. Python only validates; it does not resolve or enforce the artifact.
+    """
+
+    model_config = _ARTIFACT_CONFIG
+
+    type: str = ""
+    id: str = ""
+
+
+class SubtaskSpec(BaseModel):
+    """The basic V3 orchestration contract (see ``references/v3/SUBTASK_PROTOCOL.md``).
+
+    A SubtaskSpec is authored by the orchestrating LLM so that different Coding
+    Agents / Harnesses can understand it directly — Python is **not** a scheduler
+    and does not select, ready, or run subtasks. Python only validates the schema.
+    ``scope_hint`` is a recommended starting point, never a hard file allowlist.
+    """
+
+    model_config = _ARTIFACT_CONFIG
+
+    id: str = ""
+    type: SubtaskType = "investigation"
+    goal: str = ""
+    context: str = ""
+    scope_hint: list[str] = Field(default_factory=list)
+    questions: list[str] = Field(default_factory=list)
+    inputs: list[str] = Field(default_factory=list)
+    expected_output: SubtaskOutputSpec = Field(default_factory=SubtaskOutputSpec)
+    depends_on: list[str] = Field(default_factory=list)
+    stop_conditions: list[str] = Field(default_factory=list)
