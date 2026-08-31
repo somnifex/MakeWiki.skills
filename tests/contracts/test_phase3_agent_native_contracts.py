@@ -21,6 +21,9 @@ from makewiki_skills.model.documentation_model import (
     DocumentationModel,
     Persona,
 )
+from makewiki_skills.model.documentation_plan import (
+    DocumentationPlan,
+)
 from makewiki_skills.model.orchestration_state import (
     AgentRecord,
     ClaimRecord,
@@ -327,7 +330,65 @@ def test_orchestration_state_v3_slots_default_empty():
     assert state.investigation_plan is None
     assert state.subtasks == []
     assert state.documentation_model is None
+    assert state.documentation_plan is None
     assert state.page_specs == []
+
+
+def test_orchestration_state_documentation_plan_slot_is_typed():
+    """``documentation_plan`` is a typed DocumentationPlan, not a free dict."""
+    from makewiki_skills.model.documentation_plan import (
+        DocumentationRelation,
+        DocumentationSection,
+    )
+
+    state = OrchestrationState(
+        documentation_plan=DocumentationPlan(
+            sections=[
+                DocumentationSection(
+                    id="admin-guide",
+                    title_intent="Administrator Guide",
+                    persona=["admin", "operator"],
+                    pages=["admin/channel-management"],
+                )
+            ],
+            relations=[
+                DocumentationRelation(
+                    from_="admin/channel-management",
+                    to="management-api/channels",
+                    type="related",
+                )
+            ],
+            rationale=["Operator/admin pages come first."],
+        )
+    )
+    reloaded = OrchestrationState.from_json(state.to_json())
+    assert isinstance(reloaded.documentation_plan, DocumentationPlan)
+    assert reloaded.documentation_plan is not None
+    assert reloaded.documentation_plan.sections[0].id == "admin-guide"
+    assert reloaded.documentation_plan.relations[0].type == "related"
+
+
+def test_orchestration_state_coerces_legacy_documentation_plan_dict():
+    """A legacy dict fixture authored against the ``persona`` / ``from`` contract
+    is coerced by pydantic into a typed DocumentationPlan (serialization compat)."""
+    state = OrchestrationState.model_validate(
+        {
+            "documentation_plan": {
+                "sections": [
+                    {
+                        "id": "admin-guide",
+                        "title_intent": "Administrator Guide",
+                        "persona": ["admin"],
+                        "pages": ["channel-management"],
+                    }
+                ],
+                "relations": [{"from": "a", "to": "b", "type": "related"}],
+            }
+        }
+    )
+    assert isinstance(state.documentation_plan, DocumentationPlan)
+    assert state.documentation_plan.sections[0].persona == ["admin"]
+    assert state.documentation_plan.relations[0].from_ == "a"
 
 
 def test_orchestration_state_has_no_scheduler_ready_selector():
