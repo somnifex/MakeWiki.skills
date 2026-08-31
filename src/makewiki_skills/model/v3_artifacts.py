@@ -241,6 +241,25 @@ class InvestigationPlanDomain(BaseModel):
     scope_hint: list[str] = Field(default_factory=list)
     related_domains: list[str] = Field(default_factory=list)
 
+    @model_validator(mode="after")
+    def _require_domain_text(self) -> InvestigationPlanDomain:
+        """A domain must explain itself: ``id`` / ``why_important`` / ``goal`` non-blank.
+
+        Python only checks structural completeness — it never judges whether a domain
+        is actually important or its goal worthwhile. ``scope_hint`` /
+        ``related_domains`` may stay empty (they are optional starting points /
+        cross-links, not required prose).
+        """
+        if not self.id.strip():
+            raise ValueError("InvestigationPlanDomain.id must not be blank")
+        if not self.why_important.strip():
+            raise ValueError(
+                "InvestigationPlanDomain.why_important must not be blank"
+            )
+        if not self.goal.strip():
+            raise ValueError("InvestigationPlanDomain.goal must not be blank")
+        return self
+
 
 class InvestigationPlan(BaseModel):
     """The handoff artifact produced by Orientation (see ``ARTIFACT_CONTRACTS`` §2).
@@ -372,6 +391,17 @@ class ScopeExpansion(BaseModel):
     path: str = ""
     reason: str = ""
 
+    @model_validator(mode="after")
+    def _require_expansion_text(self) -> ScopeExpansion:
+        """A scope expansion must name where it went (``path``) and why (``reason``).
+
+        Pure structural check — Python never judges whether expanding into that
+        path was warranted.
+        """
+        if not self.path.strip() or not self.reason.strip():
+            raise ValueError("ScopeExpansion.path and reason must not be blank")
+        return self
+
 
 class ClaimBundle(BaseModel):
     """The artifact an investigation subtask produces (see ``ARTIFACT_CONTRACTS`` §3).
@@ -450,6 +480,24 @@ class ReviewFinding(BaseModel):
     problem: str = ""
     evidence_refs: list[str] = Field(default_factory=list)
     required_change: str = ""
+
+    @model_validator(mode="after")
+    def _require_finding_text(self) -> ReviewFinding:
+        """A finding must carry real text: ``id`` / ``severity`` / ``category`` /
+        ``problem`` / ``required_change`` non-blank.
+
+        ``location`` may be blank (not every finding pins to a line/path) and
+        ``evidence_refs`` may be empty (a Reviewer may report a structural or
+        documentation-design problem rather than a source-grounding one). Python
+        only checks structural completeness — it never re-grades ``severity`` or
+        judges whether the ``category`` is right.
+        """
+        for attr in ("id", "severity", "category", "problem", "required_change"):
+            if not getattr(self, attr).strip():
+                raise ValueError(
+                    f"ReviewFinding.{attr} must not be blank"
+                )
+        return self
 
 
 class ReviewFindings(BaseModel):

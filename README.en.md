@@ -4,6 +4,7 @@
 
 
 
+
 <p align="center">
   <strong>LLM-first, Evidence-backed, Multi-Agent Documentation Compiler for AI Coding Assistants</strong>
 </p>
@@ -141,7 +142,7 @@ flowchart LR
         Synth["Semantic Synthesis<br/>SemanticModel"]
         DocModel["Documentation Modeling<br/>DocumentationModel"]
         Pages["Page Planning<br/>DocumentationPlan + PageSpecs"]
-        Writers["Parallel writing (Writer)<br/>one PageSpec × one language"]
+        Writers["Parallel writing (Writer)<br/>one page × one language"]
         Review["Independent Review / Revision"]
         Integ["Integration<br/>SitePresentationPlan"]
     end

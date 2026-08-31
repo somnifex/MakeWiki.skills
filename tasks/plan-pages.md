@@ -20,8 +20,12 @@ rubric**, never as a mandatory list of filenames.
 ```text
 DocumentationModel (+ SemanticModel, relevant claims/evidence)
 → DocumentationPlan
-→ PageSpec[]   (one per page)
+→ PageSpec[]   (one canonical PageSpec per page_id)
 ```
+
+PageSpecs are **language-neutral**: one canonical PageSpec per `page_id`, shared
+by every target language. Target language and `LanguageProfile` are supplied
+later by the Writing Subtask, never decided here.
 
 `DocumentationPlan` expresses structure:
 
@@ -48,8 +52,9 @@ documentation_plan:
 
 `PageSpec` follows `PAGE_SPEC.md` §2 (core `page_spec`), with `page_id`, `page_type`,
 `title_intent`, `audience`, `user_goal`, `covers`, `required_sections`, required/optional
-facts, forbidden topics, source/semantic/documentation refs, `related_pages`, and
-`language`.
+facts, forbidden topics, source/semantic/documentation refs, and `related_pages`.
+The `language` field is **legacy / optional / not authoritative**: a PageSpec is
+language-neutral, so the target language is supplied by the Writing Subtask.
 
 ---
 
@@ -153,6 +158,11 @@ Each `PageSpec` fully specifies what a Writer is (and is not) responsible for. I
 the Writer to that single page and its `required_sections`, `covers`, and forbidden topics,
 so a Writer never "understands the repo and decides what to document."
 
+A PageSpec is **language-neutral**: one canonical PageSpec per `page_id` is shared by
+Chinese, English, and every other target-language Writer. Only natural-language title /
+prose may be localized per language; `covers`, `semantic_refs`, `source_claims`, and
+technical block identity are fixed by the shared PageSpec.
+
 PageSpec must carry stable `source_claims` / `semantic_refs` / `documentation_refs` so the
 Writer (and later reviewers) can trace every assertion back to evidence.
 
@@ -160,10 +170,12 @@ Writer (and later reviewers) can trace every assertion back to evidence.
 
 ## 6. Multilingual handling
 
-Different languages are authored independently and natively. PageSpec / planning keeps the
-cross-language stable identities: `page_id`, `semantic_refs`, `source_claim IDs`,
-`technical block IDs`, `reviewable section IDs`. Headings and paragraph order may be
-localized per language.
+Different languages are authored independently and natively — a language-neutral PageSpec,
+not a per-language PageSpec. Planning emits **one canonical PageSpec per `page_id`**; the
+target language + `LanguageProfile` are applied later by the Writing Subtask
+(`PageSpec × target language → draft`). Planning keeps the cross-language stable identities:
+`page_id`, `covers`, `semantic_refs`, `source_claim IDs`, `technical block IDs`, `reviewable
+section IDs`. Headings and paragraph order may be localized per language.
 
 ---
 

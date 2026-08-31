@@ -306,10 +306,12 @@ SemanticModel
 V3 改成：
 
 ```text
-PageSpec × language
+one page (page_id) × one language
 ```
 
-或少量强相关 PageSpecs。
+从共享的 **language-neutral PageSpec**（一个 `page_id` 一个 canonical PageSpec）取值。
+
+或少量强相关 pages。
 
 ### 3.8 Auditor 仍然审核并原地修改
 

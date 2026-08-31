@@ -305,7 +305,9 @@ def test_investigation_plan_accepts_domain_without_subtask():
         project_hypothesis="A channel routing CLI.",
         domains=[
             InvestigationPlanDomain(
-                id="channel-management", why_important="Core operator surface."
+                id="channel-management",
+                why_important="Core operator surface.",
+                goal="Understand channel configuration.",
             )
         ],
     )
@@ -363,6 +365,50 @@ def test_investigation_plan_no_investigation_reason_must_be_non_blank():
 def test_investigation_plan_rejects_unknown_keys():
     with pytest.raises(ValidationError):
         InvestigationPlan.model_validate({"pick_next_domain": True})
+
+
+def test_investigation_plan_domain_rejects_empty_shell():
+    """An InvestigationPlanDomain with blank id / why_important / goal is unusable."""
+    with pytest.raises(ValidationError):
+        InvestigationPlanDomain()
+
+
+def test_investigation_plan_domain_requires_critical_text():
+    """id / why_important / goal must each be non-blank; scope_hint/related_domains may be empty."""
+    with pytest.raises(ValidationError):
+        InvestigationPlanDomain(
+            id="",
+            why_important="Core operator surface.",
+            goal="Understand channel configuration.",
+        )
+    with pytest.raises(ValidationError):
+        InvestigationPlanDomain(
+            id="channel-management",
+            why_important="   ",
+            goal="Understand channel configuration.",
+        )
+    with pytest.raises(ValidationError):
+        InvestigationPlanDomain(
+            id="channel-management",
+            why_important="Core operator surface.",
+            goal="",
+        )
+
+
+def test_investigation_plan_domain_allows_empty_scope_hints():
+    """scope_hint / related_domains are optional and may be empty."""
+    domain = InvestigationPlanDomain(
+        id="channel-management",
+        why_important="Core operator surface.",
+        goal="Understand channel configuration.",
+        scope_hint=[],
+        related_domains=[],
+    )
+    assert domain.scope_hint == []
+    assert domain.related_domains == []
+    # Round-trip.
+    rebuilt = InvestigationPlanDomain.model_validate_json(domain.model_dump_json())
+    assert rebuilt == domain
 
 
 def _sample_claim_bundle() -> ClaimBundle:
@@ -525,6 +571,23 @@ def test_visibility_abstraction_are_opaque_strings():
 def test_claim_bundle_rejects_unknown_keys():
     with pytest.raises(ValidationError):
         ClaimBundle.model_validate({"inferred_personas": []})
+
+
+def test_scope_expansion_requires_path_and_reason():
+    """A scope expansion must name its ``path`` and ``reason`` (non-blank)."""
+    with pytest.raises(ValidationError):
+        ScopeExpansion()
+    with pytest.raises(ValidationError):
+        ScopeExpansion(path="", reason="Discovered routing semantics.")
+    with pytest.raises(ValidationError):
+        ScopeExpansion(path="src/routing/", reason="   ")
+    # A complete expansion is valid.
+    expansion = ScopeExpansion(
+        path="src/routing/", reason="Discovered routing semantics."
+    )
+    assert expansion.path == "src/routing/"
+    rebuilt = ScopeExpansion.model_validate_json(expansion.model_dump_json())
+    assert rebuilt == expansion
 
 
 def test_claim_rejects_empty_shell():
@@ -744,3 +807,65 @@ def test_review_findings_blocked_accepts_unresolved():
 def test_review_findings_rejects_unknown_keys():
     with pytest.raises(ValidationError):
         ReviewFindings.model_validate({"edited_page": True})
+
+
+def test_review_finding_rejects_empty_shell():
+    """An empty ReviewFinding {} carries nothing actionable and must be rejected."""
+    with pytest.raises(ValidationError):
+        ReviewFinding()
+
+
+def test_review_finding_requires_critical_text():
+    """id / severity / category / problem / required_change must be non-blank."""
+    base = {
+        "id": "finding-001",
+        "severity": "major",
+        "category": "task_incompleteness",
+        "problem": "Prerequisite step omitted.",
+        "required_change": "Add the prerequisite step.",
+    }
+    for missing in ("id", "severity", "category", "problem", "required_change"):
+        with pytest.raises(ValidationError):
+            ReviewFinding.model_validate({**base, missing: "  "})
+
+
+def test_review_finding_allows_blank_location_and_empty_evidence_refs():
+    """``location`` may be blank and ``evidence_refs`` may be empty — a Reviewer may
+    report a structural / documentation-design problem with no source pointer."""
+    finding = ReviewFinding(
+        id="finding-001",
+        severity="major",
+        category="task_incompleteness",
+        location="",
+        problem="Prerequisite step omitted.",
+        evidence_refs=[],
+        required_change="Add the prerequisite step.",
+    )
+    assert finding.location == ""
+    assert finding.evidence_refs == []
+    rebuilt = ReviewFinding.model_validate_json(finding.model_dump_json())
+    assert rebuilt == finding
+
+
+def test_review_finding_is_valid_without_location_or_evidence():
+    """A finding with blank `location`/empty `evidence_refs` embedded in a
+    ReviewFindings artifact remains valid end-to-end."""
+    review = ReviewFindings(
+        page_id="channel-management",
+        language="zh-CN",
+        mode="documentation_fitness",
+        status="changes_required",
+        findings=[
+            ReviewFinding(
+                id="finding-002",
+                severity="minor",
+                category="documentation_design",
+                location="",
+                problem="Section ordering is unclear.",
+                evidence_refs=[],
+                required_change="Reorder sections.",
+            )
+        ],
+    )
+    assert len(review.findings) == 1
+    assert review.findings[0].evidence_refs == []

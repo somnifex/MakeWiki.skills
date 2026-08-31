@@ -1,5 +1,6 @@
 # Task: Multilingual Page Writing (多语言页面撰写)
 
+
 ## Overview
 
 Writing is Phase 6 of the V3 pipeline. Each **Language Writer** subagent authors
@@ -108,14 +109,14 @@ During a writing subtask the Writer **MUST NOT**:
 4. **Invent facts** — unproven fields stay `UNKNOWN` / omitted; never pad from
    plausible-but-unverified content.
 5. **Modify other pages or the semantic model** — the Writer only writes its assigned
-   `PageSpec` × language.
+   page (`page_id`) in its assigned language (from the shared language-neutral `PageSpec`).
 
 ---
 
 ## 5. Stop Conditions
 
 The Writer **MUST STOP** when:
-1. Its assigned `PageSpec` × language is complete and coherent.
+1. Its assigned page (`page_id`) in its assigned language is complete and coherent.
 2. Every technical block and reviewable section carries a stable `[[id:...]]` /
    `<!-- makewiki:section=... -->` marker.
 3. No IA was invented, no pages were split/merged, and no unproven content was added.

@@ -3,9 +3,17 @@
 ## Overview
 
 Writing is where a `PageSpec` becomes a native-language draft page. Each writing subtask
-(`type: writing`) produces exactly **one `PageSpec` × one `language`** (small projects may
+(`type: writing`) produces exactly **one `page_id` × one `language`** (small projects may
 bundle 2-3 very short, tightly-related reference pages by exception, never one language =
 the entire suite).
+
+The `PageSpec` is **language-neutral**: one canonical PageSpec per `page_id` is shared by
+every target-language Writer. The target `language` and its `LanguageProfile` are supplied
+by this Writing Subtask, producing the language-specific draft:
+
+```text
+PageSpec (shared, canonical) × target language × LanguageProfile → this language's draft
+```
 
 The Writer is a **Language Writer subagent** (or the Main Agent in solo fallback). The
 Writer's job is *not* to understand the repo and decide the documentation; it is to write
@@ -18,15 +26,17 @@ this one documented intent accurately from the semantic inputs it is given.
 A Writer receives a narrow, targeted slice — **not** "the whole repo + write good docs":
 
 ```text
-one PageSpec
+one canonical PageSpec (language-neutral, shared across all target languages)
 + the relevant SemanticModel slice
 + relevant DocumentationModel slice
 + source claims / evidence
-+ language profile
++ the target language + its LanguageProfile   (per-subtask, not part of the PageSpec)
 → one native-language draft page
 ```
 
-Write only what the slice supports. Scope is bounded to this page, this language.
+Write only what the slice supports. Scope is bounded to this page, this language. A single
+`PageSpec` is reused to produce every language's draft — the Writer must not fork or modify
+the PageSpec for its language.
 
 ---
 
@@ -63,6 +73,9 @@ identically across languages for blocks sharing the same stable ID.
 The Writer does **not** redesign or add to the global information architecture:
 - no new major pages, no global navigation changes;
 - no changing personas or canonical capabilities;
+- the shared canonical PageSpec is **language-neutral** — the Writer must not modify its
+  canonical capability / page intent for one language (localization is limited to
+  natural-language title and prose);
 - no promoting an internal fact to a public rule;
 - `related_pages` come from the `PageSpec`, not from Writer invention.
 

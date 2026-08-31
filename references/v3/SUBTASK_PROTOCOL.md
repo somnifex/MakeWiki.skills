@@ -168,8 +168,12 @@ payments.file-2
 默认：
 
 ```text
-one PageSpec × one language = one writing subtask
+one page (page_id) × one language = one writing subtask
 ```
+
+`PageSpec` 本身是 language-neutral：同一 `page_id` 只有一个 canonical PageSpec，
+所有目标语言 Writer 共享它（`PageSpec × target language × LanguageProfile → draft`）。
+写作 subtask 以 (page_id, language) 为单位，而不是以 (PageSpec, language) 为单位。
 
 允许例外：
 

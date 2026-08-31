@@ -101,9 +101,10 @@ de-duplicate the block/section IDs, and must not rename `page_id`.
 - Every revised page must go through a **fresh re-review** (a new ReviewFindings pass)
 
   before it can be considered reviewed.
-- The review loop is bounded: **max 2 revision rounds per page** (QUALITY_POLICY §7).
+- The review loop is bounded by the single authoritative budget
 
-  If a page has not passed after the allowed rounds, **escalate to the Orchestrator** —
+  **`agent.max_audit_rounds`** (QUALITY_POLICY §7, SKILL.md §2). If a page has not
+  passed after the budget is exhausted, **escalate to the Orchestrator** —
   re-investigate or revise the `PageSpec` / `DocumentationModel` — rather than letting
   the Writer / Revision Agent iterate indefinitely.
 
@@ -122,8 +123,8 @@ During a revision subtask the Revision Agent **MUST NOT**:
    never invented content.
 6. **Let Python author or judge the revision** — revision and its grounding judgment
    are LLM-owned; Python only validates structure.
-7. **Loop forever** — respect the 2-round cap and escalate to the Orchestrator instead
-   of unbounded self-repair.
+7. **Loop forever** — respect the single `agent.max_audit_rounds` budget and escalate
+   to the Orchestrator instead of unbounded self-repair.
 
 ---
 

@@ -1,5 +1,6 @@
 # Task: Read-Only Review (只读评审)
 
+
 ## Overview
 
 Review is Phase 6 of the V3 pipeline. The **Reviewer** (an LLM subagent) evaluates the
@@ -140,9 +141,10 @@ For cross-language review (mode `cross_language`):
 3. **Re-review** → a fresh read-only review pass decides completion.
 
 The Reviewer must **not** declare the page "passed" on the revision's behalf. The loop
-is bounded: **max 2 revision rounds per page**; if a page still fails, escalate to the
+is bounded by the single authoritative budget **`agent.max_audit_rounds`** (QUALITY_POLICY
+§7, SKILL.md §2) — a page that still fails once that budget is exhausted escalates to the
 Orchestrator (re-investigate or revise the `PageSpec` / `DocumentationModel`) rather
-than letting the Writer / Revision Agent iterate indefinitely (QUALITY_POLICY §7).
+than letting the Writer / Revision Agent iterate indefinitely.
 
 ---
 

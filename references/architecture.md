@@ -1,5 +1,6 @@
 # Architecture: LLM-First, Evidence-Backed, Multi-Agent Documentation Compiler
 
+
 ## Core Philosophy
 
 MakeWiki runs on **two strict planes** separated by a hard boundary:
@@ -108,11 +109,11 @@ authoritative_pipeline:
     output: "DocumentationModel"
 
   phase_4_documentation_planning:
-    cognitive_subagents: "Documentation Architect decides what documented intents exist and groups them into pages; emits DocumentationPlan + one PageSpec per page"
+    cognitive_subagents: "Documentation Architect decides what documented intents exist and groups them into pages; emits DocumentationPlan + one language-neutral PageSpec per page_id"
     output: "DocumentationPlan + PageSpec[]"
 
   phase_5_writers:
-    cognitive_subagents: "Parallel Language Writer subtasks - each writes exactly one PageSpec x one language directly from its semantic slice (never machine-translated)"
+    cognitive_subagents: "Parallel Language Writer subtasks - each writes exactly one page (page_id) x one language from the shared language-neutral PageSpec (never machine-translated)"
     mechanical_helper: "run_toolkit.py parity <target> --lang ..."
     constraints:
       - "100% code-block (stable [[id:...]] IDs) and section marker parity"

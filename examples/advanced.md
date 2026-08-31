@@ -1,5 +1,6 @@
 # Advanced Example: Multi-Module Go + React Monorepo
 
+
 ## 1. Project Profile
 
 - **Type**: Go Gin Backend + React Frontend (Monorepo)
@@ -32,10 +33,10 @@
 4. **Documentation Modeling & Page Planning**: Documentation Architect produces a
    `DocumentationModel` (personas, capabilities, journeys, interface references incl.
    operator/management-API surfaces where evidence supports them), a `DocumentationPlan`,
-   and one `PageSpec` per page.
+   and one language-neutral `PageSpec` per page_id.
 5. **Writing**: Parallel Language Writers author 25 pages per language — one
-   `PageSpec` × one language each, natively, never machine-translated, with stable
-   `[[id:...]]` / section markers for 100% cross-language block parity.
+   page × one language each from the shared PageSpec, natively, never machine-translated,
+   with stable `[[id:...]]` / section markers for 100% cross-language block parity.
 6. **Review → Revision**: Read-only Page Reviewer emits `ReviewFindings`; a separate
    Revision Agent implements them; re-review confirms completion (bounded rounds).
 7. **Integration & Verify**: Integrator authors `SitePresentationPlan` from approved

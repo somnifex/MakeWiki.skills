@@ -1,6 +1,7 @@
 # MakeWiki V3 Migration Plan — Status Document
 
 
+
 > **Live status, not a todo list.** This file records, per Phase, whether the
 > V3 migration work is actually implemented in the current tree (commit
 > `2de2039`), so a local agent does **not** re-run already-completed V3
@@ -188,16 +189,19 @@ operational references; Architect prompt considers operator/API surfaces — met
 `OrchestrationState.page_specs`, and consumed by the mechanical helper
 `plan_page_consistency_errors()` in `documentation_plan.py` (cross-checks plan
 page refs against the PageSpec set). `tasks/write-page.md` exists; SKILL.md
-§9.6 defines each Writer as writing exactly **one PageSpec × one language**
-(no "one language writer writes the whole suite" default). Stable block IDs,
-section markers, native multilingual writing, anti-cliché policy retained.
+§9.6 defines each Writer as writing exactly **one page (`page_id`) × one language**
+(no "one language writer writes the whole suite" default) from a single
+**language-neutral** PageSpec (one canonical PageSpec per `page_id`, shared by all
+languages). Stable block IDs, section markers, native multilingual writing,
+anti-cliché policy retained.
 
 **REMAINING:** none. (No `verify-model`-style digest for PageSpecs; like the
 DocumentationModel, they are pydantic-validated and carried via
 OrchestrationState / the plan-consistency helper — the semantic suitability of a
 spec is LLM-owned.)
 
-**ACCEPTANCE:** Writer switched to `PageSpec × language` — met.
+**ACCEPTANCE:** Writer granularity is one page × one language from the shared
+language-neutral PageSpec — met.
 
 ---
 
@@ -281,7 +285,7 @@ V2 `SearchLedger` parser in Python is backward-compat only.)
     (`tasks/document-model.md`).
   - **M-L1c** (add `include_api_reference`) — config.py + Skill layer
     (`tasks/plan-pages.md`, `tasks/write*.md`).
-  - **M-L1d** (document `agent.*` parallelism semantics) — SKILL.md §2 / §4 and
+  - **M-L1d** (document `agent.*` parallelism semantics) — SKILL.md §2 / §5 and
     the config `AgentConfig` docstring (budgets/ceilings, never promises).
 - `agent.max_parallelism` remains default `10`: the accepted design
   (config-migration.md §3.4 / §4.5) is *document, don't restructure*, so the

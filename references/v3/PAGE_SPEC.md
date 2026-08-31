@@ -2,6 +2,18 @@
 
 ## 1. Purpose
 
+PageSpec 是 **language-neutral 的语义写作合同**。
+
+一个 `page_id` 只有一个 canonical PageSpec，所有目标语言共享同一个 semantic
+PageSpec。语言选择不属于 PageSpec：它属于 Writing Subtask。
+
+```text
+PageSpec (canonical, per page_id, language-neutral)
+× target language
+× LanguageProfile
+→ language-specific draft
+```
+
 PageSpec 把全局文档设计与 Writer 分离。
 
 Writer 的任务不是：
@@ -65,7 +77,10 @@ page_spec:
     - admin/channel-routing
     - reference/management-api/channels
 
-  language: zh-CN
+  # compatibility / legacy: NOT authoritative for V3 target-language selection.
+  # A PageSpec is language-neutral; the rendering language belongs to the Writing
+  # Subtask (target language) + LanguageProfile, not to the PageSpec.
+  language: null
 ```
 
 ## 3. Page types
@@ -244,16 +259,35 @@ Writer 不可以：
 
 ## 8. Multilingual
 
+**PageSpec 本身是 language-neutral。** 一个 `page_id` 只有一个 canonical PageSpec，
+中文 Writer、英文 Writer、日文 Writer 等共享同一个 semantic PageSpec。target
+language 属于 Writing Subtask，LanguageProfile 属于 Writing Subtask/context —— 二者都
+不是 PageSpec 的一部分。
+
+```text
+PageSpec (canonical) × target language × LanguageProfile → language-specific draft
+```
+
+一个 canonical PageSpec 可以产生多个 language drafts。
+
 不同语言独立母语写作。
 
-但以下 stable identity 必须保持：
+以下 stable identity 必须由 **所有语言** 共享（Writer 不可为某个语言修改）：
 
 ```text
 page_id
+covers
 semantic_refs
 source_claim IDs
-technical block IDs
+technical block identity requirements (stable [[id:...]] block IDs)
 reviewable section IDs
 ```
 
-标题和自然段顺序可以本地化。
+Writer 不得为不同语言修改 canonical capability / page intent / persona。
+
+只有自然语言标题和 prose 可以本地化：
+
+```text
+标题措辞
+自然段顺序
+```

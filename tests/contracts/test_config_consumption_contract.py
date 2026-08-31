@@ -304,3 +304,22 @@ def test_authoritative_audit_loop_is_budgeted_by_agent_max_audit_rounds():
     assert re.search(r"\bmax_audit_rounds\b", skill)
     joined = _authoritative_skill_text()
     assert not re.search(r"revision\.max_rounds", joined)
+
+
+def test_authoritative_instructions_have_no_hardcoded_revision_round_cap():
+    """The authoritative Skill layer must not hard-code a per-page revision-rounds value.
+
+    ``agent.max_audit_rounds`` is the sole review/revision-loop budget; a fixed
+    "2 revision rounds per page" (or any other literal) would be a second authority.
+    """
+    joined = _authoritative_skill_text()
+    assert re.search(r"\bmax_audit_rounds\b", joined), (
+        "agent.max_audit_rounds must remain the referenced audit-loop budget"
+    )
+    literal_caps = re.findall(
+        r"\bmax\s+[1-9]\d*\s+revision\s+rounds?\b", joined, flags=re.IGNORECASE
+    )
+    assert not literal_caps, (
+        "authoritative Skill layer must not hard-code a revision-rounds cap; "
+        f"found: {literal_caps}"
+    )

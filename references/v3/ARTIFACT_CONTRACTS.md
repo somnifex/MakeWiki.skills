@@ -203,6 +203,8 @@ documentation_plan:
 
   rationale:
     - ""
+
+  no_documentation_reason: null
 ```
 
 这不是 site renderer 专用 schema。
@@ -210,6 +212,13 @@ documentation_plan:
 它先表达文档结构。
 
 随后 Integrator 将它映射为 SitePresentationPlan。
+
+**空计划必须显式解释**：当 `sections` 与 `pages` 都为空时，
+`no_documentation_reason` 必须是非空文本（说明为何不需要文档）。计划只要
+有实际内容（任意 `sections` 或 `pages`），`no_documentation_reason` 可以为
+空——极小项目可能只有简单 page plan 而没有 relation，因此不强制
+`relations` / `rationale` 非空。Python 只验证“空计划必须带 LLM-authored
+explanation”，从不判断项目是否真的需要文档、哪些页面应当存在。
 
 ## 7. PageSpec
 

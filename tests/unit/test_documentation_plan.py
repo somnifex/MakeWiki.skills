@@ -4,7 +4,9 @@ The DocumentationPlan is the Architect's page-structure handoff. Python only
 validates the schema and serializes — it must never split pages, order
 navigation, group personas, or infer pages from filenames. Tests confirm the
 schema (including the ``relations[].from`` alias round-trip), strictness
-(``extra="forbid"``), and that an empty plan is a valid, non-inferring artifact.
+(``extra="forbid"``), that a *real* plan may be minimal (no relations/rationale),
+and that a *completely empty* plan must carry an explicit ``no_documentation_reason``
+instead of silently passing as complete.
 """
 
 import pytest
@@ -59,7 +61,8 @@ def test_documentation_plan_serialization_round_trip():
 def test_documentation_plan_relations_from_alias_round_trip():
     """The authored ``relations[].from`` key maps onto ``from_`` and back."""
     plan = DocumentationPlan(
-        relations=[{"from": "a", "to": "b", "type": "related"}]
+        pages=["a", "b"],
+        relations=[{"from": "a", "to": "b", "type": "related"}],
     )
     assert plan.relations[0].from_ == "a"
     dumped = plan.model_dump(by_alias=True)
@@ -67,13 +70,40 @@ def test_documentation_plan_relations_from_alias_round_trip():
     assert "from_" not in dumped["relations"][0]
 
 
-def test_documentation_plan_defaults_are_empty():
-    """An authored plan with no entries validates as empty — Python infers nothing."""
-    plan = DocumentationPlan()
+def test_documentation_plan_defaults_require_explicit_reason():
+    """A completely empty plan is rejected: Python infers nothing, so it must not
+    silently accept an empty plan as complete — the Architect must explain it."""
+    with pytest.raises(ValidationError):
+        DocumentationPlan()
+    with pytest.raises(ValidationError):
+        DocumentationPlan(no_documentation_reason="")
+
+
+def test_documentation_plan_empty_plan_with_reason_is_valid():
+    """A genuinely empty plan is allowed when the Architect states why."""
+    plan = DocumentationPlan(
+        no_documentation_reason="Trivial scaffold; no documented intent yet."
+    )
     assert plan.sections == []
     assert plan.pages == []
-    assert plan.relations == []
-    assert plan.rationale == []
+    assert plan.no_documentation_reason == (
+        "Trivial scaffold; no documented intent yet."
+    )
+
+
+def test_documentation_plan_blank_reason_is_rejected():
+    with pytest.raises(ValidationError):
+        DocumentationPlan(no_documentation_reason="   ")
+
+
+def test_documentation_plan_normal_plan_needs_no_reason():
+    """A real plan (content present) may leave no_documentation_reason empty."""
+    plan = _sample_plan()
+    assert plan.no_documentation_reason is None
+    # A plan of only pages (no sections, no relations) is still concrete content.
+    pages_only = DocumentationPlan(pages=["channel-management"])
+    assert pages_only.pages == ["channel-management"]
+    assert pages_only.no_documentation_reason is None
 
 
 def test_documentation_plan_rejects_unknown_keys():
@@ -271,6 +301,64 @@ def test_plan_page_consistency_does_not_judge_section_placement():
             DocumentationSection(id="s1", title_intent="S1", pages=["a"]),
             DocumentationSection(id="s2", title_intent="S2", pages=["b"]),
         ]
+    )
+    specs = [_spec("a"), _spec("b")]
+    assert plan_page_consistency_errors(plan, specs) == []
+
+
+# --- V3-FIX-05: reverse check — every PageSpec must be a planned page ---
+
+
+def test_plan_page_consistency_flags_orphan_pagespec():
+    """A PageSpec the DocumentationPlan's formal page set never references is an
+    orphan: Python reports it, it does not delete or re-home it."""
+    plan = DocumentationPlan(pages=["a"])
+    specs = [_spec("a"), _spec("orphan")]
+    errors = plan_page_consistency_errors(plan, specs)
+    assert len(errors) == 1
+    assert "orphan" in errors[0]
+    assert "not referenced by any planned page" in errors[0]
+
+
+def test_plan_page_consistency_relation_alone_does_not_plan_a_pagespec():
+    """A PageSpec that only appears as a relation endpoint is STILL an orphan: a
+    relation links already-planned pages; it does not itself declare a page into
+    the formal page set (plan.pages / section.pages)."""
+    plan = DocumentationPlan(
+        pages=["a"],
+        relations=[DocumentationRelation(from_="a", to="ghost", type="related")],
+    )
+    specs = [_spec("a"), _spec("ghost")]
+    errors = plan_page_consistency_errors(plan, specs)
+    # "ghost" is not formally planned -> orphan PageSpec (check 4) AND it is an
+    # unplanned relation endpoint (check 3); "a" is planned, so not orphaned.
+    assert len(errors) == 2
+    assert any("not referenced by any planned page" in e and "ghost" in e for e in errors)
+    assert any("relation endpoint" in e and "ghost" in e for e in errors)
+
+
+def test_plan_page_consistency_flags_relation_to_unplanned_page():
+    """A relation endpoint must be a formally planned page. Pointing a relation at
+    a page that exists as a PageSpec but is not in plan.pages / section.pages is a
+    structural error — the relationship dangles relative to the plan's own set."""
+    plan = DocumentationPlan(
+        pages=["a"],
+        relations=[DocumentationRelation(from_="a", to="b", type="related")],
+    )
+    specs = [_spec("a"), _spec("b")]
+    errors = plan_page_consistency_errors(plan, specs)
+    # "b" is unplanned: relation-endpoint error (3) for the relation, and it is
+    # also an orphan PageSpec (4). "a" is planned.
+    assert len(errors) == 2
+    assert any("relation endpoint 'b'" in e for e in errors)
+    assert any("not referenced by any planned page" in e and "b" in e for e in errors)
+
+
+def test_plan_page_consistency_relation_ok_when_endpoints_are_planned():
+    """A relation between two formally planned pages is consistent."""
+    plan = DocumentationPlan(
+        pages=["a", "b"],
+        relations=[DocumentationRelation(from_="a", to="b", type="related")],
     )
     specs = [_spec("a"), _spec("b")]
     assert plan_page_consistency_errors(plan, specs) == []

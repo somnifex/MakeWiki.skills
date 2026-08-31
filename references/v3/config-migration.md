@@ -288,7 +288,7 @@ commit); each was independent and small, and none required the next.
    `tasks/write*.md` + default YAMLs).
 4. **M-L1d** — *DONE.* Documented `agent.*` parallelism semantics (SKILL.md §2 /
 
-   §4 / SUBTASK_PROTOCOL; no config.py change).
+   §5 / SUBTASK_PROTOCOL; no config.py change).
 
 ## 7. Guardrails / non-goals
 

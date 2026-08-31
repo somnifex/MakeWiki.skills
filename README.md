@@ -3,6 +3,7 @@
 
 
 
+
 <p align="center">
   <strong>面向 AI Coding Assistant 的 LLM-first、证据驱动、多智能体文档编译器</strong>
 </p>
@@ -140,7 +141,7 @@ flowchart LR
         Synth["Semantic Synthesis<br/>SemanticModel"]
         DocModel["Documentation Modeling<br/>DocumentationModel"]
         Pages["Page Planning<br/>DocumentationPlan + PageSpecs"]
-        Writers["并行写作 (Writer)<br/>one PageSpec × one language"]
+        Writers["并行写作 (Writer)<br/>one page × one language"]
         Review["独立 Review / Revision"]
         Integ["Integration<br/>SitePresentationPlan"]
     end

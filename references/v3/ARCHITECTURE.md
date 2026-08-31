@@ -258,19 +258,22 @@ Troubleshooting
 
 ## 12. PageSpec
 
-每个 PageSpec 是 Writer 的直接合同。
+PageSpec 是 **language-neutral** 的 Writer 直接合同：一个 `page_id` 只有一个
+canonical PageSpec，所有目标语言 Writer 共享它。target language + LanguageProfile
+属于 Writing Subtask，不是 PageSpec 的一部分
+（`PageSpec × target language × LanguageProfile → draft`）。
 
 Writer 不读取“全部仓库 + 一句写好文档”。
 
 Writer 获得：
 
-- one PageSpec；
+- one PageSpec（canonical，全语言共享）；
 - relevant semantic slice；
 - relevant documentation slice；
 - source claims/evidence；
-- language profile。
+- target language + language profile（由 subtask 指定，非 PageSpec 字段）。
 
-Writer 只写一个页面，或明确允许的一小组强相关页面。
+Writer 只写一个页面（一个 `page_id` 的一个语言 draft），或明确允许的一小组强相关页面。
 
 ## 13. Review
 
