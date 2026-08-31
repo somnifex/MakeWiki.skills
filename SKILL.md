@@ -186,6 +186,19 @@ Strategy:
 The fallback is automatic and documented in the run report. "No subagent API"
 is not "MakeWiki cannot run" — it is "MakeWiki runs sequentially on one agent."
 
+**`agent.*` parallelism semantics (budgets, never promises):** the `agent.*`
+fields are UPPER-BOUND budgets / safety ceilings, not prescriptive execution
+plans. `max_subagents` caps concurrently synthesized subtasks; `max_parallelism`
+is the host concurrency ceiling (never a wall-clock or semantic-speed promise —
+sequential and solo hosts simply run within the same budget, linearly);
+`max_total_agent_calls` and `cost_budget` cap total work / spend;
+`max_audit_rounds` budgets the review ↔ revision loop (the only audit-loop
+budget — never introduce a separate revision-rounds config knob);
+`safety_max_rounds` caps escalation. The Main Agent (sole orchestrator) synthesizes subtasks and
+decides termination within these caps. Subtask-level parallelism is expressed
+per `SubtaskSpec` (`references/v3/SUBTASK_PROTOCOL.md`), not by a config flag, and
+a `solo` / `sequential` mode is detected from host capability, never configured.
+
 ---
 
 ## 3. Quality Gate (统一质量门)
@@ -719,11 +732,19 @@ dead or ambiguous:
   `documentation_policy.*` fields (`audience`, `structure_strategy`,
   `prefer_task_oriented_sections`, `include_architecture_analysis`,
   `include_directory_overview`, `include_source_walkthroughs`,
-  `forbid_unfounded_praise`, `banned_descriptors`) — read by Skill
-  / writers, NOT by Python. The contract's behavioral test asserts each
-  LLM-only field is actually referenced in the authoritative Skill layer
-  (`SKILL.md` / `tasks/`), and its negative test asserts no LLM-only field has
-  a Python read.
+  `include_operator_persona`, `include_api_reference`, `forbid_unfounded_praise`,
+  `banned_descriptors`) — read by Skill / writers, NOT by Python. The contract's
+  behavioral test asserts each LLM-only field is actually referenced in the
+  authoritative Skill layer (`SKILL.md` / `tasks/`), and its negative test
+  asserts no LLM-only field has a Python read.
+
+  `documentation_policy.audience` and `delivery.audience` are **seed hints**, not
+  gates: their strings never decide the authoritative audience (which lives in
+  `DocumentationModel.personas` / `PageSpec.audience`); `delivery.audience` only
+  biases delivery structure. The `include_operator_persona` /
+  `include_api_reference` switches are additive seed probes that lower the
+  threshold for the Architect to look for an operator persona / API surface —
+  they never manufacture a page or prose without evidence.
 - **Python-only**: `scan.*`, `review.*` (incl. the mechanical
   `enable_review_pair_generation`, which only gates the `semantic-review`
   preparation command — it never closes the authoritative LLM semantic audit),

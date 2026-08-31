@@ -114,6 +114,13 @@ reference/management-api/
     delete
 ```
 
+The `documentation_policy.include_api_reference` seed switch (default `false`) tells Page
+Planning to explicitly **look for** public-API and/or management-API surfaces and, where
+proven, plan an `api_reference` page set. When true, the Architect actively probes for an
+interface surface instead of waiting for one to surface in planning; the switch is
+evidence-gated — a proved surface yields a page, an absent one yields none regardless of
+the flag.
+
 The exact granularity is the Architect's judgment, driven by persona, operation count, and
 risk — not by a fixed rule. Operator/admin API pages must surface roles, side effects,
 idempotency, pagination, and destructive operations where proven.
@@ -125,10 +132,13 @@ Every important interface operation modeled in Documentation Modeling carries a
 resolve each one:
 
 - `documented` / `grouped` → the recorded `page_id` must actually be produced as a
+
   `PageSpec` (or an intentional, recorded exception).
 - `omitted` → no page; the `reason` must remain recorded (the omission is deliberate, not a
+
   silent gap).
 - `unresolved` → the referenced `documentation_gap` must be carried forward; it cannot be
+
   silently dropped at planning time.
 
 Python may later validate that every important operation has a disposition and that every

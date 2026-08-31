@@ -132,16 +132,40 @@ class ContentDepthConfig(BaseModel):
 
 
 class DocumentationPolicyConfig(BaseModel):
-    """Controls how conservative and user-facing the generated docs should be."""
+    """Controls how conservative and user-facing the generated docs should be.
+
+    ``audience`` is a **seed hint**, never a gate: it is a first guess handed to
+    the Documentation Architect / Orientation, not the authoritative audience
+    decision. In V3 the authoritative audience lives in the LLM-authored
+    ``DocumentationModel.personas`` and per-page ``PageSpec.audience``
+    (``references/v3/DOCUMENTATION_MODEL.md``, ``tasks/document-model.md``). The
+    same re-scoping applies to ``delivery.audience``, which only biases
+    *delivery-structure* (the ``include_*`` toggles), never general audience.
+
+    ``include_operator_persona`` and ``include_api_reference`` are additive
+    **seed switches**: when true they lower the threshold for the Architect to
+    *look for* an operator persona / public-or-management API surface. They
+    never manufacture a page or prose without evidence, and they never gate —
+    operator/API coverage is still synthesized from evidence regardless.
+    """
 
     model_config = _STRICT_CONFIG
 
+    #: Seed persona hint for Orientation / Documentation Architect — the
+    #: authoritative audience lives in DocumentationModel.personas + PageSpec.audience.
     audience: str = "end-user"
     structure_strategy: str = "user-journey"
     prefer_task_oriented_sections: bool = True
     include_architecture_analysis: bool = False
     include_directory_overview: bool = False
     include_source_walkthroughs: bool = False
+    #: Seed switch: when True, explicitly run the operator checklist and consider
+    #: an operator/admin reference. Evidence-gated; never forces operator docs.
+    include_operator_persona: bool = False
+    #: Seed switch: when True, Page Planning must look for public-API and/or
+    #: management-API surfaces and, where proven, emit api_reference PageSpecs.
+    #: Still evidence-gated — no surface, no page, even with the flag on.
+    include_api_reference: bool = False
     forbid_unfounded_praise: bool = True
     banned_descriptors: list[str] = Field(
         default_factory=lambda: [
@@ -170,6 +194,8 @@ class DocumentationPolicyConfig(BaseModel):
             "include_architecture_analysis",
             "include_directory_overview",
             "include_source_walkthroughs",
+            "include_operator_persona",
+            "include_api_reference",
             "forbid_unfounded_praise",
             "banned_descriptors",
         }

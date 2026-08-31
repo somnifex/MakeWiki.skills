@@ -48,12 +48,18 @@ The Main Agent evaluates the repository shape, target audience, and project goal
 Each Language Writer reads the following configuration from `makewiki.config.yaml` to guide authoring:
 
 - **`documentation_policy.audience`** and **`documentation_policy.structure_strategy`**:
-  - Informs technical depth, audience persona (e.g. `end-user`, `developer`, `operator`), and high-level structure strategy (`user-journey`, `component-oriented`).
+  - `documentation_policy.audience` is a **seed persona hint** only (e.g. `end-user`, `developer`, `operator`, `dual`). The authoritative audience decision lives in `DocumentationModel.personas` and per-page `PageSpec.audience`; the Writer follows those artifacts, not this coarse string.
+  - `structure_strategy` informs high-level structure (`user-journey`, `component-oriented`).
 - **`documentation_policy.prefer_task_oriented_sections`**:
   - When true, prioritizes practical how-to workflows over static parameter enumeration.
+- **`documentation_policy.include_operator_persona`** (seed switch, default `false`):
+  - When true, the Documentation Architect explicitly runs the operator checklist (`tasks/document-model.md` §10) and considers an operator/admin reference. Still evidence-gated: operator docs are produced only where the source supports them.
+- **`documentation_policy.include_api_reference`** (seed switch, default `false`):
+  - When true, Page Planning explicitly looks for public-API and/or management-API surfaces and, where proven, emits `api_reference` PageSpecs (`tasks/plan-pages.md` §4). No surface, no page, even with the flag on.
 - **`language_profiles.<lang>.tone`**:
   - Per-language writer tone override (e.g., concise, formal, detailed).
 - **`content_depth.*`**:
   - Guidelines on depth bounds (`max_faq_items`, `max_usage_examples`, `max_troubleshooting_items`, `split_usage_threshold`). Empty sections render `UNKNOWN` rather than invented content.
 - **`delivery.*`**:
-  - Dictates inclusion of production deployment runbooks (`include_deployment_runbook`), compatibility matrix (`include_compatibility_matrix`), and health check guides (`include_health_checks`).
+  - `delivery.audience` is a **delivery-structure bias** (`dual | end-user | enterprise`) only — it does NOT decide general audience (that lives in the artifacts).
+  - Dictates inclusion of production deployment runbooks (`include_deployment_runbook`), compatibility matrix (`include_compatibility_matrix`), and health check guides (`include_health_checks`) — each only where **evidence supports it**, never forcing content into a page without source support.

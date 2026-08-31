@@ -59,6 +59,8 @@ documentation_policy:                              # LLM-consumed
   include_architecture_analysis: false            # LLM-consumed
   include_directory_overview: false               # LLM-consumed
   include_source_walkthroughs: false              # LLM-consumed
+  include_operator_persona: false                 # LLM-consumed (seed switch)
+  include_api_reference: false                    # LLM-consumed (seed switch)
   forbid_unfounded_praise: true                   # LLM-consumed
   banned_descriptors:                             # LLM-consumed
     - powerful

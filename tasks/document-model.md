@@ -65,6 +65,13 @@ interfaces, or an admin/management API, the Architect **must** explicitly identi
 a note buried inside a deployment page — when evidence supports them, they get their own
 documented treatment.
 
+The `documentation_policy.include_operator_persona` seed switch (default `false`) lowers
+the threshold for **looking** for an operator/admin surface: when true, the Architect
+always runs the operator checklist (`§10`) and explicitly considers an operator reference,
+even where the intent is not obvious from a coarse audience string. When false, operator
+coverage is still synthesized if the evidence strongly implies one (the hint nudges, it
+never gates, and it never invents an operator surface that the source does not support).
+
 ---
 
 ## 3. Capability
@@ -187,6 +194,7 @@ Rules:
 
 - `documented` / `grouped` → must carry `page_id`.
 - `omitted` → must carry a semantic `reason` (e.g. internal-only, not for the target
+
   persona).
 - `unresolved` → must point to a `documentation_gap`; never claim covered.
 
