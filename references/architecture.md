@@ -75,52 +75,60 @@ cognitive_authority_boundary:
   rule_2:
     statement: "Python is an auditable evidence channel, not an infallible authority"
     clarification: "If Python evidence conflicts with direct source inspection, the Main Agent must investigate directly via Glob/Grep/Read"
-    tool_failure_rule: "Mechanical tool failure -> degraded mechanical verification (pending_mechanical_verification), never cognitive failure; spawn Recovery Scout"
+    tool_failure_rule: "Mechanical tool failure -> degraded mechanical verification (pending_mechanical_verification), never cognitive failure; spawn a Recovery Explorer (Explorer-family focus variant) for direct inspection"
 
   rule_3:
     statement: "Quality Gate is the only cross-plane aggregation point"
     ownership: "mechanical_plane aggregates status, Main Agent decides workflow transitions (ship, revise, recover, accept)"
 ```
 
-## Authoritative Pipeline (LLM-Orchestrated)
+## Authoritative Pipeline (LLM-Orchestrated, Subtask-First)
 
 ```yaml
 authoritative_pipeline:
 
-  phase_0_census:
-    cognitive: "Main Agent (orchestrator: dynamic topology & subagent planning)"
-    mechanical: "run_toolkit.py census <target>  # raw repository facts"
-    output: "Repository Fact Census + dynamic subagent topology plan"
+  phase_0_orientation:
+    cognitive: "Main Agent - Repository Orientation (reads high-information entries, forms an initial hypothesis, identifies personas & major domains)"
+    mechanical: "run_toolkit.py census <target>  # OPTIONAL supporting raw traits; never a prerequisite or authority"
+    output: "RepositoryBrief + InvestigationPlan (subtask-first)"
 
-  phase_1_scout:
-    cognitive_subagents:
-      - "Dynamic scouts synthesized from Archetype Library (Structure, Runtime, CLI, Config, Tests, Deploy, Docs, Deps)"
-      - "Recovery Scout dispatched on tool failure or degraded output"
-      - "Dynamic specialized scouts (Fork Scout, Plugin Scout, ABI/FFI Scout)"
-    mechanical: "run_toolkit.py evidence <target>  # fact extraction only"
-    output: "evidence_bundle.json + LLM semantic observations"
+  phase_1_investigation:
+    cognitive_subagents: "Investigation (Explorer) subtasks - one coherent semantic domain per subtask per the InvestigationPlan; each returns an evidence-backed ClaimBundle"
+    mechanical: "run_toolkit.py evidence <target>  # OPTIONAL supporting fact extraction"
+    output: "per-domain ClaimBundles"
 
-  phase_2_rebattle:
-    cognitive_subagents: "Targeted debater archetypes (DX, AST Truth, Ops) focusing on disputed semantic_keys"
-    mechanical_helper: "run_toolkit.py rebattle-diff <claim-files>"
-    interaction: "0-round fast path on consensus; dynamic convergence bounded by safety_max_rounds"
-    output: "adjudicated SemanticModel + LLM-authored ClaimSet"
+  phase_2_semantic_synthesis:
+    cognitive_subagents: "Semantic Analyst reconciles RepositoryBrief + InvestigationPlan + ClaimBundles into the canonical SemanticModel"
+    interaction: "Targeted conflict_resolution subtask, then optional adversarial ReBattle escalation only for genuinely hard disputes (not the default)"
+    mechanical_helper: "run_toolkit.py rebattle-diff <claim-files>  # deterministic dispute organizer only; never decides truth"
+    output: "adjudicated SemanticModel"
 
-  phase_3_writers:
-    cognitive_subagents: "Per-language native writers (en, zh-CN, ja, ...)"
+  phase_3_documentation_modeling:
+    cognitive_subagents: "Documentation Architect translates SemanticModel (what the software is) into DocumentationModel (who, for which goals: personas, capabilities, journeys, concepts, references, interface references)"
+    output: "DocumentationModel"
+
+  phase_4_documentation_planning:
+    cognitive_subagents: "Documentation Architect decides what documented intents exist and groups them into pages; emits DocumentationPlan + one PageSpec per page"
+    output: "DocumentationPlan + PageSpec[]"
+
+  phase_5_writers:
+    cognitive_subagents: "Parallel Language Writer subtasks - each writes exactly one PageSpec x one language directly from its semantic slice (never machine-translated)"
     mechanical_helper: "run_toolkit.py parity <target> --lang ..."
     constraints:
-      - "100% code-block and config-key parity"
+      - "100% code-block (stable [[id:...]] IDs) and section marker parity"
       - "Independent generation from SemanticModel"
 
-  phase_4_audit_and_revise:
-    cognitive_subagents: "Auditor (LLM) — L3, L4-prose, L5"
-    mechanical_helper: "run_toolkit.py verify-docs <target>"
-    revision_loop: "Auditor edits Markdown in place until Quality Gate passes (bounded by agent.max_audit_rounds)"
-    anti_cliche: "Anti-cliché prose rewriting is the LLM Auditor's job, never a mechanical rewrite"
+  phase_6_review_and_revision:
+    cognitive_subagents:
+      - "Reviewer (READ-ONLY) - grounding, documentation fitness, audience fit, api_contract, cross-language, epistemic; emits ReviewFindings; does NOT edit pages in place"
+      - "Revision Agent - implements ONLY the flagged pages"
+      - "Auditor - L3 behavior, L4b prose-parity, L5 epistemic review; emits the SemanticAuditBundle (preserved)"
+    mechanical_helper: "run_toolkit.py verify-docs <target> --semantic-audit <file>  # L0-L5 unified run + Quality Gate"
+    revision_loop: "A separate Revision Agent implements ReviewFindings; a fresh read-only re-review decides completion (bounded by agent.max_audit_rounds, max 2 rounds per page)"
+    anti_cliche: "Anti-cliché prose rewriting is the LLM Writer/Revision Agent's job, never a mechanical rewrite"
 
-  phase_5_site:
-    cognitive_main_agent: "Main Agent (or Site Designer subagent) authored SitePresentationPlan (site IA + visual direction) in Phase 3"
+  phase_7_integration:
+    cognitive_main_agent: "Site Designer / Integrator authors SitePresentationPlan from DocumentationPlan + passed reviewed drafts only; never re-researches the source"
     mechanical:
       - "build-site consumes SitePresentationPlan and renders nav/order/hierarchy/routes verbatim; no plan -> pending/unavailable, never fabricated IA"
       - "run_toolkit.py export <wiki_dir> --format html|epub|all  # pdf rejected"
@@ -142,13 +150,13 @@ host_capability_fallback:
   modes:
     parallel:
       when: "supports_subagents AND supports_parallel_subagents"
-      strategy: "Run scout and writer subagents concurrently within budget"
+      strategy: "Run Explorer (investigation subtask) and Writer subagents concurrently within budget"
     sequential:
       when: "supports_subagents AND NOT supports_parallel_subagents"
       strategy: "Run subagents one after another; budget identical, wall-clock linear"
     solo:
       when: "NOT supports_subagents"
-      strategy: "Main Agent assumes Census/Scout -> Discrepancy Evaluation -> (Optional Debate) -> Judge Synthesis -> per-language writers -> Auditor sequentially"
+      strategy: "Main Agent assumes each role in sequence - Orientation -> Investigation -> Semantic Synthesis -> Documentation Modeling -> Page Planning -> Writing -> Review -> Revision -> Integration -> Verify -> Deliver (no semantics lost, only wall-clock)"
 
   invariant: "No MakeWiki semantics are lost on fallback; only wall-clock changes."
 ```

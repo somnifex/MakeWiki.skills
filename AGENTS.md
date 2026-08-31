@@ -1,6 +1,6 @@
 # AGENTS.md
 
-Instructions for AI coding assistants using MakeWiki.skills v2.
+Instructions for AI coding assistants using MakeWiki.skills v3.
 
 ## What this is
 
@@ -50,7 +50,7 @@ adjudication in the authoritative `/makewiki` path.
 - Mechanical tool failures (e.g. AST parsing errors or unhandled file formats)
 
   produce degraded mechanical verification (`pending_mechanical_verification`),
-  never cognitive failure; the Main Agent may spawn a Recovery Scout for direct
+  never cognitive failure; the Main Agent may spawn a Recovery Explorer for direct
   codebase inspection.
 - The Quality Gate aggregates verification status and reports CI exit codes;
 
@@ -78,7 +78,7 @@ one agent", not "MakeWiki cannot run."
 ```bash
 claude --plugin-dir /path/to/MakeWiki.skills
 
-/makewiki --lang en --lang zh-CN          # Full LLM-orchestrated flow: Census -> Scout -> ReBattle -> Writers -> Auditor -> Quality Gate -> Site
+/makewiki --lang en --lang zh-CN          # Full LLM-orchestrated flow: Repository Orientation -> InvestigationPlan -> Investigation Subtasks -> ClaimBundles -> Semantic Synthesis -> DocumentationModel -> DocumentationPlan/PageSpecs -> Page Writing -> Independent Review -> Revision -> Integration -> Verification -> Quality Gate -> Site
 /makewiki-site ./makewiki                 # Compile Markdown docs into offline static HTML website (mechanical)
 /makewiki-scan                            # Inspect evidence, repo fact census, and view project brief
 /makewiki-review                          # Cross-language parity + semantic review (mechanical pre-alignment + LLM judgment)
@@ -115,22 +115,27 @@ and does NOT publish. `review` is a standalone command (runs
 
 ## Autonomous & Subagent-First Rules
 
-1. **LLM-First Cognitive Plane**: All code comprehension, multi-perspective
-
-   extraction, ReBattle debate, writing, and review are driven by
-   autonomous **Subagents** using their LLM reasoning and inspection tools
-   (`Glob`, `Grep`, `Read`, `Edit`). Python is strictly reserved as
-   mechanical proof tooling (census, evidence extraction, L0 / L1 / L2 / L4-
+1. **LLM-First Cognitive Plane**: Repository comprehension and all cognitive
+   phases — Repository Orientation, investigation (Explorer), Semantic
+   Synthesis, Documentation Modeling, page writing, review, revision — are
+   driven by autonomous LLM reasoning. Where the host supports subagents,
+   work is decomposed into **SubtaskSpec** units and delegated; ReBattle is a
+   hard-conflict escalation, not a default phase. Python is strictly reserved
+   as mechanical proof tooling (census, evidence extraction, L0 / L1 / L2 / L4-
    exact, parity, site, export, sync-bundle).
 2. **Cognitive Authority Boundary**: Python never invents FAQ / troubleshooting
 
    / usage / workflow content; it returns `UNKNOWN` instead. The LLM fills
    those slots or marks them absent.
-3. **Dynamic Subagent Role Synthesis**: The orchestrator dynamically
-
-   configures specialized subagent roles based on repository characteristics
-   (monorepos, FFI bindings, plugin ecosystems) within an elastic budget
-   capped at 10, honoring host capability (parallel / sequential / solo).
+3. **Stable Role Families + Dynamic SubtaskSpec**: The workflow uses a small
+   set of stable role families — Explorer, Semantic Analyst, Documentation
+   Architect, Writer, Reviewer, Integrator (Main Agent = Orchestrator). The
+   orchestrator **dynamically synthesizes SubtaskSpecs** (from the authored
+   InvestigationPlan / DocumentationPlan), never new architecture-level role
+   families. Project specificity lives in subtasks, e.g. an "Explorer
+   investigating authentication" subtask — not ad-hoc roles like
+   "Scout-Auth" or "Scout-Billing". Budget is capped at 10, honoring host
+   capability (parallel / sequential / solo).
 4. **Mandatory 4D Self-Reflection**: Every subagent runs an internal self-
 
    critique loop before submitting claims or writing documents:

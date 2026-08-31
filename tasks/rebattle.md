@@ -52,25 +52,28 @@ LLM can reason about them. It:
 
 ---
 
-## 3. Dynamic Debater Role Synthesis
+## 3. Stable Role + Dynamic Debate Focus
 
-Only when a dispute escalates to ReBattle does the Main Agent synthesize debater
-perspectives tailored to the specific disagreement (rather than a fixed mandatory
-role set):
+ReBattle uses the **stable Semantic Analyst** role (a Debater is an escalation-time
+*focus variant* of that family, not a new architecture-level role family). Only when
+a dispute escalates does the Main Agent shape the Semantic Analyst's debate *focus*
+to the specific disagreement — never by inventing ad-hoc role names like
+"Fork Provenance Agent" or "Config Hierarchy Agent". Project specificity lives in
+the focus, not in new role families:
 
 ```yaml
-dynamic_debater_synthesis_examples:
+debate_focus_examples:
   fork_or_divergence_dispute:
-    role: "Fork Provenance Agent"
+    role: "Semantic Analyst (debater focus)"
     focus: "Distinguishes upstream inherited legacy facts from current fork behaviors and patch sets"
   code_vs_doc_drift_dispute:
-    role: "Stale Documentation Agent vs. Runtime Truth Agent"
+    role: "Semantic Analyst (debater focus)"
     focus: "Audits outdated README claims against actual AST parsers, route definitions, and defaults"
   config_priority_override_dispute:
-    role: "Config Hierarchy Agent"
+    role: "Semantic Analyst (debater focus)"
     focus: "Traces environment variables, CLI flags, config files, and fallback evaluation orders"
   production_readiness_dispute:
-    role: "Enterprise Ops Agent"
+    role: "Semantic Analyst (debater focus)"
     focus: "Challenges ungrounded runtime assumptions, missing prerequisites, or omitted failure runbooks"
 ```
 
@@ -84,10 +87,14 @@ an internal self-critique:
 1. **Grounding Verification**: Is every asserted command, argument flag, default value,
    or config key backed by concrete code citations? If ungrounded, hedge or retract
    immediately.
-2. **Confidence Grading**:
-   - `CONFIRMED_AST`: verified directly in source code / parser handlers.
-   - `DERIVED_CONFIG`: inferred from manifest or sample config settings.
-   - `HYPOTHESIS_HEDGED`: provisional/uncertain capability requiring explicit caveat.
+2. **Confidence Grading**: grade each claim with the V3 canonical vocabulary —
+   `high` / `medium` / `low` — and record any residual doubt as `uncertainty`.
+   The evidence channel (direct source / config / tests) *backs* the claim; it is
+   not itself a confidence level. For example:
+   - `confidence: high` — verified directly in source code / parser handlers.
+   - `confidence: medium` — supported by manifest or sample config settings.
+   - `confidence: low` + `uncertainty: "..."` — provisional/uncertain capability
+     requiring an explicit caveat.
 3. **Adversarial Self-Correction**: When presented with unambiguous code line citations,
    immediately concede and retract invalid assertions.
 
