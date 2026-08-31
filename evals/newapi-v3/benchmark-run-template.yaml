@@ -1,0 +1,155 @@
+# NewAPI V3 benchmark — run report template.
+#
+# One file per run. Copy this to `runs/newapi-v3-<run_id>.yaml` and fill it in.
+# Rated by a HUMAN or an LLM judge (record which) — never by Python.
+# Rating vocabulary (see evals/newapi-v3-rubric.md):
+#   excellent | acceptable | poor | not_applicable
+# Every non-n/a dimension must carry evidence — a rating with no evidence is
+# not a report. Refer to concrete artifacts (RepositoryBrief / DocumentationModel
+# personas / PageSpec ids / generated page paths / SitePresentationPlan nav ids /
+# Quality Gate verdict) so the report is auditable against the run.
+
+# Run metadata — verifiable, reproducible.
+newapi_v3_benchmark:
+  commit: ""            # NewAPI repo commit pinned for this run.
+  run_id: ""            # unique id for this MakeWiki run.
+  judge: ""             # "human" or "llm:<model-version>" — keep comparable.
+  date: ""              # ISO date of the run.
+  makewiki_version: ""  # Skill/toolkit version the flow ran under.
+
+  dimensions:
+    # 1. Repository understanding — correctly identifies the product, avoids
+    #    being misled by directory layout / stale README.
+    repository_understanding:
+      rating: ""
+      evidences: []
+      notes: ""
+
+    # 2. Persona discovery — personas separated (API consumer / user / admin /
+    #    operator / maintainer) and their doc needs distinguished.
+    persona_discovery:
+      rating: ""
+      evidences: []
+      notes: ""
+
+    # 3. Capability coverage — important capabilities reach DocumentationModel
+    #    / PageSpecs (tokens, channel/provider mgmt, routing, model mapping,
+    #    groups, pricing/quota, logs, operations, public API use, deployment).
+    capability_coverage:
+      rating: ""
+      evidences: []
+      notes: ""
+
+    # 4. Journey coverage — end-to-end user journeys, not isolated page stubs.
+    journey_coverage:
+      rating: ""
+      evidences: []
+      notes: ""
+
+    # 5. Page granularity — pages sized to a coherent topic/task, not one giant
+    #    page per domain nor a page per tiny detail.
+    page_granularity:
+      rating: ""
+      evidences: []
+      notes: ""
+
+    # 6. Task orientation — docs answer "how do I do X" (task-first sections),
+    #    not only reference/feature dumps.
+    task_orientation:
+      rating: ""
+      evidences: []
+      notes: ""
+
+    # 7. Operator documentation — operator persona covered (deployment,
+    #    config precedence, secrets, health/readiness, metrics, logs, admin
+    #   /management interfaces, maintenance, upgrade, backup/restore,
+    #    failure recovery, capacity, dependencies) — where the evidence
+    #    supports it, else UNKNOWN.
+    operator_documentation:
+      rating: ""
+      evidences: []
+      notes: ""
+
+    # 8. Public API reference — public/developer API reference present and
+    #    grounded in the actual surface.
+    public_api_reference:
+      rating: ""
+      evidences: []
+      notes: ""
+
+    # 9. Management/admin API reference — operator/management interface
+    #    reference, if the surface exists and is evidenced.
+    management_api_reference:
+      rating: ""
+      evidences: []
+      notes: ""
+
+    # 10. API epistemic accuracy — no invented contract; endpoints, fields,
+    #     parameters named only from evidence; UNKNOWN where unproven.
+    api_epistemic_accuracy:
+      rating: ""
+      evidences: []
+      notes: ""
+
+    # 11. Concept quality — domain concepts explained correctly and with depth,
+    #     not just labelled.
+    concept_quality:
+      rating: ""
+      evidences: []
+      notes: ""
+
+    # 12. Implementation leakage — implementation details stay out of
+    #     user/operator docs unless they actually matter to the user.
+    implementation_leakage:
+      rating: ""
+      evidences: []
+      notes: ""
+
+    # 13. Navigation quality — SitePresentationPlan IA is grouped, ordered, and
+    #     navigable; nav reflects the documented surface, not filename heuristics.
+    navigation_quality:
+      rating: ""
+      evidences: []
+      notes: ""
+
+    # 14. Reference discoverability — reference material is findable from the
+    #     journeys/tasks that need it.
+    reference_discoverability:
+      rating: ""
+      evidences: []
+      notes: ""
+
+    # 15. Troubleshooting quality — troubleshooting/FAQ content where the
+    #     evidence supports common failure modes.
+    troubleshooting_quality:
+      rating: ""
+      evidences: []
+      notes: ""
+
+    # 16. Grounding — prose grounded in source evidence; claims trace to
+    #     concrete repo facts.
+    grounding:
+      rating: ""
+      evidences: []
+      notes: ""
+
+    # 17. Cross-language parity — generated languages carry the same content,
+    #     concepts, and semantics; code blocks match 100% (no machine
+    #     translation drift).
+    multilingual_parity:
+      rating: ""
+      evidences: []
+      notes: ""
+
+    # 18. Completeness vs hallucination balance — high coverage of important
+    #     surfaces AND strong UNKNOWN discipline; neither a thin doc set that
+    #     drops surfaces nor a full one full of unproven details.
+    completeness_vs_hallucination_balance:
+      rating: ""
+      evidences: []
+      notes: ""
+
+  overall:
+    strengths: []         # dimensions/behaviours the run did well.
+    regressions: []       # dimensions that slipped vs a prior baseline.
+    blocking_issues: []   # high-severity findings + the dimensions they hit.

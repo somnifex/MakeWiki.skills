@@ -8,9 +8,8 @@ classify, or invent any field's semantic content from filenames, keywords, or
 patterns.
 
 Phase C implements these validation models incrementally. This module currently
-holds the ``RepositoryBrief`` and ``SubtaskSpec`` models; later phases add
-``InvestigationPlan``, ``ClaimBundle``, and ``ReviewFindings`` models in the same
-file.
+holds the ``RepositoryBrief``, ``SubtaskSpec``, ``InvestigationPlan``,
+``ClaimBundle``, and ``ReviewFindings`` models.
 
 All models use ``extra="forbid"`` so a hand-authored artifact with a typo'd or
 unexpected key fails loudly at load time instead of being silently dropped,
@@ -160,3 +159,141 @@ class SubtaskSpec(BaseModel):
     expected_output: SubtaskOutputSpec = Field(default_factory=SubtaskOutputSpec)
     depends_on: list[str] = Field(default_factory=list)
     stop_conditions: list[str] = Field(default_factory=list)
+
+
+class InvestigationPlanDomain(BaseModel):
+    """One coherent semantic domain the InvestigationPlan targets.
+
+    Authored by the Orientation / planning LLM. ``scope_hint`` lists recommended
+    starting points only — it is not a hard file allowlist (``SUBTASK_PROTOCOL``).
+    """
+
+    model_config = _ARTIFACT_CONFIG
+
+    id: str = ""
+    why_important: str = ""
+    goal: str = ""
+    scope_hint: list[str] = Field(default_factory=list)
+    related_domains: list[str] = Field(default_factory=list)
+
+
+class InvestigationPlan(BaseModel):
+    """The handoff artifact produced by Orientation (see ``ARTIFACT_CONTRACTS`` §2).
+
+    Lists the domains to investigate and the concrete investigation subtasks.
+    Every field is LLM-authored; Python only validates the schema and serializes —
+    it never schedules, orders, or decides which subtask is "ready".
+    """
+
+    model_config = _ARTIFACT_CONFIG
+
+    project_hypothesis: str = ""
+    domains: list[InvestigationPlanDomain] = Field(default_factory=list)
+    subtasks: list[SubtaskSpec] = Field(default_factory=list)
+    coverage_questions: list[str] = Field(default_factory=list)
+    known_uncertainties: list[str] = Field(default_factory=list)
+
+
+class ClaimEvidence(BaseModel):
+    """A provenance pointer backing a claim.
+
+    ``path`` / ``symbol_or_location`` / ``rationale`` let a later reader verify
+    the claim. Authored by the Explorer / Analyst LLM; Python only validates.
+    """
+
+    model_config = _ARTIFACT_CONFIG
+
+    path: str = ""
+    symbol_or_location: str = ""
+    rationale: str = ""
+
+
+class Claim(BaseModel):
+    """A single, evidence-backed assertion about stable behavior or an interface.
+
+    ``visibility`` and ``abstraction`` are **LLM classifications** (see
+    ``ARTIFACT_CONTRACTS`` §3). Python must never infer them from directory
+    names, AST patterns, or framework conventions — it treats them as opaque
+    strings written by the Analyst / Explorer and does not classify.
+    """
+
+    model_config = _ARTIFACT_CONFIG
+
+    id: str = ""
+    statement: str = ""
+    semantic_key: str = ""
+    confidence: Literal["high", "medium", "low"] = "medium"
+    visibility: list[str] = Field(default_factory=list)
+    abstraction: str = ""
+    evidence: list[ClaimEvidence] = Field(default_factory=list)
+    uncertainty: str | None = None
+
+
+class ScopeExpansion(BaseModel):
+    """A record of where an exploration stepped beyond its initial hint."""
+
+    model_config = _ARTIFACT_CONFIG
+
+    path: str = ""
+    reason: str = ""
+
+
+class ClaimBundle(BaseModel):
+    """The artifact an investigation subtask produces (see ``ARTIFACT_CONTRACTS`` §3).
+
+    One coherent semantic domain per bundle. Every claim carries evidence and an
+    honest confidence; ``visibility`` / ``abstraction`` are LLM classifications,
+    never Python inference. Python only validates the schema and serializes.
+    """
+
+    model_config = _ARTIFACT_CONFIG
+
+    id: str = ""
+    domain: str = ""
+    producer_subtask: str = ""
+    summary: str = ""
+    claims: list[Claim] = Field(default_factory=list)
+    unresolved: list[str] = Field(default_factory=list)
+    newly_discovered_areas: list[str] = Field(default_factory=list)
+    recommended_followups: list[str] = Field(default_factory=list)
+    scope_expansions: list[ScopeExpansion] = Field(default_factory=list)
+
+
+class ReviewFinding(BaseModel):
+    """A single finding produced by a read-only Reviewer.
+
+    ``severity`` / ``category`` are LLM-authored judgment strings (Python does
+    not classify or re-grade them). ``evidence_refs`` point at what supports or
+    contradicts the finding. Python only validates the schema; the Reviewer does
+    not edit pages (see ``tasks/review.md``, ``tasks/revise.md``).
+    """
+
+    model_config = _ARTIFACT_CONFIG
+
+    id: str = ""
+    severity: str = ""
+    category: str = ""
+    location: str = ""
+    problem: str = ""
+    evidence_refs: list[str] = Field(default_factory=list)
+    required_change: str = ""
+
+
+class ReviewFindings(BaseModel):
+    """The read-only review output for one page / language (see ``ARTIFACT_CONTRACTS`` §8).
+
+    The Reviewer emits findings but never modifies pages; a separate Revision
+    Agent implements them and a fresh re-review decides completion. All judgment
+    fields (``mode``, ``status``, per-finding ``severity``/``category``) are
+    LLM-authored; Python only validates the schema and serializes.
+    """
+
+    model_config = _ARTIFACT_CONFIG
+
+    page_id: str = ""
+    language: str = ""
+    mode: str = ""
+    status: str = ""
+    findings: list[ReviewFinding] = Field(default_factory=list)
+    passed_checks: list[str] = Field(default_factory=list)
+    unresolved: list[str] = Field(default_factory=list)

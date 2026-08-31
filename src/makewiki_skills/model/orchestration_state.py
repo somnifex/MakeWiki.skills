@@ -12,6 +12,12 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
+from makewiki_skills.model.v3_artifacts import (
+    InvestigationPlan,
+    RepositoryBrief,
+    SubtaskSpec,
+)
+
 
 class AgentRecord(BaseModel):
     """Record of an active or completed subagent."""
@@ -84,6 +90,16 @@ class OrchestrationState(BaseModel):
     documentation_plan: dict[str, Any] | None = None
     audit_status: dict[str, Any] | None = None
     delivery_status: dict[str, Any] | None = None
+    # --- V3 cognitive artifact slots (LLM-authored; Python only stores/validates) ---
+    # These hold references to the V3 handoff artifacts. Python does NOT schedule
+    # subtasks or choose which one is "ready" — the Main Agent LLM owns that.
+    repository_brief: RepositoryBrief | None = None
+    investigation_plan: InvestigationPlan | None = None
+    subtasks: list[SubtaskSpec] = Field(default_factory=list)
+    # documentation_model / page_specs have no dedicated Pydantic model yet;
+    # they are stored as the authored YAML/JSON structures until Phase G / H.
+    documentation_model: dict[str, Any] | None = None
+    page_specs: list[dict[str, Any]] = Field(default_factory=list)
     updated_at: str = Field(default_factory=lambda: datetime.now(UTC).isoformat())
 
     def to_json(self, indent: int = 2) -> str:

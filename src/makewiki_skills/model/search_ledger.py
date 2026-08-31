@@ -11,6 +11,12 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
+from makewiki_skills.model.v3_artifacts import (
+    Claim,
+    ClaimBundle,
+    ClaimEvidence,
+)
+
 
 class ScoutClaim(BaseModel):
     """An individual factual claim discovered by a scout."""
@@ -78,6 +84,50 @@ class SearchLedger(BaseModel):
     def from_dict(cls, data: dict[str, Any]) -> SearchLedger:
         """Create SearchLedger from dictionary."""
         return cls.model_validate(data)
+
+    def to_claim_bundle(
+        self,
+        bundle_id: str = "",
+        domain: str = "",
+        producer_subtask: str = "",
+        summary: str = "",
+    ) -> ClaimBundle:
+        """Convert (compatibly) to a V3 :class:`ClaimBundle`.
+
+        Only fields that map literally are migrated. ``visibility`` and
+        ``abstraction`` are set to ``"unknown"`` — they are LLM classifications
+        and Python must NOT infer them (``ARTIFACT_CONTRACTS`` §3). The semantic
+        bundle identity fields (``bundle_id`` / ``domain`` / ``producer_subtask`` /
+        ``summary``) are supplied by the caller (the Main Agent LLM), never
+        guessed by Python. This does not run the Markdown parser; it only wraps
+        already-parsed ledger data, so parser behavior is unchanged.
+        """
+        claims: list[Claim] = []
+        for scout in self.claims:
+            claims.append(
+                Claim(
+                    id=scout.claim_id,
+                    statement=scout.description,
+                    semantic_key=scout.claim_id,
+                    confidence=scout.confidence,
+                    visibility=["unknown"],
+                    abstraction="unknown",
+                    evidence=[
+                        ClaimEvidence(path=cite, symbol_or_location="", rationale="")
+                        for cite in scout.evidence_citations
+                    ],
+                    uncertainty=None,
+                )
+            )
+        return ClaimBundle(
+            id=bundle_id,
+            domain=domain,
+            producer_subtask=producer_subtask,
+            summary=summary,
+            claims=claims,
+            unresolved=list(self.unresolved),
+            recommended_followups=list(self.recommended_followups),
+        )
 
 
 def parse_search_ledger_markdown(text: str) -> SearchLedger:

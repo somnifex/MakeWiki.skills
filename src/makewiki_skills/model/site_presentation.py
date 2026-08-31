@@ -113,19 +113,25 @@ class SitePresentationPlan(BaseModel):
     visual: SiteVisualPreferences = Field(default_factory=SiteVisualPreferences)
 
     def nav_item_by_id(self, document_id: str) -> SiteNavItem | None:
-        """Return the plan's nav item for ``document_id``, or None.
+        """Return the plan's nav item for ``document_id`` at any depth, or None.
 
-        Performs a shallow lookup over root-level items and their direct
-        children (nav items never nest beyond two levels for the page tree).
-        Returns None when the document is not part of the plan's IA.
+        Recurses through ``children`` without a depth limit, so an item nested
+        deeper than two levels is still found. This is a pure lookup by the
+        stable ``document_id`` the LLM authored: it never infers or classifies
+        IA, never invents a nav item for an unknown document (returns ``None``),
+        and never derives structure from filenames or keywords.
         """
-        for item in self.navigation:
-            if item.document_id == document_id:
-                return item
-            for child in item.children:
-                if child.document_id == document_id:
-                    return child
-        return None
+
+        def _find(items: list[SiteNavItem]) -> SiteNavItem | None:
+            for item in items:
+                if item.document_id == document_id:
+                    return item
+                found = _find(item.children)
+                if found is not None:
+                    return found
+            return None
+
+        return _find(self.navigation)
 
 
 def load_site_presentation(path: Path | str) -> SitePresentationPlan:

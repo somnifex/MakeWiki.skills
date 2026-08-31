@@ -95,53 +95,69 @@ content — that work belongs to the LLM.
 
 ---
 
-## 2. Authoritative Pipeline (LLM-Orchestrated)
+## 2. Authoritative Pipeline (LLM-Orchestrated, Subtask-First)
 
-The `Main Agent` orchestrates the authoritative pipeline. Subagents are LLM
-agents; Python is invoked between phases as mechanical proof tooling.
+The `Main Agent` orchestrates the authoritative V3 pipeline. Work is decomposed
+into **subtasks** (see `references/v3/SUBTASK_PROTOCOL.md`); subagents are LLM
+agents; Python is invoked between phases as **optional mechanical proof
+tooling** — its `census` / `evidence` output is supporting material, never a
+prerequisite or a dictating authority.
 
 ```yaml
 authoritative_pipeline:
 
-  phase_0_census_and_state_init:
-    cognitive: "Main Agent (initializes Orchestration State & plans dynamic search)"
-    mechanical: "python run_toolkit.py census <target>  # raw verifiable repository facts"
-    output: "Repository Fact Census (traits, file counts, langs, manifests) + Orchestration State"
+  orientation:
+    cognitive: "Main Agent conducts Repository Orientation — reads high-information entries, forms an initial hypothesis, identifies personas & major domains, authors RepositoryBrief + InvestigationPlan"
+    mechanical: "python run_toolkit.py census <target>  # OPTIONAL supporting evidence (raw traits); never a prerequisite"
+    output: "RepositoryBrief + InvestigationPlan (subtask-first)"
 
-  phase_1_dynamic_search:
-    cognitive_subagents:
-      - "Dynamic scouts synthesized from Census needs (Structure, Runtime/CLI, Config, Tests, Deployment, etc.)"
-      - "Recovery Scout (dispatched on tool failure, coverage gaps, or conflicting evidence)"
-      - "Blind Coverage Reviewer (independent unconditioned re-exploration for complex/polyglot repos)"
-    mechanical: "python run_toolkit.py evidence <target>  # facts extraction"
-    output: "Scout Search Ledgers (<search_ledger>) + updated Orchestration State"
+  investigation:
+    cognitive_subagents: "Investigation (Explorer) subtasks — one coherent semantic domain per subtask per the InvestigationPlan; each returns an evidence-backed ClaimBundle"
+    mechanical: "python run_toolkit.py evidence <target>  # OPTIONAL supporting facts extraction"
+    output: "per-domain ClaimBundles"
 
-  phase_2_rebattle:
-    cognitive_subagents: "Dynamic dispute-derived debater archetypes (Fork Provenance, Runtime Truth, Ops, etc.)"
-    mechanical: "python run_toolkit.py rebattle-diff <claim-files>  # dispute organizer"
-    interaction: "Targeted adversarial cross-examination (Immediate Consensus Path if no disputes; dynamic convergence)"
-    output: "adjudicated SemanticModel + LLM-authored ClaimSet"
+  semantic_synthesis:
+    cognitive_subagents: "Semantic Analyst reconciles RepositoryBrief + InvestigationPlan + ClaimBundles into the canonical SemanticModel"
+    interaction: "Targeted conflict_resolution subtask, then optional ReBattle escalation, only for genuinely hard disputes — not the default for every disagreement"
+    mechanical: "python run_toolkit.py rebattle-diff <claim-files>  # deterministic dispute ORGANIZER only; never decides truth"
+    output: "adjudicated SemanticModel"
 
-  phase_3_writers_and_ia:
-    cognitive: "Main Agent designs bespoke Information Architecture (IA) and authors the SitePresentationPlan; dispatches Per-Language Native Writers"
-    mechanical: "python run_toolkit.py parity <target> --lang ...  # exact block parity"
+  documentation_modeling:
+    cognitive_subagents: "Documentation Architect translates SemanticModel (what the software is) into DocumentationModel (who, for which goals: personas, capabilities, journeys, concepts, references)"
+    output: "DocumentationModel"
+
+  page_planning:
+    cognitive_subagents: "Documentation Architect decides what documented intents exist and groups them into pages; emits DocumentationPlan + one PageSpec per page"
+    output: "DocumentationPlan + PageSpec[]"
+
+  writing:
+    cognitive_subagents: "Parallel Language Writer subtasks — each writes exactly one PageSpec × one language directly from its semantic slice (never machine-translated)"
+    mechanical: "python run_toolkit.py parity <target> --lang ...  # mechanical exact block-parity support"
     constraints:
-      - "100% code-block (stable IDs) and section marker parity across languages"
+      - "100% code-block (stable [[id:...]] IDs) and section marker parity across languages"
       - "Independent generation from SemanticModel — never machine-translated"
-      - "SitePresentationPlan (site IA + visual direction) is LLM-authored and persisted; Python never infers it from filenames"
 
-  phase_4_audit_and_revise:
-    cognitive_subagents: "Auditor (LLM) — L3 behavior review, L4 prose parity, L5 over-assertion, emits SemanticAuditBundle"
-    mechanical: "python run_toolkit.py verify-docs <target> --semantic-audit <file>  # L0-L5 unified run"
-    revision_loop: "Auditor edits Markdown in place until Quality Gate passes"
+  review_and_revision:
+    cognitive_subagents:
+      - "Reviewer (READ-ONLY) — grounding, documentation fitness, audience fit, api_contract, cross-language, epistemic; emits ReviewFindings; does NOT edit pages in place"
+      - "Revision Agent — implements ONLY the flagged pages; a fresh re-review decides completion (max 2 rounds, then escalate to Orchestrator)"
+      - "Auditor — L3 behavior, L4b prose-parity, L5 epistemic review; emits the SemanticAuditBundle (preserved)"
+    mechanical: "python run_toolkit.py verify-docs <target> --semantic-audit <file>  # L0-L5 unified run + Quality Gate"
 
-  phase_5_site_and_delivery:
-    cognitive: "Main Agent decides final delivery condition based on audit, coverage, and user goal; it has already authored the SitePresentationPlan (site IA) in Phase 3"
+  integration:
+    cognitive: "Site Designer / Integrator (Main Agent or delegated subagent) authors the SitePresentationPlan from the DocumentationPlan + passed reviewed drafts only — never re-researches the source"
+    mechanical: "python run_toolkit.py build-site <wiki_dir>  # consumes SitePresentationPlan; pending/unavailable without it — never fabricated IA"
+
+  verify_and_deliver:
     mechanical:
-      - "python run_toolkit.py build-site <wiki_dir>  # consumes SitePresentationPlan; pending/unavailable without it — never fabricated IA"
+      - "python run_toolkit.py verify-docs <target> --semantic-audit <file>  # final Quality Gate re-run"
       - "python run_toolkit.py export <wiki_dir> --format html|epub|all  # pdf rejected"
       - "python run_toolkit.py sync-bundle <wiki_dir> --target confluence|notion  # bundle-prep only, no publish"
+    cognitive: "Main Agent decides final delivery condition based on audit, coverage, and user goal"
 ```
+
+Python never performs semantic repair: the corrective loop is a Reviewer +
+separate Revision Agent (cognitive), not mechanical in-place editing.
 
 ### Host Capability Fallback
 
@@ -163,8 +179,9 @@ Strategy:
 - **sequential** (subagents but no parallelism): Main Agent runs subagents
   one after another; budget is identical but wall-clock is linear.
 - **solo** (no subagent API at all): the Main Agent assumes each role in
-  sequence — Scout → Red → Blue → Green → Judge → per-language writers → Auditor.
-  No MakeWiki semantics are lost; only wall-clock changes.
+  sequence — Orientation → Investigation → Semantic Synthesis → Documentation
+  Modeling → Page Planning → Writing → Review → Revision → Integration → Verify
+  → Deliver. No MakeWiki semantics are lost; only wall-clock changes.
 
 The fallback is automatic and documented in the run report. "No subagent API"
 is not "MakeWiki cannot run" — it is "MakeWiki runs sequentially on one agent."
@@ -260,11 +277,11 @@ REJECTS the whole bundle — it is never silently ignored.
 
 ### The Auditor MUST emit the bundle
 
-In **Phase 4** and in the review subskill, after reasoning over L0 - L5, the
-Auditor writes a `SemanticAuditBundle` JSON (see the Auditor prompt in Section
-6). Each semantic verdict is recorded per review item; a layer or item the
-Auditor does not mention simply remains `pending` at the Quality Gate *by
-absence* — never by an explicit value.
+In the **Verify** step (and in the review subskill), after reasoning over L0 - L5, the
+Auditor writes a `SemanticAuditBundle` JSON (dispatched per Section 6; spec lives
+in `tasks/review.md` / `tasks/revise.md` and this section). Each semantic verdict
+is recorded per review item; a layer or item the Auditor does not mention simply
+remains `pending` at the Quality Gate *by absence* — never by an explicit value.
 
 ### Review item registry
 
@@ -311,8 +328,8 @@ If the documents (or the optional semantic model snapshot) change **after** the
 bundle was produced, the bundle's digest no longer matches, so the bundle is
 **stale and must be rejected and re-audited**. The toolkit raises a stale-audit
 error rather than silently trusting an audit of an older revision. The Auditor
-must therefore emit the bundle **last**, after all in-place edits, so its
-`documents_digest` matches the final markdown set on disk.
+must therefore emit the bundle **last**, after all revisions (Review / Revision
+are settled), so its `documents_digest` matches the final markdown set on disk.
 
 ### Consumption boundary
 
@@ -423,102 +440,29 @@ self_reflection_checklist:
 
 ---
 
-## 6. Subagent Dispatch Prompts (Archetype Library)
+## 6. Subagent Dispatch (progressive disclosure)
 
-#### 1. Dynamic Scout Prompt Archetype
+The Main Agent dispatches subagent roles by **progressive disclosure**: SKILL.md
+keeps a short pointer for each role; the full prompt contract lives in the
+canonical `tasks/*.md` and `references/v3/` docs. SKILL.md does **not** re-embed a
+fixed prompt by hand. Roles synthesize dynamically; on a solo host the Main Agent
+assumes each role in sequence (no semantics are lost, only wall-clock).
 
-The Main Agent synthesizes scouts dynamically based on Census findings.
-Each scout **directly inspects the repository** with `Glob` / `Grep` / `Read` / `Bash`
-and terminates by outputting a structured `<search_ledger>` block.
+| Role / trigger                                | Canonical spec                               | Output / verdict |
+| :---                                          | :---                                         | :---             |
+| Investigation / Explorer (one semantic domain) | `tasks/investigate.md`                       | `ClaimBundle`    |
+| Recovery (mechanical-tool failure)            | `tasks/scan.md` §4                           | direct-inspection facts |
+| Blind coverage (complex / large repos)        | `tasks/scan.md` §5                           | independent re-exploration |
+| Debater (hard-conflict escalation only)       | `tasks/rebattle.md`                          | adjudicated dispute → Semantic Synthesis |
+| Language Writer (one `PageSpec` × one language) | `tasks/write.md`, `tasks/write-page.md`     | native draft page (stable `[[id:...]]` + section markers) |
+| Reviewer (read-only)                          | `tasks/review.md`, `tasks/revise.md`         | `ReviewFindings` → revised draft → re-review |
+| Auditor (L3 / L4b / L5)                       | §3A `SemanticAuditBundle`                    | `semantic_audit.json` |
 
-```markdown
-You are the {role} Scout for project '{project_name}'.
-Assigned focus: {assigned_focus_scope}
-Task: Directly inspect the repository using Glob, Grep, Read, and filesystem tools.
-1. Trace relevant source directories, build manifests, entrypoints, and schemas.
-2. For each key claim, cite concrete file paths and line ranges.
-3. Explicitly surface (do not hide) any conflict or discrepancy between docs and code.
-4. Output your findings strictly inside a `<search_ledger>` block:
-
-<search_ledger>
-# Role: {role}
-**Confidence:** [0.0 - 1.0]
-
-## Searched Areas
-- [Architectural component inspected]
-
-## Paths Inspected
-- `path/to/inspected_file.ext`
-
-## Claims & Evidence
-1. **[claim_id]**: [Discovered fact]
-   - *Evidence*: `file.ext:L10-20`
-
-## Unresolved
-- [Ambiguous topics or missing definitions]
-
-## Unexplored
-- [Paths or topics observed but not inspected]
-
-## Recommended Follow-ups
-- [Specific recommendations for subsequent scouts]
-</search_ledger>
-```
-
-#### 2. Recovery Scout Prompt Archetype (Tool Failure Fallback)
-```markdown
-You are the Recovery Scout for project '{project_name}'.
-Trigger: Mechanical tooling encountered errors or degraded verification on scope: {failed_scope}.
-Task: Directly explore and inspect the codebase using LLM tools (`Glob`, `Grep`, `Read`) to extract ground truth facts.
-1. Inspect the relevant source directories and files that mechanical tooling skipped or failed to parse.
-2. Extract verified entrypoints, CLI parameters, configuration schemas, or runtime behaviors directly from code lines.
-3. Record exact file paths and line number citations.
-4. Output a verified fact bundle inside `<search_ledger>` and resolve any ungrounded assumptions.
-```
-
-#### 3. Blind Coverage Reviewer Prompt Archetype (Complex Repositories)
-```markdown
-You are the Blind Coverage Reviewer for project '{project_name}'.
-Task: Without referencing any prior scout notes or draft documents, independently inspect the repository to identify the core runtime surfaces, critical entrypoints, configuration hierarchies, and major sub-packages.
-1. Directly inspect the repository tree, root configs, entrypoints, and workflows.
-2. Identify any overlooked subsystems, hidden entrypoints, or undeclared plugins.
-3. Output your findings strictly inside a `<search_ledger>` block.
-```
-
-#### 4. Dispute-Derived Debater Prompt Archetype
-```markdown
-You are the {synthesized_debater_role} Debater for project '{project_name}'.
-Disputed Topic: {disputed_semantic_key}
-Competing Assertions: {competing_claims}
-Task: Defend or cross-examine the disputed assertion using direct codebase citations (`Glob`, `Grep`, `Read`).
-1. Verify whether the asserted behavior, parameter, or default value is proven in the AST/source code.
-2. Check priority overrides (e.g. ENV vars vs CLI flags vs config files) or upstream fork differences.
-3. If code contradicts your prior assumption, concede immediately and provide the corrected fact.
-4. If code proves your claim, cite the exact file path and line numbers.
-```
-
-#### 5. Language Writer Subagent Prompt
-```markdown
-You are the {language_name} Documentation Writer for project '{project_name}'.
-Write the complete documentation suite in {language_name} following the bespoke Information Architecture (IA) and unified SemanticModel provided by the Main Agent.
-Requirements:
-1. Independent generation: Write native, high-quality technical {language_name} directly from the SemanticModel — NEVER translate from another language output.
-2. Code block parity: Every technical code block MUST carry its stable block ID marker `[[id:<slug>]]` and match character-for-character with the SemanticModel.
-3. Section markers: In multilingual output, every reviewable H2 section MUST carry `<!-- makewiki:section=<slug> -->`. Section ordering may be adapted for native reading flow.
-4. Self-Reflection: grounding, parity, anti-cliché, tone — natural engineer prose, no binary tropes, no buzzwords, no trailing colons.
-Save all generated files under '{output_dir}/'.
-```
-
-#### 6. Reviewer & Quality Auditor Subagent Prompt
-```markdown
-You are the Quality Auditor and Reviewer for the generated documentation in '{output_dir}/'.
-1. Run codebase grounding verification to confirm all mentioned commands, config keys, and file paths exist.
-2. Run cross-language consistency review: every code block and parameter in English matches every other language 1:1, keyed on stable block IDs (`[[id:...]]`), never on position.
-3. Scan for broken Markdown links and AI clichés.
-4. Read the Quality Gate result from 'python run_toolkit.py verify-docs {output_dir}' and resolve any failed or pending layers in place.
-5. Autonomous Self-Healing: if discrepancies, typos, or missing commands are found, edit the Markdown files in place immediately.
-6. Emit a machine-readable `SemanticAuditBundle` JSON capturing your L3 / L4b / L5 semantic verdicts (see Section 3A). After every in-place edit, re-run the bundle so its `documents_digest` matches the final audited markdown set — never emit a bundle whose digest is stale against the files on disk. Save it as `<output_dir>/semantic_audit.json`.
-```
+The legacy `SearchLedger` format (`<search_ledger>`) and its parser remain a
+preserved V2 asset: `src/makewiki_skills/model/search_ledger.py` (
+`SearchLedger` / `parse_search_ledger_markdown`) and
+`src/makewiki_skills/evals/`. New V3 investigation work emits `ClaimBundle`
+instead; the parser stays for backward compatibility.
 
 ---
 
@@ -557,7 +501,7 @@ The Main Agent owns the **Information Architecture (IA)**. Diátaxis serves stri
 
 ---
 
-## 9. Seven-Phase LLM-Orchestrated Execution Workflow
+## 9. V3 LLM-Orchestrated Execution Workflow
 
 ### Arguments
 
@@ -566,72 +510,129 @@ Parse `$ARGUMENTS` for:
 - `--output <dir>`: Output directory name. Default: `makewiki`.
 - `--theme <auto|light|dark>`: Static site theme. Default: `auto`.
 
-### Phase 0: Repo Fact Census & Orchestration State Initialization
+The authoritative flow is subtask-first and host-neutral: where the host
+supports subagents, each cognitive phase below is delegated to a dedicated
+subtask / subagent (see `tasks/*.md` and `references/v3/SUBTASK_PROTOCOL.md`);
+on a solo host the Main Agent assumes each role in sequence. Python's `census`
+/ `evidence` output is **optional** mechanical evidence, never a prerequisite.
 
-1. Run `python <makewiki_root>/scripts/run_toolkit.py census .` to gather raw repository traits.
-2. Main Agent initializes `OrchestrationState` with user goals, initial repository understanding, and search plan.
+### 1. Repository Orientation
 
-### Phase 1: Dynamic Reconnaissance Loop & Search Ledgers
+1. The Main Agent conducts a rapid, high-information-density survey (see
+   `tasks/orient.md`): read high-information entries, form an initial project
+   hypothesis, identify personas and major semantic domains, surface
+   uncertainties.
+2. The Main Agent authors the `RepositoryBrief` and an `InvestigationPlan` of
+   coherent semantic domains. Optionally run `census` / `evidence` for raw
+   supporting facts; they are not mandatory and never dictate meaning.
 
-1. Main Agent dynamically spawns synthesized Scouts based on Census findings.
-2. Scouts inspect the repository directly and return `<search_ledger>` deliverables.
-3. If mechanical tools fail or confidence is low, spawn a **Recovery Scout**.
-4. For large/complex repos, dispatch a **Blind Coverage Reviewer** before ReBattle.
-5. Run `python <makewiki_root>/scripts/run_toolkit.py coverage .` to inspect mechanical fact discovery vs skipped paths.
-6. Main Agent reflects on the 5 loop questions, reconciles coverage gaps, and updates Orchestration State.
+### 2. Investigation
 
-### Phase 2: Dispute-Driven Dynamic ReBattle
+1. Decompose the `InvestigationPlan` into **SubtaskSpec** units — one coherent
+   semantic domain per `type: investigation` subtask (see
+   `tasks/investigate.md`).
+2. Each Investigation subtask (child Explorer subagent, or Main Agent solo)
+   returns an evidence-backed `ClaimBundle`. Ordinary ambiguity is resolved by
+   re-checking primary evidence; only a genuine conflict escalates (below).
+3. Optionally run `python <makewiki_root>/scripts/run_toolkit.py coverage .` to
+   inspect mechanical fact discovery vs skipped paths; this is optional
+   supporting evidence, never a semantic authority.
 
-1. Main Agent inspects Scout claims with `python run_toolkit.py rebattle-diff <claim-files>` to identify conflicts.
-2. **Immediate Consensus Path**: If no disputes exist, skip debate and compile `SemanticModel` directly.
-3. If conflicts exist, synthesize dispute-specific debater roles (e.g., `Fork Provenance`, `Runtime Truth`, `Config Hierarchy`).
-4. Main Agent monitors convergence and terminates debate dynamically when facts stabilize, acting as Judge to synthesize the authoritative `SemanticModel`.
+### 3. Semantic Synthesis
 
-### Phase 3: Information Architecture & Native Multilingual Writing
+1. The Semantic Analyst reconciles the `RepositoryBrief`, `InvestigationPlan`,
+   and `ClaimBundles` into the canonical **`SemanticModel`**
+   (see `tasks/semantic.md`).
+2. For a conflict that survives evidence re-check, spawn a targeted
+   `conflict_resolution` subtask; only if it remains genuinely disputed, run an
+   optional adversarial **ReBattle** (escalation, not the default — see
+   `tasks/rebattle.md`). `rebattle-diff` is a deterministic organizer only.
 
-1. Main Agent designs bespoke Information Architecture (IA) and page hierarchy.
-2. Dispatches independent native Writer Subagents per target language.
-3. Writers author native documentation adhering to stable block IDs (`[[id:<slug>]]`) and section markers (`<!-- makewiki:section=<slug> -->`).
-4. Python runs `python <makewiki_root>/scripts/run_toolkit.py parity <target> --lang ...` for mechanical exact block-ID validation.
+### 4. Documentation Modeling
 
-### Phase 4: LLM Semantic Audit & Quality Gate Verification
+The Documentation Architect translates the `SemanticModel` (*what the software
+is*) into the **`DocumentationModel`** (*who, for which goals*) — personas,
+capabilities, journeys, concepts, references, interface references (see
+`tasks/document-model.md`).
 
-1. Python runs `python <makewiki_root>/scripts/run_toolkit.py verify-docs <target>` to compute mechanical layers and list pending semantic review items.
-2. LLM Auditor evaluates behavioral meaning (L3), semantic prose parity (L4b), and epistemic accuracy (L5), performing in-place edits where needed.
-3. LLM Auditor emits authoritative `SemanticAuditBundle` (`semantic_audit.json`).
-4. Re-run `verify-docs --semantic-audit <output_dir>/semantic_audit.json` to verify Quality Gate:
-   ```bash
-   python <makewiki_root>/scripts/run_toolkit.py verify-docs <target> --semantic-audit <output_dir>/semantic_audit.json --semantic-model <output_dir>/semantic_model.json
-   ```
+### 5. Page Planning
 
-### Phase 5: Offline Static Site Compilation (Mechanical)
+The Documentation Architect decides what documented intents exist and how they
+are grouped into pages, emitting the **`DocumentationPlan`** and one
+**`PageSpec`** per page (see `tasks/plan-pages.md`). Diátaxis is a cognitive
+rubric, never a mandatory filename list.
 
-The **Main Agent (or a dispatched Site Designer subagent)** authored
-`SitePresentationPlan` to `site_presentation.json` during Phase 3. The site
-compiler consumes that plan and renders its navigation, ordering, hierarchy,
-routes, and localized titles verbatim — it never derives an Information
-Architecture from filenames. Without a plan the build reports
-pending/unavailable (never fabricated IA, never blocks cognition).
+### 6. Writing
+
+1. Dispatch parallel Writer subtasks; each writes exactly **one `PageSpec` × one
+   `language`** directly from its semantic slice (see `tasks/write.md`,
+   `tasks/write-page.md`). Native generation only — never machine-translated.
+2. Writers adhere to stable block IDs (`[[id:<slug>]]`) and section markers
+   (`<!-- makewiki:section=<slug> -->`).
+3. Python runs `python <makewiki_root>/scripts/run_toolkit.py parity <target>
+   --lang ...` for mechanical exact block-ID support.
+
+### 7. Review
+
+1. A **read-only Reviewer** evaluates each drafted page against its evidence
+   slice and the cross-language contract (see `tasks/review.md`), in one or
+   more modes: `grounding`, `documentation_fitness`, `audience_fit`,
+   `api_contract`, `cross_language`, `epistemic`.
+2. The Reviewer emits a structured **`ReviewFindings`** artifact. It **does
+   not** edit pages in place.
+
+### 8. Revision
+
+1. A separate **Revision Agent** implements `ReviewFindings` for only the
+   flagged pages (see `tasks/revise.md`).
+2. A fresh read-only re-review decides completion. The loop is bounded: **max 2
+   revision rounds per page**; a page that still fails escalates to the
+   Orchestrator (re-investigate or revise the `PageSpec` / `DocumentationModel`)
+   rather than iterating indefinitely (QUALITY_POLICY §7).
+
+### 9. Integration
+
+The Site Designer / Integrator authors the **`SitePresentationPlan`** from the
+`DocumentationPlan` and the passed reviewed drafts only (see
+`tasks/integrate.md`), writing it to `<wiki_dir>/site_presentation.json` or
+`.yaml`. The site compiler renders its navigation, ordering, hierarchy, routes,
+and localized titles verbatim — it never derives an Information Architecture
+from filenames. Without a plan the build reports pending/unavailable (never
+fabricated IA, never blocks cognition).
 
 ```bash
 python <makewiki_root>/scripts/run_toolkit.py build-site <output_dir> --theme auto
 ```
 
-### Phase 6: Export & Sync Bundles (Mechanical)
+### 10. Verify
 
-```bash
-python <makewiki_root>/scripts/run_toolkit.py export <wiki_dir> --format html|epub|all --lang <code>
-python <makewiki_root>/scripts/run_toolkit.py sync-bundle <wiki_dir> --target confluence|notion --lang <code>
-```
+1. Python runs `python <makewiki_root>/scripts/run_toolkit.py verify-docs
+   <target>` to compute the mechanical layers (L0 / L1 / L2 / L4a) and list
+   pending semantic review items.
+2. The Auditor performs the L3 behavior / L4b prose-parity / L5 epistemic
+   review and emits the authoritative `SemanticAuditBundle`
+   (`semantic_audit.json`) **last**, so its `documents_digest` matches the final
+   audited markdown set.
+3. Re-run `verify-docs --semantic-audit <output_dir>/semantic_audit.json` to
+   verify the Quality Gate:
+   ```bash
+   python <makewiki_root>/scripts/run_toolkit.py verify-docs <target> --semantic-audit <output_dir>/semantic_audit.json --semantic-model <output_dir>/semantic_model.json
+   ```
 
-`export` rejects `--format pdf`. `sync-bundle` only **prepares** bundles on disk; it does NOT publish.
+### 11. Deliver
 
-### Phase 7: Delivery Decision & Completion Report
-
-1. Clean up temporary scratch logs.
-2. Main Agent evaluates Quality Gate verdict, coverage completeness, and user requirements, deciding final delivery.
-3. Present the completion report including:
-   - Repository Census traits & subagents deployed (with host-fallback mode)
+1. Prepare delivery bundles (mechanical):
+   ```bash
+   python <makewiki_root>/scripts/run_toolkit.py export <wiki_dir> --format html|epub|all --lang <code>
+   python <makewiki_root>/scripts/run_toolkit.py sync-bundle <wiki_dir> --target confluence|notion --lang <code>
+   ```
+   `export` rejects `--format pdf`. `sync-bundle` only **prepares** bundles on
+   disk; it does NOT publish.
+2. Clean up temporary scratch logs.
+3. Main Agent evaluates the Quality Gate verdict, coverage completeness, and
+   user requirements, deciding final delivery.
+4. Present the completion report including:
+   - Repository Census traits & subtasks/subagents deployed (with host-fallback mode)
    - Generated pages per language
    - Quality Gate verdict (four-state: passed / failed / pending_semantic_review / pending_mechanical_verification, CI exit code, grounding score)
    - L0 - L5 layer breakdown (passed / failed / pending counts)
@@ -683,8 +684,8 @@ dead or ambiguous:
   judgment, so only the LLM writer consumes them now).
 - **LLM-only**: `agent.*` (incl. `max_subagents`, `max_parallelism`,
   `max_total_agent_calls`, `cost_budget`, `max_audit_rounds`, `safety_max_rounds`),
-  `delivery.*` (Phase 3 writer page emission), `content_depth.*`
-  (Phase 3 writer authoring bounds), `language_profiles.*`, and all
+  `delivery.*` (Writing-step writer page emission), `content_depth.*`
+  (Writing-step writer authoring bounds), `language_profiles.*`, and all
   `documentation_policy.*` fields (`audience`, `structure_strategy`,
   `prefer_task_oriented_sections`, `include_architecture_analysis`,
   `include_directory_overview`, `include_source_walkthroughs`,
@@ -711,11 +712,17 @@ See `tests/contracts/test_config_consumption_contract.py`.
 
 - **Autonomous execution**: Complete all phases end-to-end without pausing
   for intermediate confirmation.
-- **Dynamic subagent planning**: Main Agent synthesizes scouts and debaters
-  dynamically from the Archetype Library within `agent.max_subagents` and
-  host `max_parallelism`.
-- **ReBattle cross-examination**: Main Agent triggers debate on real conflict;
-  mechanical dispute organizer (`rebattle-diff`) is optional.
+- **Subtask-first (V3)**: decompose work into `SubtaskSpec` units; delegate
+  each cognitive phase to a dedicated subtask / subagent where the host
+  supports it (`references/v3/SUBTASK_PROTOCOL.md`); solo host assumes each
+  role in sequence. `census` / `evidence` are optional mechanical evidence.
+- **ReBattle = escalation**: resolve ordinary ambiguity by re-checking evidence
+  or a targeted `conflict_resolution` subtask; only a genuinely hard dispute
+  escalates to adversarial ReBattle. `rebattle-diff` is a deterministic
+  organizer only and never decides truth (`tasks/rebattle.md`).
+- **Review is read-only**: the Reviewer emits `ReviewFindings`; a separate
+  Revision Agent implements flagged pages; a fresh re-review decides completion
+  (`tasks/review.md`, `tasks/revise.md`).
 - **Natural human engineer tone**: ban binary tropes, buzzwords, formulaic
   openings, trailing colons. See `references/anti_ai_cliche.md`.
 - **Independent generation per language** from the SemanticModel; no machine

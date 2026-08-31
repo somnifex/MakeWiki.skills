@@ -5,6 +5,8 @@ Verifies:
 2. Cognitive IA boundary (no hardcoded page filename requirements in Python).
 3. 10 benchmark eval traps structure and fixtures.
 4. Metric scoring and N >= 3 aggregation without semantic heuristics.
+5. V3 cognitive artifact slots store LLM-authored artifacts; Python does not
+   schedule subtasks or choose which is "ready".
 """
 
 from __future__ import annotations
@@ -25,6 +27,12 @@ from makewiki_skills.model.search_ledger import (
     ScoutClaim,
     SearchLedger,
     parse_search_ledger_markdown,
+)
+from makewiki_skills.model.v3_artifacts import (
+    ClaimBundle,
+    InvestigationPlan,
+    RepositoryBrief,
+    SubtaskSpec,
 )
 
 
@@ -131,6 +139,146 @@ def test_search_ledger_markdown_parser():
     assert len(parsed.unresolved) == 1
     assert len(parsed.unexplored) == 1
     assert len(parsed.recommended_followups) == 1
+
+
+def test_search_ledger_to_claim_bundle_literal_migration():
+    """SearchLedger -> ClaimBundle migrates only literal fields.
+
+    visibility/abstraction are unknown (never inferred), and identity/summary are
+    caller-supplied rather than guessed by Python.
+    """
+    ledger = SearchLedger(
+        role="Config & Runtime Scout",
+        searched_areas=["src/config", "src/server"],
+        claims=[
+            ScoutClaim(
+                claim_id="cfg_db_host",
+                description="Default DB host is localhost",
+                evidence_citations=["src/config.py:12"],
+                is_conflict=False,
+                confidence="high",
+            )
+        ],
+        unresolved=["Whether SSL is enabled by default"],
+        recommended_followups=["Recovery Scout for legacy addon"],
+    )
+    bundle = ledger.to_claim_bundle(
+        bundle_id="claims.config-runtime",
+        domain="config-runtime",
+        producer_subtask="investigate.config-runtime",
+        summary="Config and runtime semantics.",
+    )
+
+    assert bundle.id == "claims.config-runtime"
+    assert bundle.domain == "config-runtime"
+    assert bundle.producer_subtask == "investigate.config-runtime"
+    assert bundle.summary == "Config and runtime semantics."
+    assert len(bundle.claims) == 1
+    claim = bundle.claims[0]
+    assert claim.id == "cfg_db_host"
+    assert claim.statement == "Default DB host is localhost"
+    assert claim.semantic_key == "cfg_db_host"
+    assert claim.confidence == "high"
+    assert claim.visibility == ["unknown"]
+    assert claim.abstraction == "unknown"
+    assert claim.evidence[0].path == "src/config.py:12"
+    assert claim.evidence[0].symbol_or_location == ""
+    assert claim.evidence[0].rationale == ""
+    assert bundle.unresolved == ["Whether SSL is enabled by default"]
+    assert bundle.recommended_followups == ["Recovery Scout for legacy addon"]
+    # Non-literal sources are not force-mapped into semantic slots.
+    assert bundle.newly_discovered_areas == []
+    assert bundle.scope_expansions == []
+
+
+def test_search_ledger_to_claim_bundle_defaults_identity_empty():
+    """Without caller identity, Python must not guess bundle domain/id."""
+    ledger = SearchLedger(role="Scout")
+    bundle = ledger.to_claim_bundle()
+    assert bundle.id == ""
+    assert bundle.domain == ""
+    assert bundle.producer_subtask == ""
+    assert bundle.summary == ""
+    assert bundle.claims == []
+
+
+def test_search_ledger_markdown_parser_unchanged_by_conversion():
+    """to_claim_bundle must not alter the Markdown parser round-trip."""
+    ledger = SearchLedger(
+        role="Config & Runtime Scout",
+        claims=[
+            ScoutClaim(
+                claim_id="cfg_db_host",
+                description="Default DB host is localhost",
+                evidence_citations=["src/config.py:12"],
+            )
+        ],
+    )
+    md = ledger.to_markdown()
+    parsed = parse_search_ledger_markdown(md)
+    # Conversion is a pure projection; parser output is unaffected by it.
+    _ = ledger.to_claim_bundle(bundle_id="claims.x")
+    parsed2 = parse_search_ledger_markdown(ledger.to_markdown())
+    assert parsed2 == parsed
+
+
+def test_orchestration_state_v3_artifact_slots_round_trip():
+    """V3 cognitive artifact slots persist LLM-authored artifacts.
+
+    New slots default to empty / None and round-trip with existing fields. They
+    only *store* the LLM-authored artifacts — Python does not schedule subtasks
+    or decide which is "ready".
+    """
+    state = OrchestrationState(
+        user_goal="Generate V3 documentation",
+        repository_brief=RepositoryBrief(
+            project_hypothesis=RepositoryBrief().project_hypothesis.model_copy(
+                update={"name": "acme-cli", "purpose": "Manage channels."}
+            )
+        ),
+        investigation_plan=InvestigationPlan(project_hypothesis="acme-cli"),
+        subtasks=[
+            SubtaskSpec(
+                id="investigate.channel-management",
+                type="investigation",
+                goal="Understand channel configuration.",
+            )
+        ],
+        documentation_model={"personas": [], "capabilities": []},
+        page_specs=[{"page_id": "channel-management", "page_type": "concept"}],
+    )
+    reloaded = OrchestrationState.from_json(state.to_json())
+    assert reloaded == state
+    assert reloaded.repository_brief is not None
+    assert reloaded.repository_brief.project_hypothesis.name == "acme-cli"
+    assert reloaded.investigation_plan is not None
+    assert len(reloaded.subtasks) == 1
+    assert reloaded.subtasks[0].id == "investigate.channel-management"
+    assert reloaded.documentation_model == {"personas": [], "capabilities": []}
+    assert reloaded.page_specs[0]["page_id"] == "channel-management"
+
+
+def test_orchestration_state_v3_slots_default_empty():
+    """Default OrchestrationState has empty V3 slots — nothing is scheduled."""
+    state = OrchestrationState()
+    assert state.repository_brief is None
+    assert state.investigation_plan is None
+    assert state.subtasks == []
+    assert state.documentation_model is None
+    assert state.page_specs == []
+
+
+def test_orchestration_state_has_no_scheduler_ready_selector():
+    """Python must not expose a scheduler / "ready subtask" selector."""
+    import inspect
+
+    from makewiki_skills.model.orchestration_state import OrchestrationState
+
+    members = [name for name, _ in inspect.getmembers(OrchestrationState)]
+    assert not any(
+        "schedule" in name.lower() or "ready" in name.lower() or "select" in name.lower()
+        for name in members
+    )
 
 
 def test_ten_benchmark_eval_traps_exist(tmp_path: Path):

@@ -17,7 +17,6 @@ from makewiki_skills.verification.l4_cross_language import (
 )
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
-SKILL_MD = PROJECT_ROOT / "SKILL.md"
 SRC_DIR = PROJECT_ROOT / "src/makewiki_skills"
 
 
@@ -36,12 +35,25 @@ def test_repair_engine_and_generators_not_in_python():
         assert "LegacyDeterministicRenderer" not in text
 
 
-def test_authoritative_revision_loop_is_llm_auditor():
-    """SKILL.md specifies that the revision loop is the LLM Auditor editing Markdown."""
-    skill = _read(SKILL_MD)
-    assert "MechanicalRepairEngine" not in skill
-    assert "RevisionEngine" not in skill
-    assert "Auditor edits Markdown in place" in skill
+def test_reviewer_read_only_and_revision_separate():
+    """The revision loop is a separate Revision Agent; the Reviewer is read-only.
+
+    The Reviewer (``tasks/review.md``) emits ``ReviewFindings`` without editing
+    pages in place; a separate Revision Agent (``tasks/revise.md``) implements
+    them, and a fresh re-review decides completion. Python still performs no
+    semantic repair.
+    """
+    review = _read(PROJECT_ROOT / "tasks/review.md")
+    assert "read-only" in review.lower()
+    assert "does **not** edit" in review
+    assert "ReviewFindings" in review
+    # in-place editing is present only as an explicit prohibition.
+    assert "in-place" in review.lower()
+
+    revise = _read(PROJECT_ROOT / "tasks/revise.md")
+    assert "Revision Agent" in revise
+    assert "re-review" in revise.lower()
+    assert "does **not** self-declare" in revise
 
 
 def test_stable_block_id_convention_enforced_by_l4():
