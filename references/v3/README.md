@@ -2,10 +2,6 @@
 
 本目录是 MakeWiki V3 重构的设计权威。
 
-基线固定为：
-
-`fda0ebf26a9f01db80b5342d7e0a3ebe69f97aca`
-
 V3 不以“重写工具”为目标。V3 的目标是在保持 V2 已有证据链、验证层、静态站点和跨语言能力的基础上，解决两个结构性问题：
 
 1. 当前多智能体更多体现为动态角色描述，subtask 尚未成为稳定的一等工作单位。
@@ -114,3 +110,4 @@ Skill 不写具体宿主 API 名称。
 - `MIGRATION_PLAN.md`：增量迁移顺序。
 - `LOCAL_AGENT_RULES.md`：低性能本地 Agent 施工规范。
 - `PHASE_PROMPTS.md`：可逐个复制给本地 Agent 的分阶段提示词。
+
