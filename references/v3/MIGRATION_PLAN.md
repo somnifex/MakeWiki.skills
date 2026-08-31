@@ -1,328 +1,313 @@
-# MakeWiki V3 Migration Plan
+# MakeWiki V3 Migration Plan — Status Document
+
+> **Live status, not a todo list.** This file records, per Phase, whether the
+>
+> local agent does **not** re-run already-completed V3 migration tasks.
+>
+> STATUS vocabulary: `DONE` (implemented and verified) / `PARTIAL` (some but not
+>
+> actually has), `REMAINING` (what is still missing), and `ACCEPTANCE` (the
+>
+> guessed.
 
 ## Strategy
 
-迁移必须是“先建立新路径，再切 authoritative flow，最后清理 legacy 描述”。
+Original direction: build the new path first, then switch the authoritative
+flow, then clean up legacy descriptions. Do not rewrite the root `SKILL.md`
+first. (This has now been completed through Phase L; see per-phase status.)
 
-不要先改根 `SKILL.md`。
+---
 
 ## Phase A — Design authority
 
-已由本 design pack 提供。
+**STATUS: DONE**
 
-目标：
+**IMPLEMENTED:**
+- `references/v3/` is committed and populated: `ARCHITECTURE.md`,
+  `COGNITIVE_BOUNDARY.md`, `MIGRATION_PLAN.md`, `LOCAL_AGENT_RULES.md`,
+  `MULTI_AGENT_PROTOCOL.md`, `SUBTASK_PROTOCOL.md`, `ARTIFACT_CONTRACTS.md`,
+  `PAGE_SPEC.md`, `API_REFERENCE.md`, `DOCUMENTATION_MODEL.md`,
+  `QUALITY_POLICY.md`, `PHASE_PROMPTS.md`, `BASELINE.md`, `README.md`,
+  `config-migration.md`.
+- Baseline commit is recorded (the V2-design baseline at `fda0ebf`).
+- Local agent can build per the spec (one Micro Task at a time).
 
-```text
-V3 architecture frozen before implementation.
-```
+**REMAINING:** none.
 
-验收：
+**ACCEPTANCE:** V3 architecture frozen before implementation — met.
 
-- `references/v3/` 已提交；
-- baseline commit 被记录；
-- 本地 Agent 能按规范施工。
+---
 
 ## Phase B — Add V3 cognitive tasks without switching V2
 
-新增 task files：
+**STATUS: DONE**
 
-```text
-tasks/orient.md
-tasks/investigate.md
-tasks/semantic.md
-tasks/document-model.md
-tasks/plan-pages.md
-tasks/write-page.md
-tasks/revise.md
-tasks/integrate.md
-```
+**IMPLEMENTED:** all V3 task files exist:
+`tasks/orient.md`, `tasks/investigate.md`, `tasks/semantic.md`,
+`tasks/document-model.md`, `tasks/plan-pages.md`, `tasks/write-page.md`,
+`tasks/revise.md`, `tasks/integrate.md`.
 
-此阶段：
+**REMAINING:** none. Legacy `scan` / `write` / `rebattle` / `review` task files
+were intentionally retained (not deleted).
 
-- 不删除 scan/write/rebattle/review；
-- 不改 authoritative SKILL；
-- 主要是 prompt contracts。
+**ACCEPTANCE:** V3 task prompt contracts present, V2 flow not yet switched — met.
+
+---
 
 ## Phase C — Artifact validation layer
 
-新增最小 schema/serialization。
+**STATUS: DONE**
 
-推荐优先：
+**IMPLEMENTED:**
+- `src/makewiki_skills/model/v3_artifacts.py` defines `RepositoryBrief`,
+  `InvestigationPlan`, `SubtaskSpec`, `ClaimBundle`, `ReviewFindings`.
+- `src/makewiki_skills/model/documentation_model.py` defines `DocumentationModel`
+  (and `InterfaceReference` / `HttpOperationReference`, see Phase H).
+- `src/makewiki_skills/model/page_spec.py` defines `PageSpec`.
+- Models are schema/serialization-only (Pydantic), LLM-authored, docstringed.
 
-```text
-RepositoryBrief
-InvestigationPlan
-SubtaskSpec
-ClaimBundle
-DocumentationModel
-PageSpec
-ReviewFindings
-```
+**REMAINING:** none.
 
-原则：
+**ACCEPTANCE:** minimal schema/serialization for V3 artifacts, Python only
+validates/serializes — met.
 
-- Python 只 validate/serialize；
-- 不 infer content；
-- 每个 model 有明确 docstring 声明 LLM-authored。
-
-可以新建：
-
-```text
-src/makewiki_skills/model/v3_artifacts.py
-```
-
-或按职责拆文件。
-
-不要一开始改现有 SemanticModel。
+---
 
 ## Phase D — OrchestrationState V3 compatibility
 
-当前 OrchestrationState 只有 search_plan/agent records。
+**STATUS: DONE** (with a structural note)
 
-增量加入：
+**IMPLEMENTED:** `src/makewiki_skills/model/orchestration_state.py` carries
+`repository_brief`, `investigation_plan`, `documentation_model` (dict),
+`page_specs` (list of dict).
 
-```text
-subtasks
-repository_brief
-investigation_plan
-documentation_model
-page_specs
-```
+**REMAINING:** `documentation_model` / `page_specs` are carried as free `dict`s;
+there is no dedicated Pydantic model for them on `OrchestrationState` (they do
+have dedicated models in `documentation_model.py` / `page_spec.py`). No Python
+scheduler was introduced (correct — Python only serializes/validates).
 
-或创建新 V3 state。
+**ACCEPTANCE:** V3 state fields exist, no Python scheduler — met.
 
-不要实现 Python scheduler。
-
-Python 只负责 state serialization/validation。
+---
 
 ## Phase E — ClaimBundle compatibility
 
-保留 SearchLedger。
+**STATUS: DONE**
 
-新增：
+**IMPLEMENTED:** `src/makewiki_skills/model/search_ledger.py` provides a
+`to_claim_bundle()` conversion to V3 `ClaimBundle`, preserving the legacy
+`SearchLedger` parser.
 
-```text
-SearchLedger -> ClaimBundle compatibility conversion
-```
+**REMAINING:** none confirmed.
 
-注意：
+**ACCEPTANCE:** `SearchLedger -> ClaimBundle` compatibility conversion exists
+without Python inferring visibility/abstraction — met.
 
-转换只迁移已有结构化字段。
-
-不得由 Python推断 visibility/abstraction。
-
-缺失字段保持 unknown。
+---
 
 ## Phase F — Semantic synthesis task
 
-让 `tasks/semantic.md` 成为 V3 semantic model 生成合同。
+**STATUS: DONE**
 
-ReBattle 改为 escalation。
+**IMPLEMENTED:** `tasks/semantic.md` is the V3 SemanticModel generation contract;
+ReBattle is an **escalation** path (SKILL.md §2 / §9.3), not a fixed phase. Old
+ReBattle CLI (`rebattle-diff`) retained as a deterministic organizer.
 
-此阶段可以保留旧 ReBattle CLI。
+**REMAINING:** none.
+
+**ACCEPTANCE:** `tasks/semantic.md` as V3 semantic contract; ReBattle = escalation — met.
+
+---
 
 ## Phase G — DocumentationModel
 
-新增 persona/capability/journey/concept/reference/interface reference。
+**STATUS: DONE**
 
-不要立即删除 SemanticModel 中旧 user_tasks/faq/troubleshooting。
+**IMPLEMENTED:** `documentation_model.py` `DocumentationModel` models
+personas / capabilities / journeys / concepts / references /
+interface_references / documentation_gaps. Old `SemanticModel` fields
+(user_tasks/faq/troubleshooting) remain readable for compatibility.
 
-先定义 compatibility：
+**REMAINING:** none.
 
-```text
-old fields remain readable
-new V3 authoritative documentation planning uses DocumentationModel
-```
+**ACCEPTANCE:** new persona/capability/journey model present without deleting legacy
+SemanticModel fields — met.
+
+---
 
 ## Phase H — Operator/API Reference
 
-新增：
+**STATUS: DONE**
 
-```text
-InterfaceReference
-HttpOperationReference
-```
+**IMPLEMENTED:** `InterfaceReference` + `HttpOperationReference` in
+`documentation_model.py`; `tasks/document-model.md` §7 / §10 require the
+Architect to explicitly consider operator / management-API / API-reference
+surfaces where evidence supports them.
 
-仅做 schema/contract。
+**REMAINING:** none. No framework-specific extractors were added (correct;
+content is LLM-authored).
 
-不要写 framework-specific extractors。
+**ACCEPTANCE:** interface/API schema contracts present; Architect prompt
+considers operator/API surfaces — met.
 
-更新 Documentation Architect prompt，让它在 applicable 时主动规划：
-
-```text
-operations/
-management API/
-API reference/
-health and observability/
-```
+---
 
 ## Phase I — PageSpec-driven writing
 
-切换 Writer：
+**STATUS: DONE**
 
-```text
-PageSpec × language
-```
+**IMPLEMENTED:** `page_spec.py` `PageSpec`; `tasks/write-page.md` exists; SKILL.md
+§9.6 defines each Writer as writing exactly **one PageSpec × one language**
+(no "one language writer writes the whole suite" default). Stable block IDs,
+section markers, native multilingual writing, anti-cliché policy retained.
 
-保留：
+**REMAINING:** none.
 
-```text
-stable block IDs
-section markers
-native multilingual writing
-anti-cliché policy
-```
+**ACCEPTANCE:** Writer switched to `PageSpec × language` — met.
 
-停止“一个 language writer 写完整 suite”作为默认。
+---
 
 ## Phase J — Independent review
 
-重构 `tasks/review.md`：
+**STATUS: DONE**
 
-```text
-read-only Reviewer
-```
+**IMPLEMENTED:** `tasks/review.md` defines a **read-only Reviewer** (emits
+`ReviewFindings`, does not edit pages); `tasks/revise.md` defines a separate
+**Revision Agent**. SKILL.md §9.7 / §9.8 match this.
 
-新增 `tasks/revise.md`：
+**REMAINING:** none.
 
-```text
-ReviewFindings → revision
-```
+**ACCEPTANCE:** Reviewer read-only, Revision separate — met. (The V2 "Auditor
+edits Markdown in place" contract was replaced.)
 
-更新原有 contract tests：
-
-原 contract：
-
-```text
-Auditor edits Markdown in place
-```
-
-应被新的 V3 contract 替换为：
-
-```text
-Reviewer must not edit
-Revision is separate
-```
-
-这是有意 breaking architecture change，需要同步测试。
+---
 
 ## Phase K — Documentation planning and SitePresentationPlan
 
-DocumentationPlan 成为 IA 上游 artifact。
+**STATUS: DONE**
 
-Integrator 将 DocumentationPlan 映射到 SitePresentationPlan。
+**IMPLEMENTED:** `DocumentationPlan` is the IA-upstream contract (YAML described
+in `tasks/plan-pages.md`); the Integrator maps it to `SitePresentationPlan`
+(`tasks/integrate.md`, SKILL.md §8 / §9.9). Python `SiteCompiler` renders the
+plan only. Navigation is **recursive**: `site_presentation.py` recurses
+`children` with no depth cap, and the two-level limitation was removed
+(this session, V3-A3).
 
-Python SiteCompiler 仍只 render plan。
+**REMAINING:** none. (`DocumentationPlan` has no dedicated Pydantic class — it is
+an LLM-authored YAML contract; acceptable.)
 
-处理当前“两层 child lookup”的限制，允许递归 navigation。
+**ACCEPTANCE:** recursive navigation allowed; renderer has no IA authority — met.
 
-这属于 renderer structural capability，不是 semantic inference。
+---
 
 ## Phase L — Switch authoritative SKILL
 
-当 B-K 全部可运行后，再重写根 `SKILL.md`。
+**STATUS: DONE**
 
-新 authoritative flow：
+**IMPLEMENTED:** root `SKILL.md` is switched to the V3 authoritative flow
+(Orientation → Investigation → Semantic → DocumentationModel → PagePlan → Write →
+Review → Revise → Integrate → Verify → Deliver; see SKILL.md §2 / §9). Census /
+Evidence are optional mechanical assistance, never prerequisites. Legacy
+`scan` / `write` / `rebattle` task files remain as compatibility references.
+(Equivalent to the V3-K1 micro task.)
 
-```text
-Orientation
-Investigation
-Semantic
-DocumentationModel
-PagePlan
-Write
-Review
-Revise
-Integrate
-Verify
-Deliver
-```
+**REMAINING:** none.
 
-Census/scan/rebattle/write legacy task 变 compatibility reference。
+**ACCEPTANCE:** SKILL.md authoritative flow is V3; legacy tasks are compatibility — met.
+
+---
 
 ## Phase M — Config cleanup
 
-处理：
+**STATUS: PARTIAL**
 
-```text
-delivery.audience
-documentation_policy.audience
-```
+**IMPLEMENTED:**
+- `references/v3/config-migration.md` is a **design-only** note covering
+  `delivery.audience`, `documentation_policy.audience`, operator persona, API
+  reference controls, and agent parallelism — including the additive seed
+  hints `documentation_policy.include_operator_persona` / `include_api_reference`
+  and the independent M-L1a..d micro tasks.
 
-目标转向 persona-aware planning。
+**REMAINING:**
+- `src/makewiki_skills/config.py` is **unchanged**: neither
+  `include_operator_persona` nor `include_api_reference` is present
+  (grep count = 0). The M-L1a..d micro tasks (re-document audience semantics;
+  add the two seed fields; document `agent.*` parallelism) are **not**
+  implemented.
+- `agent.max_parallelism` default has not been re-baselined to a more
+  conservative value.
 
-不要直接删除旧字段导致 config break。
+**ACCEPTANCE:** audience fields re-documented / migrated toward persona-aware
+planning and the additive operator/API seeds present — **not yet met**.
 
-可先 deprecated 或版本迁移。
-
-同时把 max parallelism 默认值调整到更保守值。
+---
 
 ## Phase N — Quality contracts
 
-保留 L0-L5。
+**STATUS: DONE**
 
-新增 LLM Documentation Fitness review policy。
+**IMPLEMENTED:** L0–L5 preserved; an LLM **Documentation Fitness** review policy
+exists in `references/v3/QUALITY_POLICY.md` (fitness dimensions, result, and
+findings). Python does not compute semantic coverage; coverage opinion lives in
+LLM-authored review artifacts, Python validates/records structure.
 
-不要立即让 Python假装能计算 semantic coverage。
+**REMAINING:** none confirmed.
 
-如果未来需要 coverage 数值，应来自 LLM-authored review artifact，Python只记录/校验结构。
+**ACCEPTANCE:** L0–L5 retained, LLM Documentation Fitness policy added without
+Python pretending to compute semantic coverage — met.
+
+---
 
 ## Phase O — Eval
 
-保留原 10 个 grounding traps。
+**STATUS: DONE**
 
-增加：
+**IMPLEMENTED:** `evals/newapi-v3/` benchmark scaffolding
+(`README.md` run protocol + `benchmark-run-template.yaml`, full 18 dimensions:
+persona separation, API/operator coverage, page granularity, implementation
+leakage, etc.) — human/LLM rubric rated, not a Python scorer, and intentionally
+kept out of the deterministic trap set (no root `rubric.yaml`). The original
+deterministic grounding traps are preserved.
 
-```text
-NewAPI-style documentation quality
-operator coverage
-API reference coverage
-persona separation
-page granularity
-implementation leakage
-```
+**REMAINING:** none (benchmark run reports are filled per-run by a judge; the
+scaffolding is in place).
+
+**ACCEPTANCE:** NewAPI-style documentation-quality eval added — met.
+
+---
 
 ## Phase P — Documentation sync
 
-最后更新：
+**STATUS: PARTIAL**
 
-```text
-README.md
-README.en.md
-AGENTS.md
-CLAUDE.md
-CHANGELOG.md
-references/architecture.md
-```
+**IMPLEMENTED:**
+- `README.md` and `README.en.md` were updated to the V3 authoritative pipeline
+  (this session, V3-A5 / V3-A6): main flow, CLI table, LLM-designed page
+  hierarchy, persona/operator/API-reference mentions.
 
-只有已经实现的能力才能写进去。
+**REMAINING:**
+- `AGENTS.md`, `CLAUDE.md`, `CHANGELOG.md`, and `references/architecture.md`
+  still describe the **V2 authoritative flow** (Census → Scout → ReBattle →
+  Writer → Auditor). Per the Phase P rule "只有已经实现的能力才能写进去", these
+  must be updated to the V3 flow once their edits are scheduled. Not changed by
+  the Phase-A cleanup (out of its MODIFY-ONLY scope).
+
+**ACCEPTANCE:** README/README.en/AGENTS/CLAUDE/CHANGELOG/references/architecture
+all reflect only implemented capability — **not yet fully met**.
+
+---
 
 ## Full-suite checkpoints
 
-建议在以下阶段结束跑完整 suite：
-
-```text
-C
-D
-G
-J
-L
-N
-P
-```
-
-其余阶段执行最小相关 tests。
+The plan suggested full-suite runs at the ends of Phases C, D, G, J, L, N, P.
+Given the above statuses, all designated phases are at `DONE` or `PARTIAL`, and
+the contract tests covering the authoritative flow/SKILL surface are green after
+each doc-level change. When the Phase M / Phase P `REMAINING` items land, run the
+full suite again.
 
 ## Explicitly deferred
 
-V3 初次重构不要求：
-
-```text
-live browser screenshots
-runtime API probing
-interactive Swagger Try-It
-framework-specific AST route generators
-host-specific adapters
-Python semantic scheduler
-full OpenAPI emitter
-```
+The following remain intentional non-goals (not required for this refactor):
+live browser screenshots, runtime API probing, interactive Swagger Try-It,
+framework-specific AST route generators, host-specific adapters, a Python
+semantic scheduler, and a full OpenAPI emitter.

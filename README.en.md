@@ -3,6 +3,7 @@
 
 
 
+
 <p align="center">
   <strong>LLM-first, Evidence-backed, Multi-Agent Documentation Compiler for AI Coding Assistants</strong>
 </p>
@@ -74,7 +75,7 @@ claude --plugin-dir /path/to/MakeWiki.skills
 /makewiki --lang en --lang zh-CN
 ```
 
-The orchestrator runs the authoritative pipeline — Census → Scout → ReBattle → Judge → Semantic Model → Parallel Writers → Auditor → Semantic Revision — and consults the Python toolkit for evidence extraction, L0–L5 verification, and the Quality Gate. Output lands under `<project>/makewiki/`.
+The orchestrator runs the authoritative pipeline — Repository Orientation → Investigation Subtasks → ClaimBundles → Semantic Synthesis → DocumentationModel → DocumentationPlan / PageSpecs → Parallel Writing → Independent Review → Revision → Integration → Verification → Delivery — and consults the Python toolkit for optional mechanical evidence (`census` / `evidence`), L0–L5 verification, and the Quality Gate. Output lands under `<project>/makewiki/`.
 
 ---
 
@@ -84,7 +85,7 @@ The CLI surface is designed around authoritative names with backward-compatible 
 
 | Plane                           | Authority                              | Aliases             | Role                                                                 |
 | ------------------------------- | -------------------------------------- | ------------------- | -------------------------------------------------------------------- |
-| Full Skill                      | `/makewiki`                            | —                   | Full pipeline: Census → Scout → ReBattle → Writer → Review → Compile |
+| Full Skill                      | `/makewiki`                            | —                   | Full pipeline: Orientation → Investigation → Semantic Model → DocumentationModel → PageSpecs → Parallel Writing → Review → Revision → Integration → Verify → Deliver |
 | Site                            | `/makewiki-site`                       | —                   | Compile Markdown into offline static Wiki                            |
 | Validation                      | `/makewiki-validate`                   | —                   | Markdown structure & link integrity                                  |
 | Quality Review                  | `/makewiki-review`                     | `semantic-review`   | Extract cross-language alignments + behavior evidence                |
@@ -107,23 +108,24 @@ The CLI surface is designed around authoritative names with backward-compatible 
 
 ## 📁 Output Structure
 
-Documents and static site land under `<project>/makewiki/`:
+Documents and static site land under `<project>/makewiki/`. The page hierarchy is **designed by the Documentation Architect from a persona + task + reference semantic structure** (Diátaxis is only a cognitive rubric, never a fixed filename list). The layout below is illustrative, not a fixed template:
 
 ```text
 makewiki/
 ├── index.md                         # Navigation map & language index
 ├── README.md / README.zh-CN.md      # Project overview
-├── getting-started.md / ...         # 5-minute quickstart (Tutorial)
-├── installation.md / ...            # Installation & compatibility matrix (Runbook)
-├── configuration.md / ...           # Configuration & environment variables (Matrix)
-├── usage/
-│   ├── overview.md                  # Feature map & module dependencies (Explanation)
-│   └── <module>.md                  # Task-oriented workflows (How-To)
-├── faq.md / ...                     # FAQs (LLM-injected; UNKNOWN if absent)
-├── troubleshooting.md / ...         # Symptom-to-resolution runbook (Incident Runbook)
+├── <persona>/                       # LLM-designed persona-aware / operator page set
+│   ├── getting-started/             # quickstart tutorial for newcomers (illustrative)
+│   └── ...
+├── <reference>/                     # stable lookup reference (config, CLI, interfaces)
+│   ├── ...                          # API / interface reference
+│   └── ...                          # Swagger-like static interface reference when evidence supports it
 └── site/
+    ├── site_presentation.json       # LLM-authored site IA plan (the only nav authority)
     └── index.html                   # Offline single-page static Wiki (double-click to open)
 ```
+
+The document set is **bespoke** (project-specific): persona-aware guides, operator runbooks, and API / interface reference (including a Swagger-like static reference where the evidence supports it) are generated on demand — never forced into a fixed Getting Started / Installation / Configuration / Usage / FAQ / Troubleshooting template.
 
 ---
 
@@ -134,15 +136,14 @@ MakeWiki v2 splits cleanly into two planes and codifies a **Cognitive Authority 
 ```mermaid
 flowchart LR
     subgraph Cognitive["Cognitive Plane (LLM Subagents)"]
-        Census["Census<br/>traits census"]
-        Scout["Scout Archetypes<br/>structure / surface / recovery"]
-        Claims["Claim formulation"]
-        ReB["Dynamic ReBattle<br/>dispute-driven cross-examination"]
-        Judge["Judge arbitration"]
-        Model["SemanticModel"]
-        Writers["Parallel native writers"]
-        Audit["Auditor"]
-        Revise["Semantic revision"]
+        Orient["Repository Orientation<br/>RepositoryBrief + InvestigationPlan"]
+        Explorers["Investigation Subtasks (Explorer)<br/>ClaimBundles"]
+        Synth["Semantic Synthesis<br/>SemanticModel"]
+        DocModel["Documentation Modeling<br/>DocumentationModel"]
+        Pages["Page Planning<br/>DocumentationPlan + PageSpecs"]
+        Writers["Parallel writing (Writer)<br/>one PageSpec × one language"]
+        Review["Independent Review / Revision"]
+        Integ["Integration<br/>SitePresentationPlan"]
     end
 
     subgraph Mechanical["Mechanical Plane (Python Toolkit)"]
@@ -163,7 +164,7 @@ flowchart LR
 
 - **Cognitive Plane**: LLM subagents own all comprehension, reasoning, debate, writing, and auditing. Host capabilities select parallel / sequential / main-agent fallback.
 - **Mechanical Plane**: Python only proves what can be proven — fact census, fact harvesting, AST/CLI/config parsing, L0/L1/L2, exact-match block parity via stable block IDs, `UNKNOWN` fallbacks, and Quality Gate aggregation.
-- **Cognitive Authority Boundary**: Python is an auditable evidence channel, not an infallible authority. If Python evidence conflicts with direct source inspection, the Main Agent must investigate directly; mechanical tool failures produce degraded mechanical verification (`pending_mechanical_verification`), never cognitive failure, and the Main Agent may spawn a Recovery Scout for direct codebase inspection.
+- **Cognitive Authority Boundary**: Python is an auditable evidence channel, not an infallible authority. If Python evidence conflicts with direct source inspection, the Main Agent must investigate directly; mechanical tool failures produce degraded mechanical verification (`pending_mechanical_verification`), never cognitive failure, and the Main Agent may spawn a Recovery Explorer for direct codebase inspection.
 - **Host Capability fallback**: when the host has no subagent API, the main agent takes each role in sequence; when parallelism is unavailable, it degrades to sequential execution. "No subagent API" never means "MakeWiki cannot run."
 
 ---

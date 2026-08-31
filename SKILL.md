@@ -80,7 +80,7 @@ adjudication in the authoritative `/makewiki` path.
   to fill via the Skill layer.
 - Mechanical tool failures (e.g. AST parsing errors or unhandled file formats)
   produce degraded mechanical verification (`pending_mechanical_verification`),
-  never cognitive failure; the Main Agent may spawn a Recovery Scout for direct
+  never cognitive failure; the Main Agent may spawn a Recovery Explorer for direct
   codebase inspection.
 - The Quality Gate aggregates verification status and reports CI exit codes;
   the Main Agent decides whether to iterate revisions, accept pending items,
@@ -175,7 +175,7 @@ authority.
 
 Strategy:
 
-- **parallel**: launch scout and writer subagents concurrently within budget.
+- **parallel**: launch Explorer (investigation subtask) and Writer subagents concurrently within budget. (``Scout`` is a legacy term; the V3 authoritative reconnaissance abstraction is Explorer / Investigation Subtask / ClaimBundle.)
 - **sequential** (subagents but no parallelism): Main Agent runs subagents
   one after another; budget is identical but wall-clock is linear.
 - **solo** (no subagent API at all): the Main Agent assumes each role in
@@ -387,26 +387,33 @@ The Main Agent **dynamically synthesizes subagent roles** from an open
 `agent.max_parallelism`, and `agent.safety_max_rounds` from `makewiki.config.yaml`
 (LLM-consumed upper bounds and safety ceilings).
 
+The role variants below are **focus flavors of the Investigation / Explorer
+family** — the legacy ``Scout`` naming is retained only as shorthand, and is
+**not** the V3 authoritative reconnaissance abstraction (that is Explorer /
+Investigation Subtask / ClaimBundle, driven by the authored InvestigationPlan).
+Triggers below are *evidence hints* that shape *how* an Explorer investigation
+is focused — they never let Census / evidence dictate investigation topology.
+
 ```yaml
 dynamic_synthesis_rules:
   monorepo_or_microservices:
     trigger: "Multiple services, workspaces, or sub-packages detected"
-    action: "Spawn dedicated Scout/Writer subagents per major service module"
+    action: "Dispatch a dedicated Explorer (investigation subtask) and Writer subagents per major service module"
   native_or_ffi_bindings:
     trigger: "C/C++, Rust FFI, WebAssembly, or Python C-extensions detected"
-    action: "Synthesize Scout-ABI-Bindings to inspect header files and exported ABI"
+    action: "Focus an Explorer investigation on header files, exported ABI, and bindings"
   plugin_or_sdk_ecosystem:
     trigger: "Extensible plugin architecture or public client SDK detected"
-    action: "Synthesize Scout-Ecosystem focusing on hook registration and SDK interfaces"
+    action: "Focus an Explorer investigation on hook registration and public SDK interfaces"
   git_fork_or_divergence:
     trigger: "Upstream fork or active divergence tracking detected"
-    action: "Synthesize Scout-Fork to inspect patch sets and upstream diffs"
+    action: "Focus an Explorer investigation on patch sets and upstream diffs"
   version_migration_breakages:
     trigger: "Major version bumps, deprecated APIs, or changelog migrations detected"
-    action: "Synthesize Scout-Migration to inspect breaking changes and upgrade paths"
+    action: "Focus an Explorer investigation on breaking changes and upgrade paths"
   mechanical_tool_failure:
     trigger: "Python scanner/parser fails, throws AST syntax errors, or returns degraded facts"
-    action: "Synthesize Recovery-Scout for direct cognitive codebase traversal and file inspection"
+    action: "Dispatch a Recovery Explorer for direct cognitive codebase traversal and file inspection"
 
 resource_limits_and_safety_caps:
   max_subagents: 10          # Upper bound on concurrently synthesized subagents
@@ -478,7 +485,7 @@ dynamic_search_loop:
     3: "Which facts are single-source or lack sufficient corroboration?"
     4: "Which tool failures need recovery?"
     5: "Which claims conflict?"
-  scout_synthesis: "Synthesize targeted scouts from census needs within agent.max_subagents and max_parallelism"
+  investigation_decomposition: "Decompose the InvestigationPlan into Explorer investigation subtasks within agent.max_subagents and max_parallelism. Investigation topology is decided by the authored InvestigationPlan — never synthesized 'from census needs'; Census / evidence is optional mechanical assistance, not a decision authority"
   recovery_scout: "Spawned on mechanical tool failure or degraded fact extraction"
   blind_reviewer: "Dispatched on complex/large repos before ReBattle to catch missed entrypoints"
   termination_criteria: "Main Agent stops search when coverage gaps are closed and confidence is high"
@@ -488,16 +495,39 @@ dynamic_search_loop:
 
 ## 8. Documentation Information Architecture (IA)
 
-The Main Agent owns the **Information Architecture (IA)**. Diátaxis serves strictly as a **cognitive rubric** (Tutorials, How-To, Reference, Explanation), rather than a rigid list of mandatory filenames.
+Documentation IA is a **cognitive, LLM-authored** structure. Authority is split so that
+no single agent both plans and renders the site. Diátaxis serves strictly as a **cognitive
+rubric** (Tutorials, How-To, Reference, Explanation), rather than a rigid list of mandatory
+filenames.
 
-- **Bespoke Document Set**: The Main Agent designs the document hierarchy, page names, and nesting based on repository shape and user intent (no mandatory FAQ/Troubleshooting templates).
-- **SitePresentationPlan (persisted)**: The Main Agent records the site's IA and visual direction as an LLM-authored `SitePresentationPlan` (written to `<wiki_dir>/site_presentation.json` or `.yaml`), covering project title/description, navigation (per-page `document_id`, `route`, localized `title`(s), `nav_group`, `ordering`, hierarchy), languages, and visual preferences. The static-site compiler consumes ONLY this plan — Python never derives navigation, page roles, ordering, or hierarchy from filenames or keywords. A Site Designer subagent may be dispatched by the Main Agent to author it.
+- **Documentation Architect (owns DocumentationModel / DocumentationPlan / PageSpecs)**:
+  The Architect owns the semantic documentation structure — personas, capabilities,
+  journeys, and the exact documented-intent page set, grouping, and nesting (see
+  `tasks/document-model.md`, `tasks/plan-pages.md`). It authors the `DocumentationPlan`
+  and each `PageSpec`. No mandatory FAQ/Troubleshooting templates; the document set is
+  bespoke to repository shape and user intent.
+- **Integrator (owns SitePresentationPlan assembly)**: The Integrator converts only the
+  **approved** `DocumentationPlan` / `PageSpec`s into the `SitePresentationPlan`
+  (see `tasks/integrate.md`), writing it to `<wiki_dir>/site_presentation.json` or
+  `.yaml` — covering project title/description, navigation (per-page `document_id`,
+  `route`, localized `title`(s), `nav_group`, `ordering`, hierarchy), languages, and
+  visual preferences. It does not re-invent the IA for display convenience.
+- **Main Agent (Orchestrator)**: initiates planning subtasks, resolves orchestration
+  dependencies, and enforces gates. It does **not** directly invent the global IA. The
+  Main Agent retains the **final delivery decision** (a gate, not an authorship role).
+- **Python (renders only)**: The static-site compiler renders `SitePresentationPlan`
+  verbatim — it never derives navigation, page roles, ordering, or hierarchy from
+  filenames or keywords.
 - **Quality Standards**: Help developers understand the system quickly while providing comprehensive operational, configuration, and deployment runbooks where appropriate.
 - **Stable Parity Keying**:
   - Technical fenced code blocks must carry `[[id:<slug>]]` (or `[[parity:ignore reason="..."]]`).
   - Multilingual reviewable H2 sections must carry `<!-- makewiki:section=<slug> -->`.
   - Parity is keyed on stable IDs; section order is flexible per language.
 - **Anti-AI Cliché Rules**: Ban binary antitheses (`不是……而是……`), buzzwords (`收敛`, `赋能`), formulaic openings, and trailing colons. See `references/anti_ai_cliche.md`.
+
+A Site Designer subagent may be dispatched (e.g. by the Integrator) specifically to
+author the `SitePresentationPlan`, but it remains an LLM-authored plan consumed by a
+rendering-only compiler — never IA inferred by Python.
 
 ---
 

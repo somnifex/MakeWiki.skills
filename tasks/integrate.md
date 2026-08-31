@@ -56,9 +56,13 @@ from the `DocumentationPlan` and PageSpecs:
 - **navigation**: one `SiteNavItem` per `document_id` — stable id (relative path,
 
   no language suffix), URL `route`, localized `title` / per-language `titles`,
-  `nav_group`, `ordering`, and `children` for hierarchy (≤ 2 levels for the page
-  tree). Groups and ordering come from the `DocumentationPlan` structure and page
-  intent — never inferred from the filename or its keywords.
+  `nav_group`, `ordering`, and `children` for hierarchy. Navigation depth should
+  follow the `DocumentationPlan` structure and usability needs — there is **no
+  fixed two-level limit** (the `SiteCompiler` recurses `children` without a depth
+  cap, so the plan may nest as deep as the documentation tree requires). The
+  Integrator must **not** flatten, re-target, or otherwise change the IA just for
+  display convenience. Groups and ordering come from the `DocumentationPlan`
+  structure and page intent — never inferred from the filename or its keywords.
 - **languages / default_language**: the set to render and the default; the language
 
   switcher is built from this.

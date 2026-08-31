@@ -1,9 +1,11 @@
-"""Site IA Authority Contract: the Main Agent owns site planning; Python renders.
+"""Site IA Authority Contract: LLM plans IA; Python renders only.
 
-This contract pins the phase-1 static-site refactor boundaries. The static site
-system is the ONLY place the site's Information Architecture may be decided.
-These guarantees are expressed as source/AST contracts so a future change that
-quietly re-introduces Python-side IA heuristics fails loudly without executing:
+This contract pins the phase-1 static-site refactor boundaries plus the V3
+authority split. The static site's Information Architecture is an LLM-authored,
+evidence-backed structure decided in the cognitive plane; Python only assembles
+and renders it. These guarantees are expressed as source/AST contracts so a
+future change that quietly re-introduces Python-side IA heuristics fails loudly
+without executing:
 
 1. **Python does not decide documentation IA** — the static-site renderer never
    derives page roles, navigation groups, ordering, or hierarchy from filenames
@@ -11,10 +13,19 @@ quietly re-introduces Python-side IA heuristics fails loudly without executing:
 2. **Site navigation comes from SitePresentationPlan** — SiteCompiler consumes
    an LLM-authored plan; the compiled site's nav (groups, order, routes,
    hierarchy, localized titles) is rendered verbatim from that plan.
-3. **Main Agent is the only Site planning authority** — only the LLM / Skill
-   layer authors the plan; the build command is gated on the plan's existence
+3. **Documentation Architect owns the documentation semantic structure** —
+   the Architect owns the `DocumentationModel` (personas, capabilities,
+   journeys, references) and the `DocumentationPlan` / `PageSpec` page set and
+   nesting. This is the semantic IA authority.
+4. **Integrator owns SitePresentationPlan assembly** — the Integrator converts
+   only the approved `DocumentationPlan` / `PageSpec`s into the
+   `SitePresentationPlan`. The build command is gated on that plan's existence
    and never fabricates one.
-4. **The renderer has no semantic page classification** — the static-site
+5. **The Main Agent orchestrates but does not directly invent global IA** —
+   it initiates planning subtasks, resolves orchestration dependencies, and
+   enforces gates; it retains the final delivery decision but is not the IA
+   author.
+6. **The renderer has no semantic page classification** — the static-site
    renderer contains no filename/keyword → category/priority/title mapping and
    no fixed Diátaxis-style page-template categories.
 """
@@ -163,7 +174,8 @@ def test_site_model_plan_is_exported():
 
 
 # ---------------------------------------------------------------------------
-# 3. Main Agent is the only Site planning authority
+# 3. LLM authority split: Architect owns semantics, Integrator assembles plan,
+#    Main Agent orchestrates, Python renders
 # ---------------------------------------------------------------------------
 
 
@@ -189,16 +201,25 @@ def test_build_site_error_name_for_missing_plan_present():
 
 
 def test_authoritative_skill_documents_site_planning_authority():
-    """The Skill layer (Main Agent) is recorded as the Site planning authority.
+    """The Skill layer records the LLM Site-planning authority split.
 
-    SKILL.md and the site subskill must describe the Main Agent as the author of
-    the SitePresentationPlan and the build step as consuming it — mirroring how
-    the SemanticAuditBundle is LLM-authored and machine-consumed.
+    SKILL.md (and the site subskill) must record the V3 authority split — the
+    Documentation Architect owns the documentation semantic structure, the
+    Integrator owns SitePresentationPlan assembly, and the Main Agent
+    orchestrates without directly inventing global IA — mirroring how the
+    build step consumes an LLM-authored plan.
     """
     skill = _read(SKILL_MD)
     site_subskill = _read(SITE_SUBSKILL)
-    assert "SitePresentationPlan" in skill
+    assert "Documentation Architect" in skill
+    assert "Integrator" in skill
     assert "SitePresentationPlan" in site_subskill
+    # The Integrator assembles the plan from the approved DocumentationPlan /
+    # PageSpecs; the renderer consumes it, never infers it.
+    assert "SitePresentationPlan" in skill
+    assert "render" in skill
+    # The Main Agent orchestrates; it does not directly invent global IA.
+    assert "Orchestrator" in skill
     # Diátaxis remains a cognitive rubric, never a Python template.
     assert "rubric" in skill or "cognitive" in skill
 

@@ -74,7 +74,7 @@ claude --plugin-dir /path/to/MakeWiki.skills
 /makewiki --lang en --lang zh-CN
 ```
 
-主代理会按 Census → Scout → ReBattle → Judge → Semantic Model → 并行写作 → 审计 → 语义修订 的**权威流程**调度 LLM 子代理，由 Python 工具链提供证据提取、L0–L5 验证与质量门禁；最终在 `<项目>/makewiki/` 输出结构化文档、静态站点、HTML/EPUB 导出包与同步数据。
+主代理按 **Repository Orientation → Investigation Subtasks → ClaimBundles → Semantic Synthesis → DocumentationModel → DocumentationPlan / PageSpecs → 并行写作 → 独立 Review → Revision → Integration → Verification → Delivery** 的**权威流程**编排 LLM 子代理，由 Python 工具链提供可选的机械证据（`census` / `evidence`）、L0–L5 验证与质量门禁；最终在 `<项目>/makewiki/` 输出结构化文档、静态站点、HTML/EPUB 导出包与同步数据。
 
 ---
 
@@ -84,7 +84,7 @@ CLI 表面按权威名 + 向后兼容别名设计，Python 部分严格只做机
 
 | 类别                   | 权威命令                                     | 别名                  | 平面      | 角色                                                          |
 | -------------------- | ---------------------------------------- | ------------------- | ------- | ----------------------------------------------------------- |
-| 全流程 Skill            | `/makewiki`                              | —                   | 认知      | 完整流水线：Census → Scout → ReBattle → Writer → Review → Compile |
+| 全流程 Skill            | `/makewiki`                              | —                   | 认知      | 完整流水线：Orientation → Investigation → Semantic Model → DocumentationModel → PageSpecs → Parallel Writing → Review → Revision → Integration → Verify → Deliver |
 | 站点编译                 | `/makewiki-site`                         | —                   | 机械      | 将既有 Markdown 编译为离线静态 Wiki                                   |
 | 文档质量门禁               | `/makewiki-validate`                     | —                   | 机械      | Markdown 结构与死链校验                                            |
 | 文档质量复核               | `/makewiki-review`                       | `semantic-review`   | 机械      | 提取跨语言对齐段落 + 行为证据                                            |
@@ -107,23 +107,24 @@ CLI 表面按权威名 + 向后兼容别名设计，Python 部分严格只做机
 
 ## 📁 文档与站点输出
 
-默认生成在 `<项目>/makewiki/` 目录下：
+默认生成在 `<项目>/makewiki/` 目录下。页面层级由 **Documentation Architect 依据 Persona + Task + Reference 的语义结构设计**（Diátaxis 仅作认知标尺，不是固定文件名清单）——下面是结构示意，而非固定模板：
 
 ```text
 makewiki/
 ├── index.md                         # 目录索引与语言导航
 ├── README.md / README.zh-CN.md      # 项目总览
-├── getting-started.md / ...         # 5 分钟上手教程 (Tutorial)
-├── installation.md / ...            # 安装部署手册与兼容矩阵 (Runbook)
-├── configuration.md / ...           # 配置与环境变量全量表 (Matrix)
-├── usage/
-│   ├── overview.md                  # 功能全景与模块依赖 (Explanation)
-│   └── <module>.md                  # 场景化操作指南 (How-To)
-├── faq.md / ...                     # 常见问题与已知限制（LLM 注入，缺失则标 UNKNOWN）
-├── troubleshooting.md / ...         # 故障排查与应急指南 (Incident Runbook)
+├── <persona>/                       # LLM 设计的 persona-aware/operator 页面集
+│   ├── getting-started/             # 面向初学者的上手教程（示例，非固定目录）
+│   └── ...
+├── <reference>/                     # 配置、CLI、接口等稳定查找参考
+│   ├── ...                          # API/interface reference
+│   └── ...                          # 当证据支持时，可输出 Swagger-like 静态接口参考
 └── site/
+    ├── site_presentation.json       # LLM 撰写的站点 IA 计划（唯一导航权威）
     └── index.html                   # 离线单页静态 Wiki 网站（双击即可在浏览器中打开）
 ```
+
+文档集是 **bespoke（因项目而异）**：面向 persona 的导览、operator 运行手册、API / interface reference（证据支持时含 Swagger-like 静态参考）会按需生成，而不是固定塞进 Getting Started / Installation / Configuration / Usage / FAQ / Troubleshooting 模板文件。
 
 ---
 
@@ -134,15 +135,14 @@ MakeWiki v2 显式划分为两个平面，并定义**认知权威边界**：
 ```mermaid
 flowchart LR
     subgraph Cognitive["认知平面 (LLM 子代理)"]
-        Census["Census<br/>特征普查"]
-        Scout["Scout Archetypes<br/>结构/运行时/CLI/配置/Recovery"]
-        Claims["Claim 构造"]
-        ReB["Dynamic ReBattle<br/>冲突驱动对抗"]
-        Judge["Judge 仲裁"]
-        Model["SemanticModel"]
-        Writers["并行母语写作"]
-        Audit["Auditor"]
-        Revise["语义修订"]
+        Orient["Repository Orientation<br/>RepositoryBrief + InvestigationPlan"]
+        Explorers["Investigation Subtasks (Explorer)<br/>ClaimBundles"]
+        Synth["Semantic Synthesis<br/>SemanticModel"]
+        DocModel["Documentation Modeling<br/>DocumentationModel"]
+        Pages["Page Planning<br/>DocumentationPlan + PageSpecs"]
+        Writers["并行写作 (Writer)<br/>one PageSpec × one language"]
+        Review["独立 Review / Revision"]
+        Integ["Integration<br/>SitePresentationPlan"]
     end
 
     subgraph Mechanical["机械平面 (Python 工具链)"]
@@ -163,7 +163,7 @@ flowchart LR
 
 - **认知平面（Cognitive Plane）**：由 LLM 子代理承担所有理解、推理、对抗、写作与审计；可借助 Host Capability 选择并行 / 串行 / 主代理降级策略。
 - **机械平面（Mechanical Plane）**：Python 工具链只做能机械证明的事情——事实普查、事实提取、AST/CLI/配置解析、L0/L1/L2、L4 块 ID 完全相同比较、`UNKNOWN` 兜底、Quality Gate 汇总。
-- **认知权威边界（Cognitive Authority Boundary）**：Python 是可审计证据通道，而非绝对权威。当 Python 证据与源码直接阅读冲突时，主代理必须深入调查；机械工具失败时进入降级状态（`pending_mechanical_verification`），绝不导致认知流程终止，主代理可启动 Recovery Scout 开展代码直读。
+- **认知权威边界（Cognitive Authority Boundary）**：Python 是可审计证据通道，而非绝对权威。当 Python 证据与源码直接阅读冲突时，主代理必须深入调查；机械工具失败时进入降级状态（`pending_mechanical_verification`），绝不导致认知流程终止，主代理可启动 Recovery Explorer 开展代码直读。
 - **Host Capability fallback**：当宿主不支持子代理时，主代理按顺序承担各角色；当不支持并行时降级为串行；不存在"没有子代理 API 就不能跑 MakeWiki"的情况。
 
 ---
