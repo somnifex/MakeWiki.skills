@@ -19,28 +19,45 @@ mechanical plane; the Reviewer focuses on the cognitive layers that Python canno
 
 ## 1. Reviewer responsibilities (read-only)
 
-The Reviewer reviews a drafted page and returns `ReviewFindings`:
+The **Page Reviewer** reviews a drafted page and returns `ReviewFindings`. Its focus
+is **page-local fitness and completeness**, in service of the downstream Final
+Semantic Auditor (not a substitute for it):
 
-1. **Grounding**: each command, config key, interface, path, and example is backed by
-
-   the provided evidence slice; no unproven runtime value or behavior is stated as fact.
-2. **Behavior**: workflows achieve their documented purpose; prerequisites, ordering,
-
-   side effects, and error handling are consistent.
-3. **Epistemic**: no overclaim, no fabricated guarantee, no stale or
-
-   environment-dependent fact presented as certain.
-4. **Documentation fitness**: persona / capability / journey coverage, page intent,
-
+1. **Documentation fitness**: persona / capability / journey coverage, page intent,
    page overload, reference discoverability.
-5. **Audience fit**: no implementation leakage into end-user pages, no operator
-
+2. **Audience fit**: no implementation leakage into end-user pages, no operator
    information missing, no root-only operations mixed into developer reference.
-6. **API contract** (per `API_REFERENCE.md`): method/path, audience/auth, required
-
-   params, request body, known responses/errors, side effects, idempotency /
+3. **Task completeness**: each how-to / task page's goal, prerequisites, steps, and
+   expected result are present and coherent.
+4. **Operator completeness**: operator / admin coverage is present where the page or
+   persona requires it.
+5. **API contract completeness** (per `API_REFERENCE.md`): method/path, audience/auth,
+   required params, request body, known responses/errors, side effects, idempotency /
    pagination / rate limits only where claimed; unproven fields stay `unknown` /
    `null` / omitted.
+6. **Obvious unsupported / grounding defects**: each command, config key, interface,
+   path, and example is backed by the provided evidence slice; no unproven runtime
+   value or behavior is stated as fact.
+7. **Page-local cross-language issues** when applicable: a page's descriptions,
+   warnings, and technical blocks stay consistent with the same page's other
+   languages (the mechanical `parity` / `semantic-review` support is only material).
+
+The Reviewer may still **surface** an obvious behavior or epistemic problem it
+notices, but it is **not required to produce the complete final semantic audit**.
+
+### The Reviewer does NOT own the final authoritative verdicts
+
+The following are the **Final Semantic Auditor's** job, not the Page Reviewer's:
+
+- the authoritative **L3 behavior verdict registry**;
+- the final **L4b cross-language semantic parity verdict**;
+- the final **L5 epistemic verdict** per review item;
+- the **`SemanticAuditBundle`** machine artifact.
+
+The Page Reviewer does not need to build the bundle or adjudicate every L3 / L4b /
+L5 review item. It flags obvious behavior / epistemic defects as findings; the Final
+Auditor (SKILL §7 / §10, `tasks/review.md` §6) consolidates the authoritative
+verdicts and emits the bundle last so its digest matches the final markdown set.
 
 The Reviewer never fabricates a fix. A missing-evidence problem is reported as a
 finding (or surfaced as a `documentation_gap`), not "resolved" by inventing content.
@@ -132,7 +149,7 @@ than letting the Writer / Revision Agent iterate indefinitely (QUALITY_POLICY §
 ## 6. Mechanical plane still owns mechanical checks
 
 The following remain in the mechanical plane and feed the Quality Gate (they are **not**
-the Reviewer's job to redo by hand):
+the Page Reviewer's job to redo by hand):
 
 ```text
 L0 syntax          L1 existence        L2 interfaces       L4a exact block parity
@@ -145,7 +162,11 @@ L5 epistemic*      SemanticAuditBundle Quality Gate (4-state honest verdict)
 - The honest four-state Quality Gate (`passed | pending_semantic_review |
 
   pending_mechanical_verification | failed`) remains the single decision point. The
-  Reviewer's `ReviewFindings` feed the semantic side of that gate.
+  Page Reviewer's `ReviewFindings` feed the semantic side of that gate.
+- The **authoritative** L3 behavior verdict registry, final L4b semantic parity
+  verdict, final L5 epistemic verdicts, and the `SemanticAuditBundle` are the **Final
+  Semantic Auditor's** output (SKILL §7 / §10) — the Page Reviewer surfaces page-local
+  findings, it does not consolidate the final audit.
 - The Reviewer **must not** edit Markdown in `<wiki_dir>`; any correction goes through
 
   the Revision Agent.

@@ -31,6 +31,64 @@ Reviewer
 
 Reviewer 默认只读。
 
+## 2A. Page Reviewer vs Final Semantic Auditor
+
+降低重复：Page Review（页面级）与 Final Semantic Audit（最终语义审定）职责收敛。
+
+### Page Reviewer 只负责页面级 fitness/completeness
+
+Page Review 负责：
+
+```text
+documentation fitness
+audience fit
+task completeness
+operator completeness
+API contract completeness
+obvious unsupported/grounding defects
+page-local cross-language issues (适用时)
+```
+
+Page Reviewer 不负责生成最终 authoritative：
+
+```text
+L3 behavior verdict registry
+L4b final semantic parity verdict
+L5 final epistemic verdict
+SemanticAuditBundle
+```
+
+这些属于 **Final Semantic Auditor**。
+
+仍然允许 Reviewer 发现明显 behavior/epistemic 问题（作为 finding 上报），
+但不要求它完成整套 final semantic audit。
+
+### Final Semantic Auditor 只负责最终 semantic assurance
+
+Final Semantic Auditor 负责：
+
+```text
+L3 behavior verdicts
+L4b cross-language semantic parity
+L5 epistemic standing
+cross-page semantic consistency
+SemanticAuditBundle
+stale/digest-sensitive final review
+```
+
+不要求再次全面检查：
+
+```text
+页面是否应该拆分
+persona IA 是否合理
+每个 how-to 是否有漂亮结构
+PageSpec 是否应该存在
+```
+
+这些属于前面的 Documentation/Page Review 阶段。
+
+Quality Gate 语义保留不变。
+
 ## 3. Review dimensions
 
 ### grounding
