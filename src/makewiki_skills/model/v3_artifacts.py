@@ -248,6 +248,15 @@ class InvestigationPlan(BaseModel):
     Lists the domains to investigate and the concrete investigation subtasks.
     Every field is LLM-authored; Python only validates the schema and serializes —
     it never schedules, orders, or decides which subtask is "ready".
+
+    An InvestigationPlan must not be an empty shell: it carries a non-blank
+    ``project_hypothesis``, and normally names at least one ``domain`` or one
+    ``subtask``. If no investigation is warranted (``domains`` and ``subtasks`` are
+    both empty), the plan must state an explicit ``no_investigation_reason`` —
+    otherwise the plan would masquerade as a complete survey without explaining why
+    nothing needs investigating. Python never judges whether an investigation is
+    "good enough"; it only requires that the plan is not content-free and
+    unexplained.
     """
 
     model_config = _ARTIFACT_CONFIG
@@ -257,6 +266,34 @@ class InvestigationPlan(BaseModel):
     subtasks: list[SubtaskSpec] = Field(default_factory=list)
     coverage_questions: list[str] = Field(default_factory=list)
     known_uncertainties: list[str] = Field(default_factory=list)
+    #: Required only when both ``domains`` and ``subtasks`` are empty: an explicit
+    #: statement of why no further investigation is needed.
+    no_investigation_reason: str | None = None
+
+    @model_validator(mode="after")
+    def _require_substantive_plan(self) -> InvestigationPlan:
+        """A plan must be content-bearing: a non-blank hypothesis, and either
+        investigation work (``domains`` / ``subtasks``) or an explicit reason why
+        no investigation is warranted.
+
+        Python only checks structural substance — it never judges whether the
+        investigation is thorough or whether a domain/subtask is worthwhile.
+        """
+        if not self.project_hypothesis.strip():
+            raise ValueError(
+                "InvestigationPlan.project_hypothesis must not be blank"
+            )
+        if not self.domains and not self.subtasks:
+            reason_blank = (
+                not self.no_investigation_reason
+                or not self.no_investigation_reason.strip()
+            )
+            if reason_blank:
+                raise ValueError(
+                    "InvestigationPlan with no domains and no subtasks must state "
+                    "an explicit non-blank no_investigation_reason"
+                )
+        return self
 
 
 class ClaimEvidence(BaseModel):
@@ -342,6 +379,14 @@ class ClaimBundle(BaseModel):
     One coherent semantic domain per bundle. Every claim carries evidence and an
     honest confidence; ``visibility`` / ``abstraction`` are LLM classifications,
     never Python inference. Python only validates the schema and serializes.
+
+    A ClaimBundle must not be an empty shell: ``id`` / ``domain`` /
+    ``producer_subtask`` / ``summary`` are non-blank, and it must carry at least one
+    of ``claims`` / ``unresolved`` / ``recommended_followups`` /
+    ``newly_discovered_areas``. An Explorer with no canonical claim must still say
+    what it did not resolve, what it recommends next, or what new areas it found —
+    an all-empty bundle would otherwise masquerade as completed investigation.
+    Python never judges claim content correctness.
     """
 
     model_config = _ARTIFACT_CONFIG
@@ -355,6 +400,36 @@ class ClaimBundle(BaseModel):
     newly_discovered_areas: list[str] = Field(default_factory=list)
     recommended_followups: list[str] = Field(default_factory=list)
     scope_expansions: list[ScopeExpansion] = Field(default_factory=list)
+
+    @model_validator(mode="after")
+    def _require_substantive_bundle(self) -> ClaimBundle:
+        """A ClaimBundle must name its producer and surface and carry substance.
+
+        ``id`` / ``domain`` / ``producer_subtask`` / ``summary`` must be non-blank,
+        and at least one of ``claims`` / ``unresolved`` / ``recommended_followups`` /
+        ``newly_discovered_areas`` must be present — an all-empty bundle would not
+        be a completed investigation. Python only checks this structural substance;
+        it never judges whether a claim is correct.
+        """
+        if not self.id.strip():
+            raise ValueError("ClaimBundle.id must not be blank")
+        if not self.domain.strip():
+            raise ValueError("ClaimBundle.domain must not be blank")
+        if not self.producer_subtask.strip():
+            raise ValueError("ClaimBundle.producer_subtask must not be blank")
+        if not self.summary.strip():
+            raise ValueError("ClaimBundle.summary must not be blank")
+        if not (
+            self.claims
+            or self.unresolved
+            or self.recommended_followups
+            or self.newly_discovered_areas
+        ):
+            raise ValueError(
+                "ClaimBundle must carry at least one of claims / unresolved / "
+                "recommended_followups / newly_discovered_areas"
+            )
+        return self
 
 
 class ReviewFinding(BaseModel):
@@ -384,6 +459,15 @@ class ReviewFindings(BaseModel):
     Agent implements them and a fresh re-review decides completion. All judgment
     fields (``mode``, ``status``, per-finding ``severity``/``category``) are
     LLM-authored; Python only validates the schema and serializes.
+
+    A ReviewFindings artifact must not be an empty shell: ``page_id`` /
+    ``language`` / ``mode`` are non-blank, and ``status`` is one of ``passed`` /
+    ``changes_required`` / ``blocked``. Each status must be backed by the matching
+    evidence — ``passed`` needs at least one ``passed_check``, ``changes_required``
+    needs at least one ``finding``, and ``blocked`` needs at least one
+    ``unresolved`` — so a Reviewer cannot emit a bare verdict with nothing
+    supporting it. Python never decides whether the Reviewer *should* pass or fail;
+    it only checks the artifact is self-consistent.
     """
 
     model_config = _ARTIFACT_CONFIG
@@ -391,7 +475,37 @@ class ReviewFindings(BaseModel):
     page_id: str = ""
     language: str = ""
     mode: str = ""
-    status: str = ""
+    status: Literal["passed", "changes_required", "blocked"] = "changes_required"
     findings: list[ReviewFinding] = Field(default_factory=list)
     passed_checks: list[str] = Field(default_factory=list)
     unresolved: list[str] = Field(default_factory=list)
+
+    @model_validator(mode="after")
+    def _require_self_consistent_status(self) -> ReviewFindings:
+        """Each status must be backed by the matching evidence list.
+
+        Python only checks that a Reviewer-authored verdict is self-consistent with
+        the artifact's contents — it never decides whether the page should pass.
+        """
+        if not self.page_id.strip():
+            raise ValueError("ReviewFindings.page_id must not be blank")
+        if not self.language.strip():
+            raise ValueError("ReviewFindings.language must not be blank")
+        if not self.mode.strip():
+            raise ValueError("ReviewFindings.mode must not be blank")
+        if self.status == "passed":
+            if not self.passed_checks:
+                raise ValueError(
+                    "status='passed' requires at least one passed_check"
+                )
+        elif self.status == "changes_required":
+            if not self.findings:
+                raise ValueError(
+                    "status='changes_required' requires at least one finding"
+                )
+        elif self.status == "blocked":
+            if not self.unresolved:
+                raise ValueError(
+                    "status='blocked' requires at least one unresolved item"
+                )
+        return self

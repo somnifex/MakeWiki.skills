@@ -18,6 +18,7 @@ from makewiki_skills.model.documentation_model import (
     DocumentationModel,
     HttpOperationReference,
     HttpResponseSpec,
+    InterfaceDisposition,
     InterfaceReference,
     Journey,
     OperationalEndpointReference,
@@ -524,3 +525,120 @@ def test_interface_reference_kind_is_opaque_llm_string():
     assert ref.kind == "CLI"
     ref2 = InterfaceReference(id="iface.o", kind="some_new_interface_kind")
     assert ref2.kind == "some_new_interface_kind"
+
+
+# --- InterfaceDisposition (interface 去向) ---
+
+
+def _sample_dispositions() -> list[InterfaceDisposition]:
+    return [
+        InterfaceDisposition(
+            operation_id="channel.create",
+            disposition="documented",
+            page_id="reference/management-api/channels/create",
+        ),
+        InterfaceDisposition(
+            operation_id="channel.list",
+            disposition="grouped",
+            page_id="reference/management-api/channels/index",
+        ),
+        InterfaceDisposition(
+            operation_id="channel.internal-probe",
+            disposition="omitted",
+            reason="internal-only, not for the target persona",
+        ),
+        InterfaceDisposition(
+            operation_id="channel.legacy-sync",
+            disposition="unresolved",
+            gap_id="gap.legacy-sync.disposition",
+        ),
+    ]
+
+
+def test_interface_disposition_serialization_round_trip():
+    """A documented model with dispositions survives a JSON round-trip."""
+    model = DocumentationModel(
+        interface_dispositions=_sample_dispositions()
+    )
+    payload = model.model_dump_json()
+    rebuilt = DocumentationModel.model_validate_json(payload)
+    assert rebuilt == model
+    assert len(rebuilt.interface_dispositions) == 4
+    assert rebuilt.interface_dispositions[0].operation_id == "channel.create"
+
+
+def test_interface_disposition_defaults_are_empty():
+    """``interface_dispositions`` is an optional, backward-compatible list."""
+    model = DocumentationModel()
+    assert model.interface_dispositions == []
+    payload = model.model_dump_json()
+    rebuilt = DocumentationModel.model_validate_json(payload)
+    assert rebuilt.interface_dispositions == []
+
+
+def test_interface_disposition_accepts_all_four_kinds():
+    """documented / grouped / omitted / unresolved each validate with their
+    required field supplied."""
+    for d in _sample_dispositions():
+        assert InterfaceDisposition.model_validate_json(d.model_dump_json()) == d
+
+
+def test_interface_disposition_requires_operation_id():
+    """Every disposition must name the operation it disposes of."""
+    with pytest.raises(ValidationError):
+        InterfaceDisposition(operation_id="", disposition="documented", page_id="p")
+
+
+def test_documented_and_grouped_require_page_id():
+    """documented / grouped must carry a page target (never a silent skip)."""
+    with pytest.raises(ValidationError):
+        InterfaceDisposition(
+            operation_id="channel.create", disposition="documented", page_id=""
+        )
+    with pytest.raises(ValidationError):
+        InterfaceDisposition(
+            operation_id="channel.list", disposition="grouped", page_id="   "
+        )
+
+
+def test_omitted_requires_reason():
+    """omitted must give a semantic reason (e.g. internal-only), not a silent drop."""
+    with pytest.raises(ValidationError):
+        InterfaceDisposition(
+            operation_id="channel.internal", disposition="omitted", reason=""
+        )
+
+
+def test_unresolved_requires_gap_id():
+    """unresolved must point at a documentation_gap — never claim to be covered."""
+    with pytest.raises(ValidationError):
+        InterfaceDisposition(
+            operation_id="channel.x", disposition="unresolved", gap_id=""
+        )
+
+
+def test_interface_disposition_rejects_unknown_disposition():
+    """Only the four contract values are allowed; Python never invents a kind."""
+    with pytest.raises(ValidationError):
+        InterfaceDisposition.model_validate(
+            {"operation_id": "x", "disposition": "auto_documented"}
+        )
+
+
+def test_interface_disposition_rejects_unknown_keys():
+    with pytest.raises(ValidationError):
+        InterfaceDisposition.model_validate(
+            {"operation_id": "x", "disposition": "documented", "page_priority": 1}
+        )
+
+
+def test_interface_disposition_does_not_judge_importance():
+    """Python validates self-consistency only — it never rejects a disposition on
+    semantic grounds (e.g. whether an operation *should* be documented)."""
+    d = InterfaceDisposition(
+        operation_id="channel.obscure",
+        disposition="omitted",
+        reason="low value for the documented persona",
+    )
+    assert d.disposition == "omitted"
+

@@ -219,8 +219,10 @@ class AgentConfig(BaseModel):
     """Controls multi-agent execution budget and safety resource limits.
 
     All fields are UPPER BOUNDS / SAFETY CEILINGS, not prescriptive execution
-    plans. The LLM Orchestrator dynamically synthesizes roles and determines
-    loop termination (stopping as soon as facts converge), bounded by these caps.
+    plans. The LLM Orchestrator dynamically synthesizes SubtaskSpecs against the
+    stable role families and determines loop termination (stopping as soon as
+    facts converge), bounded by these caps. These fields are LLM-consumed budget
+    hints only - Python never schedules subtasks or selects roles.
     """
 
     model_config = _STRICT_CONFIG

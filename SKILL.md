@@ -393,22 +393,28 @@ is **STALE** and the bundle is rejected.
 
 ---
 
-## 4. Dynamic Self-Configuration & Subagent Synthesis
+## 4. Stable Role Families + Dynamic SubtaskSpec Synthesis
 
-The Main Agent **dynamically synthesizes subagent roles** from an open
-**Archetype Library**; the planning reads `agent.max_subagents`,
-`agent.max_parallelism`, and `agent.safety_max_rounds` from `makewiki.config.yaml`
-(LLM-consumed upper bounds and safety ceilings).
+The workflow uses a small set of **stable role families** — Explorer, Semantic
+Analyst, Documentation Architect, Writer, Reviewer, Integrator (Main Agent =
+Orchestrator). The Main Agent **dynamically synthesizes SubtaskSpecs, not new
+role families**: it reads `agent.max_subagents`, `agent.max_parallelism`, and
+`agent.safety_max_rounds` from `makewiki.config.yaml` (LLM-consumed upper
+bounds and safety ceilings) and decomposes the authored `InvestigationPlan` /
+`DocumentationPlan` into concrete subtasks that the stable role families carry
+out.
 
-The role variants below are **focus flavors of the Investigation / Explorer
+The focus variants below are **focus flavors of the Investigation / Explorer
 family** — the legacy ``Scout`` naming is retained only as shorthand, and is
 **not** the V3 authoritative reconnaissance abstraction (that is Explorer /
 Investigation Subtask / ClaimBundle, driven by the authored InvestigationPlan).
 Triggers below are *evidence hints* that shape *how* an Explorer investigation
-is focused — they never let Census / evidence dictate investigation topology.
+is focused — they never let Census / evidence dictate investigation topology,
+and they never become new architecture-level roles (e.g. a focused "Explorer
+investigating authentication" subtask, never "Scout-Auth" / "Scout-Billing").
 
 ```yaml
-dynamic_synthesis_rules:
+dynamic_subtaskspec_rules:
   monorepo_or_microservices:
     trigger: "Multiple services, workspaces, or sub-packages detected"
     action: "Dispatch a dedicated Explorer (investigation subtask) and Writer subagents per major service module"
@@ -446,7 +452,7 @@ not enforced by Python.
 self_reflection_checklist:
   1_grounding_critique:
     question: "Is every command, argument flag, config key, and file path directly cited with actual code lines?"
-    remedy: "Strip or explicitly hedge any speculative assertion as INFERRED / UNCONFIRMED."
+    remedy: "Strip or explicitly hedge any speculative assertion: lower its confidence (`high` / `medium` / `low`) and record the residual doubt as `uncertainty` — never overclaim."
   2_parity_critique:
     question: "Does my code sample, config snippet, or CLI invocation match 100% with the canonical SemanticModel?"
     remedy: "Synchronize parameter names and command syntax character-for-character."
@@ -455,18 +461,19 @@ self_reflection_checklist:
     remedy: "Rewrite in direct, natural, active engineer prose."
   4_adversarial_defense_critique:
     question: "If an opposing agent challenges this assertion with AST evidence, will this claim withstand inspection?"
-    remedy: "Refine claim confidence: CONFIRMED_AST, DERIVED_CONFIG, HYPOTHESIS_HEDGED."
+    remedy: "Refine claim confidence to the V3 canonical vocabulary (`high` / `medium` / `low`) and record any residual doubt as `uncertainty`. The evidence channel (AST / config / tests) *backs* the claim — it is not itself a confidence level."
 ```
 
 ---
 
 ## 6. Subagent Dispatch (progressive disclosure)
 
-The Main Agent dispatches subagent roles by **progressive disclosure**: SKILL.md
-keeps a short pointer for each role; the full prompt contract lives in the
-canonical `tasks/*.md` and `references/v3/` docs. SKILL.md does **not** re-embed a
-fixed prompt by hand. Roles synthesize dynamically; on a solo host the Main Agent
-assumes each role in sequence (no semantics are lost, only wall-clock).
+The Main Agent dispatches subagents by **progressive disclosure**: SKILL.md
+keeps a short pointer for each stable role family; the full prompt contract
+lives in the canonical `tasks/*.md` and `references/v3/` docs. SKILL.md does
+**not** re-embed a fixed prompt by hand. SubtaskSpecs synthesize dynamically
+against the stable role families; on a solo host the Main Agent assumes each
+role in sequence (no semantics are lost, only wall-clock).
 
 | Role / trigger                                | Canonical spec                               | Output / verdict |
 | :---                                          | :---                                         | :---             |
@@ -499,7 +506,7 @@ dynamic_search_loop:
     4: "Which tool failures need recovery?"
     5: "Which claims conflict?"
   investigation_decomposition: "Decompose the InvestigationPlan into Explorer investigation subtasks within agent.max_subagents and max_parallelism. Investigation topology is decided by the authored InvestigationPlan — never synthesized 'from census needs'; Census / evidence is optional mechanical assistance, not a decision authority"
-  recovery_scout: "Spawned on mechanical tool failure or degraded fact extraction"
+  recovery_explorer: "Spawned on mechanical tool failure or degraded fact extraction (an Explorer-family focus variant)"
   blind_reviewer: "Dispatched on complex/large repos before ReBattle to catch missed entrypoints"
   termination_criteria: "Main Agent stops search when coverage gaps are closed and confidence is high"
 ```

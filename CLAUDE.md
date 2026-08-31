@@ -1,4 +1,4 @@
-# MakeWiki.skills v2
+# MakeWiki.skills v3
 
 This repository contains the multi-agent skills and Python toolkit behind `/makewiki`.
 
@@ -32,7 +32,7 @@ evidence channel, not an infallible authority. If Python evidence conflicts with
 direct source inspection, the Main Agent must investigate. When deterministic
 tooling cannot mechanically establish a fact, it MUST return UNKNOWN rather than
 guess. Mechanical tool failures produce degraded mechanical verification,
-never cognitive failure; the Main Agent may spawn Recovery Scouts for direct
+never cognitive failure; the Main Agent may spawn Recovery Explorers for direct
 inspection.
 
 When a host has **no subagent API**, MakeWiki runs sequentially on one agent —
@@ -54,9 +54,12 @@ wall-clock changes.
 
 ## Available skills
 
-- `/makewiki` — full LLM-orchestrated flow (`census -> scout -> rebattle ->
+- `/makewiki` — full LLM-orchestrated flow (Repository Orientation ->
 
-  parallel writers -> auditor / quality gate -> site compile`). Authoritative.
+  InvestigationPlan -> Investigation Subtasks -> ClaimBundles -> Semantic
+  Synthesis -> DocumentationModel -> DocumentationPlan/PageSpecs -> Page
+  Writing -> Independent Review -> Revision -> Integration -> Verification ->
+  Quality Gate -> Site). Authoritative.
 - `/makewiki-site` — build offline static website from generated markdown
 
   (mechanical).
@@ -102,12 +105,17 @@ Python toolkit commands (mechanical only):
 - **Autonomous execution**: complete all phases end-to-end without pausing
 
   for intermediate confirmation.
-- **Dynamic subagent planning**: Main Agent dynamically synthesizes scouts from
+- **Subtask-first planning**: The workflow uses stable role families (Explorer,
 
-  an Archetype Library within `agent.max_subagents` and host `max_parallelism`.
-- **ReBattle cross-examination** on real conflicts; mechanical dispute organizer
-
-  (`rebattle-diff`) is optional.
+  Semantic Analyst, Documentation Architect, Writer, Reviewer, Integrator; Main
+  Agent = Orchestrator). The Main Agent **dynamically synthesizes SubtaskSpecs**
+  from the authored InvestigationPlan / DocumentationPlan within
+  `agent.max_subagents` and host `max_parallelism` — it never synthesizes new
+  architecture-level role families from an Archetype Library.
+- **ReBattle = hard-conflict escalation**: ordinary ambiguity is resolved by
+  re-checking evidence or a targeted `conflict_resolution` subtask; only a
+  genuinely hard dispute escalates to adversarial ReBattle. The mechanical
+  dispute organizer (`rebattle-diff`) is optional and never decides truth.
 - **Natural human engineer tone**: ban AI clichés (`不是……而是……`, `收敛`,
 
   `这是`, trailing colons). See `references/anti_ai_cliche.md`.
