@@ -44,60 +44,30 @@ class FactSet(BaseModel):
 
 
 _URI_SCHEME_RE = re.compile(r"^[a-zA-Z][a-zA-Z0-9+.-]*:")
-
-# Path-structure shape: at least one interior segment with a plausible
-# repo-path tail (an extension or a multi-segment chain). A bare leading
-# slash is NOT path semantics — HTTP routes (`/v1/chat/completions`) and
-# anchor-like fragments share that shape with real absolute paths, so they
-# must satisfy stricter evidence of file-ness to enter authoritative
-# file_paths (L1 existence judges the rest mechanically on disk).
 _EXT_RE = re.compile(r"\.[A-Za-z0-9]{1,8}$")
 _SEGMENT_RE = re.compile(r"[\w._-]+")
 
 
 def _looks_like_repo_path(candidate: str) -> bool:
-    """Mechanical gate over backtick path candidates.
+    """Shape test for path candidates: repo-path semantics required.
 
-    A candidate enters ``file_paths`` only when it carries enough
-    repository-relative path semantics. Anything that is primarily a URI,
-    an anchor, or an HTTP-style route (root-relative chain without a file
-    extension or a leading ``./``/``../`` marker) is excluded. This is a
-    shape test, never a project-specific keyword test.
+    Rejects URIs, anchors, and HTTP-style routes (root-relative chains
+    without an extension, e.g. `/v1/chat/completions`). Relative forms
+    (`./`, `../`) qualify directly; root-relative forms need a file-tail
+    with an extension. Shape test only — L1 judges existence on disk.
     """
-    if not candidate:
+    if not candidate or candidate.endswith("/") or candidate.startswith("#"):
         return False
-    # Explicit URI scheme (https:, mailto:, file:, ...) -> never a repo path.
-    if _URI_SCHEME_RE.match(candidate):
-        return False
-    # Markdown anchor / fragment.
-    if candidate.startswith("#"):
-        return False
-    # Trailing or leading separator-only junk; must not end with a slash.
-    if candidate.endswith("/"):
-        return False
-    # Query or fragment parts cannot appear inside a plain repo path.
-    if "?" in candidate or "#" in candidate:
+    if _URI_SCHEME_RE.match(candidate) or "?" in candidate or "#" in candidate:
         return False
 
-    is_doc_relative = candidate.startswith("./") or candidate.startswith("../")
     segments = [s for s in candidate.split("/") if s]
-
-    # Relative forms (./x, ../x) are explicit repo-relative path semantics.
-    if is_doc_relative:
-        # Must have at least one non-dot segment.
+    if candidate.startswith(("./", "../")):
         return any(s not in (".", "..") for s in segments)
 
-    # Root-relative form (/x or plain): only accepted when the tail is a
-    # plausibly-named FILE (carries an extension) with at least one interior
-    # directory segment, or when it is a multi-segment chain ending in a file.
-    # Bare `/name` (single segment, no extension) and extension-less chains
-    # (`/v1/chat/completions`) are route-shaped, not path-shaped.
-    if len(segments) < 2:
+    # Root-relative: needs an interior segment plus a file tail with extension.
+    if len(segments) < 2 or not _EXT_RE.search(segments[-1]):
         return False
-    if not _EXT_RE.search(segments[-1]):
-        return False
-    # Every segment must be a plausible path token (no spaces; regex above
-    # already constrains the alphabet, this re-checks emptiness).
     return all(_SEGMENT_RE.fullmatch(s) for s in segments)
 
 
