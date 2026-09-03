@@ -19,13 +19,20 @@ implements them; a fresh re-review decides whether the loop is done.
 ```text
 ReviewFindings  (from a read-only Reviewer)
 + the specific PageSpec(s) / slice(s) the findings reference
++ sibling-language draft(s) when the findings touch cross-language parity
+  (the Reviewer's finding names the sibling; the Orchestrator supplies it)
 + relevant SemanticModel / DocumentationModel slices
 + source claims / evidence
 → revised draft (targeted pages only)
+→ revision completion record (see §4a)
 ```
 
 The Revision Agent works from the findings and their targeted slice, never from "the
 whole repo". Scope is bounded to the flagged pages and the findings addressed.
+
+When a finding involves cross-language consistency (section markers, `[[id:...]]`
+block IDs, or parity), the Revision Agent edits BOTH language drafts of the page in
+the same revision pass so they cannot re-diverge.
 
 ---
 
@@ -78,6 +85,75 @@ Keep the cross-language stable identity intact while revising:
 
 A revision may reword or reorder within a page, but must not break, renumber, or
 de-duplicate the block/section IDs, and must not rename `page_id`.
+
+### 4a. Cross-language convergence completion record (mandatory)
+
+The NewAPI benchmark proved that leaving stable-identity convergence to a later
+pass costs an entire extra round of agents. When ANY finding involves
+cross-language parity, section markers, or block/marker consistency, the Revision
+Agent must, BEFORE reporting completion, explicitly converge and verify BOTH:
+
+1. **SECTION MARKER SET** — every reviewable H2 in each language draft carries a
+
+   `<!-- makewiki:section=<slug> -->` marker, no orphans, no duplicate slugs, and
+   the slug set matches the canonical required set (PageSpec
+   `required_sections` / the sibling language's set). A marker must sit
+   immediately before its heading — an intervening blank line breaks the
+   mechanical parser.
+2. **STABLE BLOCK ID SET** — every `[[id:...]]`-tagged technical block exists in
+
+   ALL languages of the page under the SAME section slug, with byte-identical
+   fence bodies. Localized natural language does NOT belong inside a fence body —
+   move it to surrounding prose. HTTP request stubs use ` ```http ` fences and
+   ASCII diagrams use ` ```text ` fences (language-less fences are treated as
+   shell by the verifier). Shell commands are written as ONE physical line (no
+   `\` continuations) and a command line never repeats verbatim within a
+   document.
+
+These are identity requirements, NOT prose-layout requirements: do NOT force
+identical paragraph order or identical H3 structure across languages — the
+benchmark proved localized H3 subsections vs prose can be semantically equivalent.
+Stabilize the reviewable section identity and the technical block identity;
+let prose structure localize.
+
+Do NOT run the convergence as a separate later stage: fold it into this revision.
+
+The revision output MUST include a short completion record:
+
+```yaml
+revision_completion:
+  resolved_findings: [<finding-id>: <disposition>, ...]
+  section_marker_check: <pass|fail + divergences>
+  stable_block_check: <pass|fail + divergences>
+  remaining_uncertainty: <items left UNKNOWN or escalated, if any>
+```
+
+If either check fails, the revision is NOT complete: fix within the current
+subtask (bounded by `agent.max_audit_rounds`) or report `blocked` with the
+divergence list. Never hand back a revision that knowingly fails the identity
+checks.
+
+### 4b. Mechanical pre-submit check (run it, don't eyeball it)
+
+Never judge "the markers look aligned" by inspection. After editing, the
+Revision Agent runs the EXISTING deterministic checks over the revised pages
+and includes the result in the completion record:
+
+```bash
+# block-ID set + body parity for the revised pages (L4a utility):
+makewiki parity <target> --lang en --lang <sibling>
+
+# full structural lint (markers, required sections, block-ID sets,
+# frontmatter/artifact leaks) when the assembled tree is available:
+makewiki lint-drafts <assembled_wiki_dir>
+```
+
+If the check fails, the Revision Agent continues fixing WITHIN the current
+subtask until the check passes, the round budget is exhausted, or the agent is
+genuinely blocked — it never returns "revision complete" with a failing check,
+and it never loops unboundedly. The pre-submit check is mechanical input to the
+Agent's own completion record; Python still never authors or judges the
+revision content itself.
 
 ---
 
@@ -135,7 +211,10 @@ The Revision Agent **MUST STOP** when:
    with evidence, `not_addressed_reason`), and all `major`/`critical` items that could
    be corrected are.
 2. Only the flagged pages were touched; unflagged pages and global IA are unchanged.
-3. Block IDs and section IDs remain stable and matching.
+3. Block IDs and section IDs remain stable and matching — and when the findings
+   touched cross-language consistency, the §4a completion record shows
+   `section_marker_check: pass` AND `stable_block_check: pass` (or an explicit
+   `blocked` escalation with the divergence list).
 4. Corrections stay grounded in the slice; missing evidence is recorded as a gap, not
    fabricated.
 5. The revised draft is handed back for a **fresh re-review** — no self-declared `passed`.

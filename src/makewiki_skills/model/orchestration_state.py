@@ -74,8 +74,10 @@ class ToolFailureRecord(BaseModel):
 class OrchestrationState(BaseModel):
     """LLM-owned comprehensive runtime orchestration state.
 
-    Main Agent maintains this state across the documentation lifecycle:
-    Reconnaissance -> ReBattle -> Writing -> Audit -> Delivery.
+    Main Agent maintains this state across the V3 documentation lifecycle:
+    Orientation -> Investigation -> Semantic Model -> DocumentationModel ->
+    DocumentationPlan / PageSpec -> Writing -> Review -> Revision ->
+    Integration -> Verification -> Delivery.
     """
 
     schema_version: str = "1"

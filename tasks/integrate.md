@@ -138,6 +138,48 @@ The Integrator **MUST STOP** when:
 6. The plan is schema-valid (loads via the mechanical plane) and ready for the
    `SiteCompiler` to render.
 
+---
+
+## 8. Draft hygiene lint (mechanical, pre-verification)
+
+After assembling the deliverable markdown tree and BEFORE Final Verification
+(L0–L5), run the mechanical draft lint:
+
+```bash
+makewiki lint-drafts <wiki_dir>
+```
+
+This is a deterministic check owned by Integration (not a new pipeline stage
+and not a Quality Gate state). It proves only mechanical structure:
+
+- **writer frontmatter leak** — deliverable drafts must not carry writer
+
+  YAML frontmatter (`page_id:` / `audience:` / `page_type:` /
+  `source_claims:` keys). Frontmatter with other keys is legitimate site
+  metadata the renderer strips mechanically.
+- **internal artifact path leak** — deliverable prose must not reference
+
+  `.makewiki-artifacts/…` or other internal orchestration paths.
+- **section-marker grammar** — markers immediately precede their heading; no
+
+  orphan markers; no duplicate section ids; every `PageSpec.required_sections`
+  id has a marker in the draft.
+- **stable block-ID structure** — no duplicate `[[id:...]]` within one
+
+  document; the en/zh block-ID sets of a page pair are equal (byte-parity of
+  bodies stays in L4a).
+- **disposition / plan / page cross-references** — every
+
+  `documented|grouped` disposition `page_id` exists in the planned page set;
+  no duplicate `operation_id`; `unresolved.gap_id` exists in
+  `documentation_gaps`; every planned page has an assembled draft per
+  declared language; the existing plan↔PageSpec consistency report.
+
+Blocking (`error`) issues mean **Integration is incomplete**: fix the drafts /
+artifacts and re-run until the lint passes, or surface the failure explicitly.
+Page quality, persona fit, and API semantics are NEVER linted here — they
+belong to the Reviewer and the L0–L5 layers.
+
 Terminate with a single status (`completed`, `blocked`, or `needs_followup`) and report
 the `artifact produced` (the plan / integrated site), `uncertainties`, and any `scope
 expansions`.

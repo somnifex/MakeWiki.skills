@@ -211,3 +211,46 @@ def test_verify_docs_stale_semantic_audit_leaves_layers_pending(tmp_path: Path):
     # Untouched semantic layers stay pending; gate is NOT passed.
     assert gate["passed"] is False
     assert "L3" in gate["pending_llm_layers"]
+
+
+def test_verify_docs_human_output_aggregates_repeated_findings(tmp_path: Path):
+    """Repeated same-kind mechanical findings collapse into one summary row.
+
+    Display aggregation only: the JSON output still carries every individual
+    finding, and the human report names the count instead of repeating the
+    row hundreds of times.
+    """
+    content = (
+        "# My Project\n\n## Build\n\n"
+        + "\n".join(
+            f"See `./missing_dir_{i}/file.py` for step {i}." for i in range(12)
+        )
+    )
+    project = _make_wiki(tmp_path, content)
+    runner = CliRunner()
+    result = runner.invoke(
+        app,
+        ["verify-docs", str(project), "--wiki-dir", str(project / "makewiki"), "--lang", "en"],
+    )
+    human = _plain(result.output)
+    assert "aggregated" in human
+    # The count of identical-shape findings is shown, not 12 separate rows:
+    # the aggregated table renders a "12" count cell, the reason once, and at
+    # most 3 example lines.
+    assert "12" in human
+    assert human.count("./missing_dir_") <= 5  # reason representative + 3 examples
+    # None of the other findings' lines appear individually.
+    assert "./missing_dir_7" not in human
+    assert "./missing_dir_11" not in human
+    # JSON keeps every finding.
+    result_json = runner.invoke(
+        app,
+        ["verify-docs", str(project), "--wiki-dir", str(project / "makewiki"), "--lang", "en", "--format", "json"],
+    )
+    payload = json.loads(result_json.output)
+    l1_path_failures = [
+        c
+        for c in payload["report"]["layers"]["L1"]["checks"]
+        if c["status"] == "failed" and c["claim_type"] == "path"
+    ]
+    assert len(l1_path_failures) == 12

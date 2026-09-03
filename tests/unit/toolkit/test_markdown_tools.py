@@ -47,6 +47,33 @@ def test_extract_facts_config_keys():
     assert "DB_PORT" in facts.config_keys
 
 
+def test_extract_facts_rejects_http_routes_as_file_paths():
+    tool = MarkdownTool()
+    content = (
+        "Call `POST /v1/chat/completions` or `GET /api/admin/channels`.\n"
+        "See the upstream at https://example.com/x.\n"
+        "Jump to the `#configuration` anchor.\n"
+    )
+    facts = tool.extract_facts(content, "en", "doc.md")
+    assert "/v1/chat/completions" not in facts.file_paths
+    assert "/api/admin/channels" not in facts.file_paths
+    assert "https://example.com/x" not in facts.file_paths
+    assert "#configuration" not in facts.file_paths
+
+
+def test_extract_facts_accepts_repo_relative_file_paths():
+    tool = MarkdownTool()
+    content = (
+        "Logs land in `./logs/oneapi-20260101.log` and data in `./data`.\n"
+        "Read `../config/example.yaml` and `/src/module/file.py`.\n"
+    )
+    facts = tool.extract_facts(content, "en", "doc.md")
+    assert "./logs/oneapi-20260101.log" in facts.file_paths
+    assert "./data" in facts.file_paths
+    assert "../config/example.yaml" in facts.file_paths
+    assert "/src/module/file.py" in facts.file_paths
+
+
 def test_extract_facts_section_names():
     tool = MarkdownTool()
     content = "# My Project\n\n## Installation\n\n## Usage\n"

@@ -43,6 +43,64 @@ class FactSet(BaseModel):
     section_names: list[str] = Field(default_factory=list)
 
 
+_URI_SCHEME_RE = re.compile(r"^[a-zA-Z][a-zA-Z0-9+.-]*:")
+
+# Path-structure shape: at least one interior segment with a plausible
+# repo-path tail (an extension or a multi-segment chain). A bare leading
+# slash is NOT path semantics — HTTP routes (`/v1/chat/completions`) and
+# anchor-like fragments share that shape with real absolute paths, so they
+# must satisfy stricter evidence of file-ness to enter authoritative
+# file_paths (L1 existence judges the rest mechanically on disk).
+_EXT_RE = re.compile(r"\.[A-Za-z0-9]{1,8}$")
+_SEGMENT_RE = re.compile(r"[\w._-]+")
+
+
+def _looks_like_repo_path(candidate: str) -> bool:
+    """Mechanical gate over backtick path candidates.
+
+    A candidate enters ``file_paths`` only when it carries enough
+    repository-relative path semantics. Anything that is primarily a URI,
+    an anchor, or an HTTP-style route (root-relative chain without a file
+    extension or a leading ``./``/``../`` marker) is excluded. This is a
+    shape test, never a project-specific keyword test.
+    """
+    if not candidate:
+        return False
+    # Explicit URI scheme (https:, mailto:, file:, ...) -> never a repo path.
+    if _URI_SCHEME_RE.match(candidate):
+        return False
+    # Markdown anchor / fragment.
+    if candidate.startswith("#"):
+        return False
+    # Trailing or leading separator-only junk; must not end with a slash.
+    if candidate.endswith("/"):
+        return False
+    # Query or fragment parts cannot appear inside a plain repo path.
+    if "?" in candidate or "#" in candidate:
+        return False
+
+    is_doc_relative = candidate.startswith("./") or candidate.startswith("../")
+    segments = [s for s in candidate.split("/") if s]
+
+    # Relative forms (./x, ../x) are explicit repo-relative path semantics.
+    if is_doc_relative:
+        # Must have at least one non-dot segment.
+        return any(s not in (".", "..") for s in segments)
+
+    # Root-relative form (/x or plain): only accepted when the tail is a
+    # plausibly-named FILE (carries an extension) with at least one interior
+    # directory segment, or when it is a multi-segment chain ending in a file.
+    # Bare `/name` (single segment, no extension) and extension-less chains
+    # (`/v1/chat/completions`) are route-shaped, not path-shaped.
+    if len(segments) < 2:
+        return False
+    if not _EXT_RE.search(segments[-1]):
+        return False
+    # Every segment must be a plausible path token (no spaces; regex above
+    # already constrains the alphabet, this re-checks emptiness).
+    return all(_SEGMENT_RE.fullmatch(s) for s in segments)
+
+
 class MarkdownTool:
     """Validate and extract structured data from Markdown content."""
 
@@ -164,8 +222,10 @@ class MarkdownTool:
         facts.config_keys.extend(set(dotted_pattern.findall(content)))
         facts.config_keys = sorted(set(facts.config_keys))
 
-        path_pattern = re.compile(r"`((?:\./|/)[\w./_-]+)`")
-        facts.file_paths = sorted(set(path_pattern.findall(content)))
+        path_pattern = re.compile(r"`((?:\./|\.\./|/)[\w./_-]+)`")
+        facts.file_paths = sorted(
+            {p for p in path_pattern.findall(content) if _looks_like_repo_path(p)}
+        )
 
         version_pattern = re.compile(r"\b(\d+\.\d+(?:\.\d+)?(?:[a-zA-Z0-9.+-]*))\b")
         facts.version_strings = sorted(set(version_pattern.findall(content)))

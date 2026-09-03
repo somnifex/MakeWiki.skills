@@ -294,6 +294,31 @@ class L1ExistenceVerifier:
                 )
                 continue
 
+            # An UPPER_CASE name matches the env-var pattern but is not proof the
+            # variable is actually declared anywhere here - keep it pending.
+            if re.match(r"^[A-Z][A-Z0-9_]+$", key):
+                results.append(
+                    VerificationCheck(
+                        layer="L1",
+                        target=doc.filename,
+                        language_code=doc.language_code,
+                        claim_type="config_key",
+                        claim_text=key,
+                        verified=False,
+                        status="pending",
+                        verification_source="generic_shell_semantics",
+                        detail="Matches uppercase env-var naming pattern; declared existence not mechanically proven - pending LLM review",
+                    )
+                )
+                continue
+
+            # A dotted identifier in prose (`foo.bar`) is a CANDIDATE, not a
+            # proven config key: prose symbols, Go identifiers, event names,
+            # and semantic doc-ids share the shape. Without mechanical config
+            # evidence it cannot be adjudicated failed (that would punish
+            # ordinary code references) nor passed. Demote to pending so the
+            # UNKNOWN discipline holds and the gate is not flooded with
+            # extractor false positives.
             results.append(
                 VerificationCheck(
                     layer="L1",
@@ -302,10 +327,14 @@ class L1ExistenceVerifier:
                     claim_type="config_key",
                     claim_text=key,
                     verified=False,
-                    status="failed",
-                    verification_source="verified_from_repository",
-                    detail=f"Config key '{key}' not found in project configuration files",
-                    suggested_fix=f"Verify '{key}' exists in configuration files",
+                    status="pending",
+                    verification_source="heuristic",
+                    detail=(
+                        f"Dotted identifier '{key}' has no config-key evidence in "
+                        "project configuration files; treated as an unproven "
+                        "candidate (may be a code symbol or doc reference) - "
+                        "pending LLM review"
+                    ),
                 )
             )
 

@@ -327,9 +327,21 @@ class CrossLanguageReviewer:
             )
         )
 
+        # Config-key comparison covers only candidates with a config-key SHAPE
+        # that carries actual evidence weight: ALL_CAPS env-style names. Dotted
+        # prose identifiers (Go symbols, event names, semantic doc-ids) share
+        # the `x.y` shape but are not config keys; diffing them flooded the
+        # benchmark with critical false positives. L1 still records them as
+        # pending candidates under the UNKNOWN discipline.
         deltas.extend(
             self._diff_values(
-                [(lang, fs.config_keys) for lang, fs in sets],
+                [
+                    (
+                        lang,
+                        [k for k in fs.config_keys if re.match(r"^[A-Z][A-Z0-9_]+$", k)],
+                    )
+                    for lang, fs in sets
+                ],
                 "config_key",
                 "critical",
             )

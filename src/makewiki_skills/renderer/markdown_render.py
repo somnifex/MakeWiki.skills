@@ -155,10 +155,17 @@ def _apply_callouts(html: str) -> str:
     return "".join(out)
 
 
+_FRONTMATTER_RE = re.compile(r"\A---[ \t]*\r?\n.*?\r?\n---[ \t]*\r?\n?", re.DOTALL)
+
+
 def render_markdown_document(md: str, *, route_map: Mapping[str, str]) -> str:
     """Render one Markdown document to HTML, resolving wiki links against
     ``route_map`` (a mapping of document id -> route) and re-seeding heading ids
     per call."""
+    # Strip a leading YAML frontmatter block: it is metadata, not content, and
+    # markdown-it would otherwise render the `---` fences as thematic breaks and
+    # the `key: value` lines as paragraphs.
+    md = _FRONTMATTER_RE.sub("", md, count=1)
     env: EnvType = {"route_map": route_map, "heading_ids": set()}
     rendered = cast(str, _PARSER.render(md, env))
     return _apply_callouts(rendered)

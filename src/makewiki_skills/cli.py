@@ -1,4 +1,5 @@
 import json as json_lib
+import re
 import sys
 from pathlib import Path
 from typing import Any, cast
@@ -181,6 +182,96 @@ def validate(
         raise typer.Exit(1)
 
 
+@app.command(name="lint-drafts")
+def lint_drafts(
+    wiki_dir: Path = typer.Argument(..., help="Path to assembled makewiki/ output directory"),
+    config_path: Path | None = typer.Option(None, "--config", "-c"),
+) -> None:
+    """Integration-time mechanical draft hygiene lint.
+
+    Purely deterministic checks over the assembled markdown tree against the
+    DocumentationPlan / PageSpecs / DocumentationModel: writer frontmatter
+    leaks, internal artifact paths, section-marker grammar + required
+    sections, stable block-ID structure, disposition cross-references, and
+    plan/draft drift. Blocking issues mean Integration is incomplete; this
+    command never judges page quality or semantics and never changes the
+    Quality Gate.
+    """
+    from makewiki_skills.model.documentation_plan import DocumentationPlan
+    from makewiki_skills.model.page_spec import PageSpec
+    from makewiki_skills.verification.draft_lint import run_draft_lint
+
+    wiki_dir = Path(wiki_dir).resolve()
+    if not wiki_dir.is_dir():
+        console.print(f"[red]Error:[/red] Directory not found: {wiki_dir}")
+        raise typer.Exit(1)
+
+    target = wiki_dir.parent if (wiki_dir.parent / "makewiki.config.yaml").is_file() else wiki_dir
+    cfg = _load_config(config_path, target)
+
+    plan_path = target / ".makewiki-artifacts" / "10-documentation-plan" / "documentation_plan.yaml"
+    plan: DocumentationPlan | None = None
+    page_specs: list[PageSpec] = []
+    doc_model = None
+    if plan_path.is_file():
+        import yaml as yaml_lib
+
+        raw = yaml_lib.safe_load(plan_path.read_text(encoding="utf-8"))
+        if isinstance(raw, dict) and "documentation_plan" in raw:
+            try:
+                plan = DocumentationPlan.model_validate(raw["documentation_plan"])
+            except Exception as exc:  # noqa: BLE001 - plan schema drift is reported, not crashed on
+                console.print(
+                    f"[yellow]DocumentationPlan failed schema validation "
+                    f"({str(exc)[:160]}...) — plan/spec/disposition cross-checks "
+                    "skipped; fix the plan artifact to enable them.[/yellow]"
+                )
+    else:
+        console.print(
+            "[yellow]No DocumentationPlan found — plan/spec/disposition cross-checks skipped; "
+            "running structural checks only.[/yellow]"
+        )
+
+    spec_dir = target / ".makewiki-artifacts" / "11-page-specs"
+    if spec_dir.is_dir() and plan is not None:
+        import yaml as yaml_lib
+
+        for spec_file in sorted(spec_dir.glob("page_specs.*.yaml")):
+            raw = yaml_lib.safe_load(spec_file.read_text(encoding="utf-8"))
+            if isinstance(raw, dict) and "page_specs" in raw:
+                for spec in raw["page_specs"].get("specs", []):
+                    try:
+                        page_specs.append(PageSpec.model_validate(spec))
+                    except Exception as exc:  # noqa: BLE001 - report, don't crash the lint
+                        console.print(
+                            f"[yellow]Warning: unparseable PageSpec in {spec_file.name}: {exc}[/yellow]"
+                        )
+
+    issues = run_draft_lint(wiki_dir, plan, page_specs, doc_model)
+
+    errors = [i for i in issues if i.severity == "error"]
+    warnings = [i for i in issues if i.severity != "error"]
+    by_rule: dict[str, list] = {}
+    for i in issues:
+        by_rule.setdefault(i.rule, []).append(i)
+
+    console.print(f"[bold]Draft lint[/bold] — {len(errors)} errors, {len(warnings)} warnings")
+    for rule, items in sorted(by_rule.items()):
+        severity = "error" if any(i.severity == "error" for i in items) else "warning"
+        color = "red" if severity == "error" else "yellow"
+        console.print(f"  [{color}]{rule}[/{color}]: {len(items)}")
+        for i in items[:3]:
+            loc = f" {i.document}:" if i.document else ""
+            console.print(f"    {loc} {i.message[:120]}")
+        if len(items) > 3:
+            console.print(f"    ... and {len(items) - 3} more")
+
+    if errors:
+        console.print("[red]Integration incomplete: blocking draft-lint errors.[/red]")
+        raise typer.Exit(1)
+    console.print("[green]Draft lint passed.[/green]")
+
+
 @app.command(name="verify-docs")
 def verify_docs(
     target: Path = typer.Argument(..., help="Target project directory"),
@@ -348,14 +439,18 @@ def verify_docs(
     unknown = [c for layer_report in layers for c in layer_report.unknowns()]
     warnings = [c for layer_report in layers for c in layer_report.warnings()]
 
+    # Display aggregation: repeated same-kind findings collapse into summary
+    # rows with a few examples. Every individual finding remains in the
+    # machine-readable artifact (JSON output / saved report) — this is
+    # presentation-only, never suppression.
     if failed:
-        console.print(_render_check_table("Failed Checks", failed))
+        console.print(_render_aggregated("Failed Checks (aggregated)", failed))
     if pending:
-        console.print(_render_check_table("Pending Semantic Reviews", pending))
+        console.print(_render_aggregated("Pending Semantic Reviews (aggregated)", pending))
     if unknown:
-        console.print(_render_check_table("Unknown / Insufficient Evidence", unknown))
+        console.print(_render_aggregated("Unknown / Insufficient Evidence (aggregated)", unknown))
     if warnings:
-        console.print(_render_check_table("Warnings", warnings))
+        console.print(_render_aggregated("Warnings (aggregated)", warnings))
 
     raise typer.Exit(result.ci_exit_code)
 
@@ -1006,6 +1101,59 @@ def _load_semantic_model_digest(semantic_model: Path, err: Any) -> str | None:
         model.model_dump(), sort_keys=True, separators=(",", ":"), ensure_ascii=False
     )
     return compute_content_digest(canonical)
+
+
+def _aggregate_key(check: Any) -> str:
+    """Aggregation key for repeated mechanical findings of one kind.
+
+    Groups by (layer, claim_type, stable reason). The reason is the detail
+    with document-specific and value-specific bits removed so hundreds of
+    identical-shape findings (e.g. "Path '/x' not found in project
+    repository") collapse into one summary row.
+    """
+    detail = (check.detail or "").strip()
+    # Normalize quoted values and paths inside the message.
+    normalized = re.sub(r"'[^']*'", "'…'", detail)
+    normalized = re.sub(r"\s+", " ", normalized)
+    return f"{check.layer}|{check.claim_type}|{normalized[:90]}"
+
+
+def _render_aggregated(title: str, checks: list[Any], examples: int = 3) -> Table:
+    """Render repeated same-kind findings as one summary row per group.
+
+    Display aggregation only — the machine-readable report (JSON) still
+    carries every individual finding; nothing is suppressed or hidden.
+    Groups with a single finding render in full detail.
+    """
+    groups: dict[str, list[Any]] = {}
+    for check in checks:
+        groups.setdefault(_aggregate_key(check), []).append(check)
+
+    table = Table(title=title)
+    table.add_column("Layer")
+    table.add_column("Type")
+    table.add_column("Count")
+    table.add_column("Reason (representative)")
+    table.add_column("Examples")
+    for key in sorted(groups):
+        items = groups[key]
+        rep = items[0]
+        reason = re.sub(r"\s+", " ", (rep.detail or ""))[:90]
+        docs = ", ".join(sorted({rep.target for rep in items})[:3])
+        if len(items) == 1:
+            table.add_row(rep.layer, rep.claim_type, "1", reason, docs)
+            continue
+        example_lines = "\n".join(
+            f"• {(c.claim_text or c.target)[:40]}" for c in items[:examples]
+        )
+        table.add_row(
+            rep.layer,
+            rep.claim_type,
+            str(len(items)),
+            reason,
+            example_lines + (f"\n… +{len(items) - examples} more" if len(items) > examples else ""),
+        )
+    return table
 
 
 def _render_check_table(title: str, checks: list[Any]) -> Table:

@@ -177,3 +177,32 @@ model(v3): add documentation model validation
 skill(v3): switch writing to PageSpec
 review(v3): separate reviewer and revision
 ```
+
+## 12. Architecture Freeze
+
+MakeWiki V3 已进入 benchmark-driven optimization，架构默认冻结
+（见 `references/v3/MIGRATION_PLAN.md` 的 "Architecture Freeze"）。
+
+本地/弱模型在 benchmark 之前不得：
+
+```text
+新增 Agent role family
+新增 graph engine
+新增 host adapter
+新增 framework-specific scanner
+新增 Python semantic inference
+重构整个 model hierarchy
+新增 verification level
+```
+
+不得为了让代码"更漂亮"改动这里冻结的架构默认：
+authoritative V3 pipeline、stable role families、SubtaskSpec、
+RepositoryBrief / InvestigationPlan / ClaimBundle、SemanticModel boundary、
+DocumentationModel / DocumentationPlan / PageSpec、Reviewer / Revision split、
+InterfaceReference hierarchy、L0-L5、SemanticAuditBundle、
+SitePresentationPlan authority boundary。
+
+**解除 freeze 的 evidence 只有五种**（MIGRATION_PLAN 列出的 benchmark 内
+可重复问题 / artifact 无法表达真实语义 / contract 导致明确错误 /
+portability failure / architecture-level bottleneck）。一般 prompt wording
+问题改 task/reference，不改 architecture。

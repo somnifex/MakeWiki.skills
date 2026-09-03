@@ -1,6 +1,7 @@
 # Task: Read-Only Review (只读评审)
 
 
+
 ## Overview
 
 Review is Phase 6 of the V3 pipeline. The **Reviewer** (an LLM subagent) evaluates the
@@ -107,8 +108,7 @@ review:
   passed_checks:
     - "Section IDs preserved."
 
-  unresolved:
-    - ""
+  unresolved: []
 ```
 
 Severity follows QUALITY_POLICY §5 (`critical | major | minor | advisory`).

@@ -2,10 +2,13 @@
 
 
 
-> **Live status, not a todo list.** This file records, per Phase, whether the
-> V3 migration work is actually implemented in the current tree (commit
-> `2de2039`), so a local agent does **not** re-run already-completed V3
-> migration tasks.
+
+> **Live status, not a todo list.** This file describes the V3 migration state
+> represented by the **checked-out repository revision**, so a local agent does
+> **not** re-run already-completed V3 migration tasks. It is not pinned to any one
+> commit: when auditing implementation status, the **checked-out source and tests
+> are authoritative** — judge each phase against `src/` and `tests/`, not against
+> this file's prose.
 >
 > STATUS vocabulary:
 > - `DONE` — implemented and verified against current source
@@ -383,3 +386,48 @@ The following remain intentional non-goals (not required for this refactor):
 live browser screenshots, runtime API probing, interactive Swagger Try-It,
 framework-specific AST route generators, host-specific adapters, a Python
 semantic scheduler, and a full OpenAPI emitter.
+
+---
+
+## Architecture Freeze (benchmark-driven optimization)
+
+MakeWiki V3 has passed the full structure/contract gate
+(`V3-FULL-CONTRACT-GATE` → **PASS — ARCHITECTURE FREEZE RECOMMENDED**) and now
+enters **benchmark-driven optimization**. Until the real NewAPI benchmark runs,
+the following architecture defaults are **frozen**:
+
+- authoritative V3 pipeline
+- stable role families
+- SubtaskSpec
+- RepositoryBrief
+- InvestigationPlan
+- ClaimBundle
+- SemanticModel boundary
+- DocumentationModel
+- DocumentationPlan
+- PageSpec
+- Reviewer / Revision split
+- InterfaceReference hierarchy
+- L0 - L5
+- SemanticAuditBundle
+- SitePresentationPlan authority boundary
+
+**Not allowed before the benchmark** (no "make it prettier" changes):
+- adding a new Agent role family
+- adding a new graph engine
+- adding a host adapter
+- adding a framework-specific scanner
+- adding Python semantic inference
+- restructuring the whole model hierarchy
+- adding a new verification level
+
+**Only the following evidence may lift the freeze:**
+1. a reproducible problem in the benchmark;
+2. an artifact cannot express real project semantics;
+3. the current contract causes a definite error;
+4. an explicit portability failure;
+5. a performance trace showing an architecture-level bottleneck.
+
+General prompt-wording issues should preferably be fixed in the task /
+reference layer, not by changing the architecture.
+

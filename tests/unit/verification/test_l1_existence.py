@@ -128,3 +128,58 @@ def test_l1_missing_path_fails(tmp_path: Path):
 
     assert not report.passed
     assert any(c.claim_type == "path" and not c.verified for c in report.checks)
+
+
+def test_l1_unproven_dotted_identifier_is_pending_not_failed(tmp_path: Path):
+    """A dotted prose identifier with no config evidence is an unproven candidate.
+
+    `Order.status`, `invoice.paid`, `controller.GetChannelKey` etc. share the
+    `x.y` shape with config keys but are ordinary code/doc references. Without
+    mechanical config evidence they must be PENDING (UNKNOWN discipline), never
+    an authoritative failed check that floods the gate with false positives.
+    """
+    doc = GeneratedDocument(
+        filename="reference.md",
+        base_name="reference.md",
+        language_code="en",
+        content=(
+            "# Reference\n\n"
+            "The handler reads `response.data.id`, `user.profile.name`, and "
+            "`api.channel.status`; see `example.foo.bar` in the guide.\n"
+        ),
+    )
+    verifier = L1ExistenceVerifier(tmp_path)
+    report = verifier.verify_documents({"en": [doc]})
+
+    dotted = [
+        c
+        for c in report.checks
+        if c.claim_type == "config_key"
+        and c.claim_text in ("response.data.id", "user.profile.name", "api.channel.status", "example.foo.bar")
+    ]
+    assert len(dotted) == 4
+    assert all(c.status == "pending" for c in dotted)
+    assert not any(c.status == "failed" for c in dotted)
+
+
+def test_l1_evidence_backed_config_key_passes(tmp_path: Path):
+    """A key present in a real config file is mechanically adjudicated passed."""
+    (tmp_path / "config.yaml").write_text(
+        "server:\n  host: localhost\n  port: 8080\ndatabase:\n  url: sqlite:///db.sqlite3\n"
+    )
+    doc = GeneratedDocument(
+        filename="deploy.md",
+        base_name="deploy.md",
+        language_code="en",
+        content=(
+            "# Deploy\n\nSet `server.host` and `database.url` in `config.yaml`; "
+            "note `server.port` defaults to 8080.\n"
+        ),
+    )
+    verifier = L1ExistenceVerifier(tmp_path)
+    report = verifier.verify_documents({"en": [doc]})
+
+    for key in ("server.host", "database.url", "server.port"):
+        match = [c for c in report.checks if c.claim_type == "config_key" and c.claim_text == key]
+        assert match, f"missing check for {key}"
+        assert match[0].status == "passed", f"{key} -> {match[0].status}"
