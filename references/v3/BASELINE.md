@@ -1,5 +1,11 @@
 # V2 Baseline at fda0ebf26a9f01db80b5342d7e0a3ebe69f97aca
 
+> **Contributor / historical reference — NOT runtime authority.**
+>
+> It does not describe current behavior and must not be used by the Main
+>
+> the runtime V3 references (`references/v3/README.md`).
+
 本文件固定 V3 重构的比较基线。它不是对 V2 的否定，而是用于防止 V3 在重构过程中丢失已经正确完成的能力。
 
 ## 1. 已确认的仓库形态

@@ -1,20 +1,28 @@
-# Local Low-Performance Agent Rules
+# Contributor Maintenance Rules (small diffs, tests, stop discipline)
 
-本文件用于指导本地较弱模型执行 V3 施工。
+> **Contributor / historical reference — NOT runtime authority.**
+>
+> describes construction of the V3 refactor. It is maintenance guidance for
+>
+> **future bug fixes, benchmark-backed maintenance, and small contract
+>
+> frozen architecture, or running the MakeWiki documentation-generation
+>
+> defined by `SKILL.md`, the runtime V3 references, and the source/tests.
 
 ## 1. 永久总提示
 
-每个 Micro Task 前附加：
+每个维护任务前附加：
 
 ```text
-你正在修改 MakeWiki.skills。
+你正在修改 MakeWiki.skills（3.0.0，架构已冻结）。
 
-这是增量重构，不允许自由重写项目。
+这是小步维护，不允许自由重写项目。
 
 架构权威：
+SKILL.md
 references/v3/ARCHITECTURE.md
 references/v3/COGNITIVE_BOUNDARY.md
-references/v3/MIGRATION_PLAN.md
 
 必须遵守：
 
@@ -22,7 +30,7 @@ references/v3/MIGRATION_PLAN.md
 2. Python 只做确定性工作。
 3. 不新增 Claude/Codex/Pi/DeepSeek 等平台专用 adapter。
 4. Skill 使用 subagent/subtask 的宿主无关语义。
-5. 保留 V2 Evidence、L0-L5、SemanticAuditBundle、Quality Gate、site/export。
+5. 保留 Evidence、L0-L5、SemanticAuditBundle、Quality Gate、site/export。
 6. 不做无关重构。
 7. 不主动执行下一个 task。
 8. 修改前读取相关现有文件。
@@ -30,20 +38,20 @@ references/v3/MIGRATION_PLAN.md
 10. 发现后续问题只记录。
 ```
 
-## 2. 每次只做一个 Micro Task
+## 2. 每次只做一个 Maintenance Task
 
-禁止：
+禁止把一个宽泛目标当作单个任务：
 
 ```text
-实现 V3 orchestration
+重构 verification 层
 ```
 
 应拆成：
 
 ```text
-新增 orient.md
-新增 investigate.md
-新增 semantic.md
+修复 lint X 的判定
+补充 contract test Y
+同步 reference 文档 Z
 ...
 ```
 
@@ -98,13 +106,13 @@ affected contract file
 small test group
 ```
 
-不要每个微任务都默认跑整个 suite。
+不要每个小任务都默认跑整个 suite。
 
-阶段结束后再跑完整 suite。
+一轮维护结束后再跑完整 suite。
 
 ## 7. Diff review prompt
 
-每个 Micro Task 后可以再用一个只读 Agent：
+每个维护任务后可以再用一个只读 Agent：
 
 ```text
 Review only the current diff.
@@ -180,10 +188,9 @@ review(v3): separate reviewer and revision
 
 ## 12. Architecture Freeze
 
-MakeWiki V3 已进入 benchmark-driven optimization，架构默认冻结
-（见 `references/v3/MIGRATION_PLAN.md` 的 "Architecture Freeze"）。
+MakeWiki 3.0.0 架构已冻结（release candidate 判定后正式冻结）。
 
-本地/弱模型在 benchmark 之前不得：
+维护者（含受约束预算的 agent）不得：
 
 ```text
 新增 Agent role family
@@ -202,7 +209,7 @@ DocumentationModel / DocumentationPlan / PageSpec、Reviewer / Revision split、
 InterfaceReference hierarchy、L0-L5、SemanticAuditBundle、
 SitePresentationPlan authority boundary。
 
-**解除 freeze 的 evidence 只有五种**（MIGRATION_PLAN 列出的 benchmark 内
-可重复问题 / artifact 无法表达真实语义 / contract 导致明确错误 /
-portability failure / architecture-level bottleneck）。一般 prompt wording
-问题改 task/reference，不改 architecture。
+**解除 freeze 的 evidence 只有五种**（benchmark 内可重复问题 / artifact
+无法表达真实语义 / contract 导致明确错误 / portability failure /
+architecture-level bottleneck）。一般 prompt wording 问题改
+task/reference，不改 architecture。

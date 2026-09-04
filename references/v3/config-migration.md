@@ -1,5 +1,11 @@
 # MakeWiki V3 — Config Migration Note
 
+> **Contributor / historical reference — NOT runtime authority.**
+>
+> status at the time it was written (the design is now implemented in
+>
+> by `src/makewiki_skills/config.py`, the default YAMLs, and `SKILL.md`.
+
 > **Design + implementation record.** This document designs and records the
 >
 > accepted and its Micro Tasks (M-L1a..d, §6) are **implemented**: the additive

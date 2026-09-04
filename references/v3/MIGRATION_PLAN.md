@@ -1,24 +1,18 @@
-# MakeWiki V3 Migration Plan — Status Document
+# MakeWiki V3 Migration Completion Record
 
 
-
-
-> **Live status, not a todo list.** This file describes the V3 migration state
-> represented by the **checked-out repository revision**, so a local agent does
-> **not** re-run already-completed V3 migration tasks. It is not pinned to any one
-> commit: when auditing implementation status, the **checked-out source and tests
-> are authoritative** — judge each phase against `src/` and `tests/`, not against
-> this file's prose.
+> **Contributor / historical reference — NOT runtime authority.**
+> Every phase below is **DONE**: the 3.0.0 runtime does not read this file as
+> an execution authority, and migration tasks must NOT be re-executed. Current
+> runtime behavior is defined by `SKILL.md`, the runtime V3 references
+> (`references/v3/README.md` runtime authority set), the `tasks/` contracts,
+> and the source/tests. This file is kept as a contributor audit trail of the
+> migration phases (A–P), their completion state, and the migration reasoning.
 >
-> STATUS vocabulary:
-> - `DONE` — implemented and verified against current source
-> - `PARTIAL` — some but not all of the phase is implemented
-> - `TODO` — not started
->
-> Each phase lists `IMPLEMENTED` (what is really present now), `REMAINING`
-> (what is still missing), and `ACCEPTANCE` (when the phase counts as complete).
-> Status is judged from `src/` and the authoritative `SKILL.md` / `tasks/`, **not**
-> from this plan's older text.
+> Historical status vocabulary (for reading the record only):
+> - `DONE` — implemented and verified against source
+> - `PARTIAL` — some but not all of the phase was implemented
+> - `TODO` — was not started at the time of recording
 
 ## Strategy
 
@@ -37,10 +31,10 @@ first. (This has now been completed through Phase M/P; see per-phase status.)
   `COGNITIVE_BOUNDARY.md`, `MIGRATION_PLAN.md`, `LOCAL_AGENT_RULES.md`,
   `MULTI_AGENT_PROTOCOL.md`, `SUBTASK_PROTOCOL.md`, `ARTIFACT_CONTRACTS.md`,
   `PAGE_SPEC.md`, `API_REFERENCE.md`, `DOCUMENTATION_MODEL.md`,
-  `QUALITY_POLICY.md`, `PHASE_PROMPTS.md`, `BASELINE.md`, `README.md`,
-  `config-migration.md`.
+  `QUALITY_POLICY.md`, `BASELINE.md`, `README.md`,
+  `config-migration.md`. (The per-phase construction-time `PHASE_PROMPTS.md`
+  was removed after migration completion; it is historical.)
 - Baseline commit is recorded (the V2-design baseline at `fda0ebf`).
-- Local agent can build per the spec (one Micro Task at a time).
 
 **REMAINING:** none.
 

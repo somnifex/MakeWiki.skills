@@ -1,5 +1,6 @@
 # Task: Mechanical Fact Assistance & Explorer-Family Focus Variants (机械事实辅助与勘探族焦点变体)
 
+
 ## Overview
 
 Repository orientation and investigation in V3 are **cognitive, LLM-owned**.
@@ -10,8 +11,8 @@ This task documents two supporting concerns:
    They are **optional supporting material, never a prerequisite or an
    authority**: they never decide semantic domains, meaning, visibility,
    abstraction, or the investigation topology. The LLM (Repository Orientation,
-   Explorer) owns all interpretation (see `tasks/orient.md`, `tasks/investigate.md`,
-   `references/v3/BASELINE.md` §3.1).
+   Explorer) owns all interpretation (see `tasks/orient.md`,
+   `tasks/investigate.md`, `references/v3/COGNITIVE_BOUNDARY.md`).
 2. **Explorer-family focus variants** — when mechanical tooling fails or a
    complex repo risks hidden entrypoints, the Main Agent dispatches a
    **Recovery Explorer** or a **Blind Coverage Reviewer**. Both are *focus

@@ -12,7 +12,8 @@ Checks (each traceable to a defect class proven during RC verification):
 - writer frontmatter leak (page_id/audience/page_type keys in deliverable md)
 - internal artifact path leak (``.makewiki-artifacts/...`` in prose)
 - section-marker grammar + PageSpec ``required_sections`` presence
-- stable block-ID structure (duplicate ids in a doc; en/zh set equality)
+- stable block-ID structure (duplicate ids in a doc; cross-language set
+  equality over the declared languages)
 - InterfaceDisposition cross-references (page_id in plan, gap_id in gaps,
   duplicate operation_id)
 - plan/spec/draft drift (planned page missing a per-language draft, plus the
@@ -31,6 +32,7 @@ from typing import TYPE_CHECKING
 from pydantic import BaseModel
 
 from makewiki_skills.model.page_spec import PageSpec
+from makewiki_skills.review.localized_filename import resolve_localized_filename
 from makewiki_skills.review.section_parser import parse_document_sections
 
 if TYPE_CHECKING:  # pragma: no cover
@@ -61,16 +63,6 @@ def _iter_docs(wiki_dir: Path) -> list[tuple[str, Path]]:
     for p in sorted(wiki_dir.rglob("*.md")):
         out.append((p.relative_to(wiki_dir).as_posix(), p))
     return out
-
-
-def _lang_of(rel: str) -> str:
-    return "zh-CN" if rel.endswith(".zh-CN.md") else "en"
-
-
-def _base_of(rel: str) -> str:
-    if rel.endswith(".zh-CN.md"):
-        return rel[: -len(".zh-CN.md")]
-    return rel[: -len(".md")]
 
 
 def _check_frontmatter(rel: str, content: str, issues: list[LintIssue]) -> None:
@@ -178,7 +170,7 @@ def _check_block_ids(
     docs_by_base: dict[str, dict[str, str]],
     issues: list[LintIssue],
 ) -> None:
-    """A4 — duplicate [[id]] within one doc; en/zh block-ID SET equality.
+    """A4 — duplicate [[id]] within one doc; cross-language block-ID SET equality.
 
     Full byte-parity of block BODIES stays in L4a; the lint only proves the
     stable-ID structure exists identically on both sides.
@@ -286,15 +278,14 @@ def _check_plan_drafts(
     wiki_dir: Path,
     planned_pages: set[str],
     languages: set[str],
+    default_language: str,
     issues: list[LintIssue],
 ) -> None:
     """A6 — every planned page must have a draft file per declared language."""
     for page in sorted(planned_pages):
         for lang in sorted(languages):
-            if lang == "en":
-                candidate = wiki_dir / f"{page}.md"
-            else:
-                candidate = wiki_dir / f"{page}.{lang}.md"
+            suffix = "" if lang == default_language else f".{lang}"
+            candidate = wiki_dir / f"{page}{suffix}.md"
             if not candidate.is_file():
                 issues.append(
                     LintIssue(
@@ -315,41 +306,76 @@ def run_draft_lint(
     page_specs: list[PageSpec],
     doc_model: DocumentationModel | None = None,
     languages: list[str] | None = None,
+    default_language: str = "en",
+    structural_only: bool = False,
 ) -> list[LintIssue]:
     """Run every mechanical draft-hygiene check; return all issues.
 
     Pure and deterministic. Blocking (severity ``error``) issues mean the
     Integration output is incomplete and Final Verification must not start.
-    ``plan`` may be ``None`` (plan artifact absent or schema-invalid): the
-    structural checks still run; the plan-derived cross-checks are skipped
-    because their reference sets would be empty guesses — Python never
-    fabricates a plan.
+
+    ``structural_only=True`` runs ONLY the pure-Markdown checks (frontmatter
+    leaks, artifact-path leaks, section-marker grammar, duplicate block IDs)
+    and skips every artifact-backed check — plan↔PageSpec consistency,
+    planned-draft completeness, PageSpec ``required_sections``, dispositions,
+    and documentation-gaps. It is the explicit standalone scan mode; the full
+    Integration lint is the caller's responsibility to invoke with real
+    artifacts.
+
+    In full mode ``plan`` may still be ``None`` (caller-managed degraded
+    runs, e.g. unit tests): the plan-derived cross-checks are skipped because
+    their reference sets would be empty guesses — Python never fabricates a
+    plan.
+
+    Language resolution priority: the canonical ``DocumentationPlan.languages``
+    (non-empty) wins; otherwise the caller-declared ``languages``; only a
+    legacy/standalone structural run with neither falls back to the V3
+    ``en`` + ``zh-CN`` pair. ``default_language`` names the language carried
+    by plain ``.md`` files (the filename contract: no suffix = default).
     """
     wiki_dir = Path(wiki_dir).resolve()
     issues: list[LintIssue] = []
 
     planned_pages: set[str] = set()
+    plan_langs: list[str] = []
     if plan is not None:
         planned_pages = set(getattr(plan, "pages", []) or [])
         for section in getattr(plan, "sections", []) or []:
             planned_pages.update(section.pages)
-    # The plan schema has no languages field; the caller passes the declared
-    # set. Defaults to the V3 en+zh-CN pair.
-    langs = set(languages) if languages else {"en", "zh-CN"}
+        plan_langs = list(getattr(plan, "languages", []) or [])
+    # Priority: canonical plan languages > caller-declared > legacy fallback.
+    langs = set(plan_langs) or (set(languages) if languages else {"en", "zh-CN"})
+    default_lang = default_language if default_language in langs else (plan_langs[0] if plan_langs else ("en" if "en" in langs else sorted(langs)[0]))
 
     # per-document contents
     docs_by_base: dict[str, dict[str, str]] = {}
+    undeclared: set[str] = set()
     for rel, path in _iter_docs(wiki_dir):
         content = path.read_text(encoding="utf-8", errors="replace")
-        base = _base_of(rel)
-        docs_by_base.setdefault(base, {})[_lang_of(rel)] = content
+        resolved = resolve_localized_filename(rel, langs, default_lang)
+        if not resolved.declared:
+            # A ``.<x>.md`` suffix matching no declared language: no language
+            # semantics are guessed. Structural checks still apply to the file
+            # verbatim; it never joins a cross-language group.
+            undeclared.add(rel)
+        base = resolved.base_id
+        docs_by_base.setdefault(base, {})[resolved.language] = content
         _check_frontmatter(rel, content, issues)
         _check_artifact_paths(rel, content, issues)
-        _check_sections(rel, content, {s.page_id: s for s in page_specs}, base, issues)
+        _check_sections(
+            rel,
+            content,
+            {} if structural_only else {s.page_id: s for s in page_specs},
+            base,
+            issues,
+        )
 
     _check_block_ids(docs_by_base, issues)
+    if structural_only:
+        return issues
+
     _check_dispositions(doc_model, planned_pages, issues)
-    _check_plan_drafts(wiki_dir, planned_pages, langs, issues)
+    _check_plan_drafts(wiki_dir, planned_pages, langs, default_lang, issues)
 
     # plan ↔ spec cross-reference via the existing helper.
     if plan is not None:

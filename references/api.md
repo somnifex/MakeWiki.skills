@@ -2,6 +2,7 @@
 
 
 
+
 The toolkit CLI is mechanical only. All comprehension and authoring decisions
 are made by the LLM-driven `/makewiki` Skill layer; this CLI returns `UNKNOWN`
 rather than guessing whenever something cannot be proven from source.
@@ -23,7 +24,7 @@ The first-party console script is `makewiki` (also reachable via
 | `review`          | `<wiki_dir> [--lang ...]`                                  | Standalone cross-language review: runs `CrossLanguageReviewer` over existing output on disk (not an alias of `parity`). |
 | `semantic-review` | `<wiki_dir> [--lang ...] [--format json\                   | human]`                                                                                                                 | Prepare aligned passages for the Auditor subagent (LLM prose audit input). |
 | `validate`        | `<wiki_dir>`                                               | Markdown quality: heading hierarchy, links, empty pages, code-block language ids.                                       |
-| `lint-drafts`     | `<wiki_dir>`                                               | Integration-time mechanical draft hygiene lint: writer frontmatter leaks, internal artifact paths, section-marker grammar + required sections, stable block-ID structure, disposition/plan cross-references, plan/draft drift. Blocking errors mean Integration is incomplete. Purely structural; never judges page quality or semantics, never changes the Quality Gate. |
+| `lint-drafts`     | `<wiki_dir> [--structural-only]`                           | Integration-time mechanical draft hygiene lint. Full Integration mode (default) fails closed: the canonical V3 artifacts (DocumentationPlan, PageSpecs, DocumentationModel) must exist and be schema-valid, and their cross-checks (plan/spec/draft drift, disposition/gap cross-references, required sections, planned-draft completeness) run. Any missing or invalid canonical artifact is blocking. `--structural-only` runs pure-Markdown checks only and reports that cross-artifact checks were not run. Never judges page quality or semantics, never changes the Quality Gate. |
 | `build-site`      | `<wiki_dir> [--theme auto\                                 | light\                                                                                                                  | dark] [--output <dir>] [--title <t>]` | Compile Markdown docs into an offline SPA HTML site. |
 | `export`          | `<wiki_dir> [--format html\                                | epub\                                                                                                                   | all] [--lang <code>]` | Export single-file printable HTML and EPUB e-books. **PDF is intentionally not supported.** |
 | `sync-bundle`     | `<wiki_dir> [--target all\                                 | confluence\                                                                                                             | notion] [--lang <code>]` | Prepare Confluence Storage XML / Notion Block API bundles on disk. **Does NOT publish.** |

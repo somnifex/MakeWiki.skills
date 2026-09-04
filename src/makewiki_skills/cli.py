@@ -24,6 +24,24 @@ app = typer.Typer(
 )
 console = Console()
 
+#: Canonical artifact root under a MakeWiki target directory.
+_ARTIFACT_DIRNAME = ".makewiki-artifacts"
+
+
+def resolve_artifact_target(wiki_dir: Path) -> Path | None:
+    """Locate the target directory holding the ``.makewiki-artifacts/`` tree.
+
+    Priority: the wiki's parent (the default layout ``<target>/.makewiki-
+    artifacts/`` next to ``<target>/<output_dir>/``), then the wiki directory
+    itself (a target whose output dir doubles as the root). Returns ``None``
+    when neither exists — the artifact context is unavailable.
+    """
+    if (wiki_dir.parent / _ARTIFACT_DIRNAME).is_dir():
+        return wiki_dir.parent
+    if (wiki_dir / _ARTIFACT_DIRNAME).is_dir():
+        return wiki_dir
+    return None
+
 
 @app.command(name="evidence")
 def evidence(
@@ -185,15 +203,27 @@ def validate(
 @app.command(name="lint-drafts")
 def lint_drafts(
     wiki_dir: Path = typer.Argument(..., help="Path to assembled makewiki/ output directory"),
+    structural_only: bool = typer.Option(
+        False,
+        "--structural-only",
+        help="Run only pure-Markdown structural checks (frontmatter leaks, "
+        "artifact-path leaks, section markers, duplicate block IDs) and skip "
+        "every V3 cross-artifact check. Explicit opt-in for standalone scans; "
+        "the default is the full Integration lint.",
+    ),
 ) -> None:
     """Integration-time mechanical draft hygiene lint.
 
-    Deterministic checks over the assembled markdown tree: writer frontmatter
-    leaks, internal artifact paths, section-marker grammar, stable block-ID
-    structure, disposition/plan cross-references, plan/draft drift. Blocking
-    issues mean Integration is incomplete. Never judges page quality and
-    never changes the Quality Gate.
+    Default (full Integration mode) fails closed: the canonical V3 artifacts
+    (DocumentationPlan / PageSpecs / DocumentationModel) must exist and be
+    schema-valid, and their cross-checks run. Blocking issues mean Integration
+    is incomplete. ``--structural-only`` runs the pure-Markdown checks without
+    any artifact context and clearly says the cross-artifact checks were not
+    run. Never judges page quality and never changes the Quality Gate.
     """
+    import yaml as yaml_lib
+
+    from makewiki_skills.model.documentation_model import DocumentationModel
     from makewiki_skills.model.documentation_plan import DocumentationPlan
     from makewiki_skills.model.page_spec import PageSpec
     from makewiki_skills.verification.draft_lint import run_draft_lint
@@ -203,47 +233,149 @@ def lint_drafts(
         console.print(f"[red]Error:[/red] Directory not found: {wiki_dir}")
         raise typer.Exit(1)
 
-    target = wiki_dir.parent if (wiki_dir.parent / "makewiki.config.yaml").is_file() else wiki_dir
+    if structural_only:
+        issues = run_draft_lint(wiki_dir, None, [], None, structural_only=True)
+        errors = [i for i in issues if i.severity == "error"]
+        warnings = [i for i in issues if i.severity != "error"]
+        by_rule: dict[str, list] = {}
+        for i in issues:
+            by_rule.setdefault(i.rule, []).append(i)
+        console.print(
+            f"[bold]Structural draft lint[/bold] — {len(errors)} errors, "
+            f"{len(warnings)} warnings"
+        )
+        for rule, items in sorted(by_rule.items()):
+            severity = "error" if any(i.severity == "error" for i in items) else "warning"
+            color = "red" if severity == "error" else "yellow"
+            console.print(f"  [{color}]{rule}[/{color}]: {len(items)}")
+            for i in items[:3]:
+                loc = f" {i.document}:" if i.document else ""
+                console.print(f"    {loc} {i.message[:120]}")
+            if len(items) > 3:
+                console.print(f"    ... and {len(items) - 3} more")
+        if errors:
+            console.print("[red]Structural draft lint found blocking errors.[/red]")
+            raise typer.Exit(1)
+        console.print(
+            "[green]Structural draft lint passed; V3 cross-artifact checks "
+            "were not run.[/green]"
+        )
+        return
 
-    plan_path = target / ".makewiki-artifacts" / "10-documentation-plan" / "documentation_plan.yaml"
+    # Full Integration mode (fail closed): the canonical V3 artifacts must
+    # exist and be schema-valid, or the lint reports incompleteness instead of
+    # a false success.
+    target = resolve_artifact_target(wiki_dir)
+    if target is None:
+        console.print(
+            "[red]Error:[/red] artifact context unavailable: no "
+            f"{_ARTIFACT_DIRNAME}/ found next to or inside {wiki_dir}. "
+            "Run /makewiki Integration first, point at the assembled output "
+            "directory of a target with artifacts, or pass --structural-only "
+            "for a pure-Markdown scan."
+        )
+        raise typer.Exit(1)
+
+    artifacts = target / _ARTIFACT_DIRNAME
+
+    def _fail_closed(what: str, rule: str, detail: str) -> None:
+        console.print(
+            f"[red]Error:[/red] Integration lint unavailable/incomplete: "
+            f"canonical V3 artifact {what} is missing or invalid — {detail}"
+        )
+        console.print(f"[red]Blocking rule:[/red] {rule}")
+        raise typer.Exit(1)
+
+    plan_path = artifacts / "10-documentation-plan" / "documentation_plan.yaml"
     plan: DocumentationPlan | None = None
     page_specs: list[PageSpec] = []
-    doc_model = None
+    doc_model: DocumentationModel | None = None
     if plan_path.is_file():
-        import yaml as yaml_lib
-
-        raw = yaml_lib.safe_load(plan_path.read_text(encoding="utf-8"))
-        if isinstance(raw, dict) and "documentation_plan" in raw:
-            try:
-                plan = DocumentationPlan.model_validate(raw["documentation_plan"])
-            except Exception as exc:  # noqa: BLE001 - plan schema drift is reported, not crashed on
-                console.print(
-                    f"[yellow]DocumentationPlan failed schema validation "
-                    f"({str(exc)[:160]}...) — plan/spec/disposition cross-checks "
-                    "skipped; fix the plan artifact to enable them.[/yellow]"
-                )
+        try:
+            raw = yaml_lib.safe_load(plan_path.read_text(encoding="utf-8"))
+            payload = raw.get("documentation_plan") if isinstance(raw, dict) else None
+            if payload is None:
+                raise ValueError("missing 'documentation_plan' wrapper key")
+            plan = DocumentationPlan.model_validate(payload)
+        except Exception as exc:  # noqa: BLE001 - schema drift is reported, not crashed on
+            _fail_closed(
+                "documentation_plan.yaml",
+                "documentation_plan_invalid",
+                f"schema validation failed ({str(exc)[:160]}...)",
+            )
     else:
-        console.print(
-            "[yellow]No DocumentationPlan found — plan/spec/disposition cross-checks skipped; "
-            "running structural checks only.[/yellow]"
+        _fail_closed(
+            "documentation_plan.yaml",
+            "documentation_plan_missing",
+            "expected 10-documentation-plan/documentation_plan.yaml",
         )
 
-    spec_dir = target / ".makewiki-artifacts" / "11-page-specs"
-    if spec_dir.is_dir() and plan is not None:
-        import yaml as yaml_lib
-
-        for spec_file in sorted(spec_dir.glob("page_specs.*.yaml")):
-            raw = yaml_lib.safe_load(spec_file.read_text(encoding="utf-8"))
-            if isinstance(raw, dict) and "page_specs" in raw:
+    planned_page_count = len(set(plan.pages)) + sum(len(s.pages) for s in plan.sections)
+    spec_dir = artifacts / "11-page-specs"
+    spec_files = sorted(spec_dir.glob("page_specs.*.yaml")) if spec_dir.is_dir() else []
+    if not spec_files:
+        if planned_page_count:
+            _fail_closed(
+                "page_specs (11-page-specs/page_specs.*.yaml)",
+                "page_specs_missing",
+                "planned pages exist but no PageSpec artifact was found",
+            )
+    else:
+        for spec_file in spec_files:
+            try:
+                raw = yaml_lib.safe_load(spec_file.read_text(encoding="utf-8"))
+                if not (isinstance(raw, dict) and "page_specs" in raw):
+                    raise ValueError("missing 'page_specs' wrapper key")
                 for spec in raw["page_specs"].get("specs", []):
-                    try:
-                        page_specs.append(PageSpec.model_validate(spec))
-                    except Exception as exc:  # noqa: BLE001 - report, don't crash the lint
-                        console.print(
-                            f"[yellow]Warning: unparseable PageSpec in {spec_file.name}: {exc}[/yellow]"
-                        )
+                    page_specs.append(PageSpec.model_validate(spec))
+            except Exception as exc:  # noqa: BLE001 - report the offending file
+                _fail_closed(
+                    str(spec_file.relative_to(artifacts)),
+                    "page_spec_invalid",
+                    f"PageSpec could not be loaded ({str(exc)[:160]}...)",
+                )
 
-    issues = run_draft_lint(wiki_dir, plan, page_specs, doc_model)
+    model_path = artifacts / "07-documentation-model" / "documentation_model.yaml"
+    if model_path.is_file():
+        try:
+            raw = yaml_lib.safe_load(model_path.read_text(encoding="utf-8"))
+            payload = raw.get("documentation_model") if isinstance(raw, dict) else None
+            if payload is None:
+                raise ValueError("missing 'documentation_model' wrapper key")
+            doc_model = DocumentationModel.model_validate(payload)
+        except Exception as exc:  # noqa: BLE001 - schema drift is reported, not crashed on
+            _fail_closed(
+                "documentation_model.yaml",
+                "documentation_model_invalid",
+                f"schema validation failed ({str(exc)[:160]}...)",
+            )
+    else:
+        _fail_closed(
+            "documentation_model.yaml",
+            "documentation_model_missing",
+            "expected 07-documentation-model/documentation_model.yaml",
+        )
+
+    # Declared languages for the lint: the canonical DocumentationPlan.languages
+    # (already in `plan`); when the plan is absent, fall back to the assembled
+    # SitePresentationPlan (the Integration language authority). Default
+    # language comes from the same plan (never assumed to be en).
+    default_language = "en"
+    if plan is not None and plan.languages:
+        default_language = plan.languages[0]
+    else:
+        for candidate in ("site_presentation.yaml", "site_presentation.yml", "site_presentation.json"):
+            probe = wiki_dir / candidate
+            if probe.is_file():
+                try:
+                    site_raw = yaml_lib.safe_load(probe.read_text(encoding="utf-8"))
+                    if isinstance(site_raw, dict):
+                        default_language = str(site_raw.get("default_language") or "en")
+                except Exception:  # noqa: BLE001 - unreadable plan: keep default
+                    pass
+                break
+
+    issues = run_draft_lint(wiki_dir, plan, page_specs, doc_model, default_language=default_language)
 
     errors = [i for i in issues if i.severity == "error"]
     warnings = [i for i in issues if i.severity != "error"]

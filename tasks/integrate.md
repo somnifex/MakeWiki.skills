@@ -166,8 +166,8 @@ and not a Quality Gate state). It proves only mechanical structure:
   id has a marker in the draft.
 - **stable block-ID structure** — no duplicate `[[id:...]]` within one
 
-  document; the en/zh block-ID sets of a page pair are equal (byte-parity of
-  bodies stays in L4a).
+  document; the block-ID sets of a page pair are equal across every declared
+  language (byte-parity of bodies stays in L4a).
 - **disposition / plan / page cross-references** — every
 
   `documented|grouped` disposition `page_id` exists in the planned page set;
@@ -179,6 +179,13 @@ Blocking (`error`) issues mean **Integration is incomplete**: fix the drafts /
 artifacts and re-run until the lint passes, or surface the failure explicitly.
 Page quality, persona fit, and API semantics are NEVER linted here — they
 belong to the Reviewer and the L0–L5 layers.
+
+The lint **fails closed**: in full Integration mode a missing or schema-invalid
+canonical artifact (DocumentationPlan, PageSpecs, DocumentationModel) is itself
+blocking — the cross-artifact checks are never silently skipped with a success
+verdict. An explicit `--structural-only` opt-in runs only the pure-Markdown
+checks and reports that the V3 cross-artifact checks were not run; it is a
+standalone scan mode, never the Integration Gate.
 
 Terminate with a single status (`completed`, `blocked`, or `needs_followup`) and report
 the `artifact produced` (the plan / integrated site), `uncertainties`, and any `scope
