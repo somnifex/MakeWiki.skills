@@ -88,8 +88,8 @@ de-duplicate the block/section IDs, and must not rename `page_id`.
 
 ### 4a. Cross-language convergence completion record (mandatory)
 
-The NewAPI benchmark proved that leaving stable-identity convergence to a later
-pass costs an entire extra round of agents. When ANY finding involves
+The large-repository benchmark proved that leaving stable-identity convergence
+to a later pass costs an entire extra round of agents. When ANY finding involves
 cross-language parity, section markers, or block/marker consistency, the Revision
 Agent must, BEFORE reporting completion, explicitly converge and verify BOTH:
 
@@ -111,8 +111,8 @@ Agent must, BEFORE reporting completion, explicitly converge and verify BOTH:
    document.
 
 These are identity requirements, NOT prose-layout requirements: do NOT force
-identical paragraph order or identical H3 structure across languages — the
-benchmark proved localized H3 subsections vs prose can be semantically equivalent.
+identical paragraph order or identical H3 structure across languages — localized
+H3 subsections vs prose can be semantically equivalent.
 Stabilize the reviewable section identity and the technical block identity;
 let prose structure localize.
 

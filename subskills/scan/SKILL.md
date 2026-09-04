@@ -1,7 +1,7 @@
 ---
 name: makewiki-scan
 description: "Scan a project and emit the evidence summary: repository traits census, detected commands, config keys, dependencies, and enterprise delivery brief. Use when: user wants to understand a project before generating docs, or wants to inspect what MakeWiki detects. Output is facts-only — Python never interprets what the repository means."
-version: "2.0.0"
+version: "3.0.0"
 argument-hint: "[--format json|human]"
 license: MIT
 allowed-tools: Bash(python */scripts/bootstrap_toolkit.py) Bash(python */scripts/run_toolkit.py *) Read Glob Grep

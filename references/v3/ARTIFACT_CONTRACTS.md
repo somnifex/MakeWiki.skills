@@ -186,15 +186,23 @@ documentation_model:
 
 ```yaml
 documentation_plan:
+  id: ""
+  producer: ""
+  languages: []
+  source_documentation_model: ""
+  design_intent: ""
+
   sections:
     - id: admin-guide
       title_intent: Administrator Guide
-      persona:
+      persona:            # contract spelling; `personas` (plural) also accepted
         - admin
         - operator
       pages:
         - channel-management
         - routing
+      rationale: ""       # optional, non-blank when present
+      note: ""            # optional, non-blank when present
 
   relations:
     - from: channel-management

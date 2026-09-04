@@ -98,6 +98,7 @@ CLI 表面按权威名 + 向后兼容别名设计，Python 部分严格只做机
 | Toolkit: 声明验证        | `makewiki verify-claim <claim.json>`     | —                   | 机械      | 单条/多条 Claim 的 L 状态                                          |
 | Toolkit: 模型验证        | `makewiki verify-model <model.json>`     | —                   | 机械      | SemanticModel schema + 证据引用校验                               |
 | Toolkit: 跨语言对比       | `makewiki parity <path>`                 | —                   | 机械      | 块 ID 完全相同 + 对齐段落输出                                          |
+| Toolkit: 草稿体检        | `makewiki lint-drafts <path>`            | —                   | 机械      | 集成期草稿机械检查（frontmatter 泄漏 / 段落标记 / 块 ID / 计划漂移）                 |
 | Toolkit: ReBattle 差异 | `makewiki rebattle-diff`                 | —                   | 机械      | 争议点确定性组织                                                    |
 | Toolkit: 站点          | `makewiki build-site <path>`             | —                   | 机械      | 编译离线静态站点                                                    |
 | Toolkit: 导出          | `makewiki export <path> --format html\|epub\|all` | — | 机械 | 单文件导出（拒绝 `pdf`） |
@@ -131,7 +132,7 @@ makewiki/
 
 ## 💡 双平面架构与权威边界
 
-MakeWiki v2 显式划分为两个平面，并定义**认知权威边界**：
+MakeWiki v3 显式划分为两个平面，并定义**认知权威边界**：
 
 ```mermaid
 flowchart LR

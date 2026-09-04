@@ -161,10 +161,7 @@ _FRONTMATTER_RE = re.compile(r"\A---[ \t]*\r?\n.*?\r?\n---[ \t]*\r?\n?", re.DOTA
 def render_markdown_document(md: str, *, route_map: Mapping[str, str]) -> str:
     """Render one Markdown document to HTML, resolving wiki links against
     ``route_map`` (a mapping of document id -> route) and re-seeding heading ids
-    per call."""
-    # Strip a leading YAML frontmatter block: it is metadata, not content, and
-    # markdown-it would otherwise render the `---` fences as thematic breaks and
-    # the `key: value` lines as paragraphs.
+    per call. A leading YAML frontmatter block is stripped (metadata, not content)."""
     md = _FRONTMATTER_RE.sub("", md, count=1)
     env: EnvType = {"route_map": route_map, "heading_ids": set()}
     rendered = cast(str, _PARSER.render(md, env))

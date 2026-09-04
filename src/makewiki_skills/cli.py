@@ -185,17 +185,14 @@ def validate(
 @app.command(name="lint-drafts")
 def lint_drafts(
     wiki_dir: Path = typer.Argument(..., help="Path to assembled makewiki/ output directory"),
-    config_path: Path | None = typer.Option(None, "--config", "-c"),
 ) -> None:
     """Integration-time mechanical draft hygiene lint.
 
-    Purely deterministic checks over the assembled markdown tree against the
-    DocumentationPlan / PageSpecs / DocumentationModel: writer frontmatter
-    leaks, internal artifact paths, section-marker grammar + required
-    sections, stable block-ID structure, disposition cross-references, and
-    plan/draft drift. Blocking issues mean Integration is incomplete; this
-    command never judges page quality or semantics and never changes the
-    Quality Gate.
+    Deterministic checks over the assembled markdown tree: writer frontmatter
+    leaks, internal artifact paths, section-marker grammar, stable block-ID
+    structure, disposition/plan cross-references, plan/draft drift. Blocking
+    issues mean Integration is incomplete. Never judges page quality and
+    never changes the Quality Gate.
     """
     from makewiki_skills.model.documentation_plan import DocumentationPlan
     from makewiki_skills.model.page_spec import PageSpec
@@ -207,7 +204,6 @@ def lint_drafts(
         raise typer.Exit(1)
 
     target = wiki_dir.parent if (wiki_dir.parent / "makewiki.config.yaml").is_file() else wiki_dir
-    cfg = _load_config(config_path, target)
 
     plan_path = target / ".makewiki-artifacts" / "10-documentation-plan" / "documentation_plan.yaml"
     plan: DocumentationPlan | None = None
@@ -439,10 +435,8 @@ def verify_docs(
     unknown = [c for layer_report in layers for c in layer_report.unknowns()]
     warnings = [c for layer_report in layers for c in layer_report.warnings()]
 
-    # Display aggregation: repeated same-kind findings collapse into summary
-    # rows with a few examples. Every individual finding remains in the
-    # machine-readable artifact (JSON output / saved report) — this is
-    # presentation-only, never suppression.
+    # Aggregate repeated same-kind findings into summary rows with a few
+    # examples. JSON output keeps every finding — display-only.
     if failed:
         console.print(_render_aggregated("Failed Checks (aggregated)", failed))
     if pending:
@@ -1104,26 +1098,17 @@ def _load_semantic_model_digest(semantic_model: Path, err: Any) -> str | None:
 
 
 def _aggregate_key(check: Any) -> str:
-    """Aggregation key for repeated mechanical findings of one kind.
-
-    Groups by (layer, claim_type, stable reason). The reason is the detail
-    with document-specific and value-specific bits removed so hundreds of
-    identical-shape findings (e.g. "Path '/x' not found in project
-    repository") collapse into one summary row.
-    """
+    """Group key: (layer, claim_type, reason with quoted values normalized)."""
     detail = (check.detail or "").strip()
-    # Normalize quoted values and paths inside the message.
     normalized = re.sub(r"'[^']*'", "'…'", detail)
     normalized = re.sub(r"\s+", " ", normalized)
     return f"{check.layer}|{check.claim_type}|{normalized[:90]}"
 
 
 def _render_aggregated(title: str, checks: list[Any], examples: int = 3) -> Table:
-    """Render repeated same-kind findings as one summary row per group.
+    """Render one summary row per group of same-kind findings.
 
-    Display aggregation only — the machine-readable report (JSON) still
-    carries every individual finding; nothing is suppressed or hidden.
-    Groups with a single finding render in full detail.
+    Presentation only: the JSON report keeps every individual finding.
     """
     groups: dict[str, list[Any]] = {}
     for check in checks:

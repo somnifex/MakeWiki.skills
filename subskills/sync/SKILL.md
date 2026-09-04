@@ -1,7 +1,7 @@
 ---
 name: makewiki-sync
 description: "Prepare knowledge-base sync bundles (Atlassian Confluence Storage Format XHTML and Notion Block API JSON payloads) from generated makewiki documentation. Use when: user wants to ship documentation into Confluence or Notion. **Bundle preparation only — does NOT publish.**"
-version: "2.0.0"
+version: "3.0.0"
 argument-hint: "[path-to-makewiki-dir] [--target all|confluence|notion] [--lang <code>]"
 license: MIT
 allowed-tools: Bash(python */scripts/bootstrap_toolkit.py) Bash(python */scripts/run_toolkit.py *) Read Write Glob

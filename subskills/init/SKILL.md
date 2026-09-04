@@ -1,7 +1,7 @@
 ---
 name: makewiki-init
 description: "Generate a default makewiki.config.yaml configuration file in the current project with multi-agent budget, static site, evidence, review and quality-gate options. Use when: user wants to customize MakeWiki behavior before generating docs. Fields are either consumed by the Python Mechanical Plane or by the LLM Skill layer — no dead config."
-version: "2.0.0"
+version: "3.0.0"
 argument-hint: "[--lang <code>...]"
 license: MIT
 allowed-tools: Bash(python */scripts/bootstrap_toolkit.py) Bash(python */scripts/run_toolkit.py *) Write

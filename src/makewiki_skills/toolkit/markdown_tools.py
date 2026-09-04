@@ -193,8 +193,11 @@ class MarkdownTool:
         facts.config_keys = sorted(set(facts.config_keys))
 
         path_pattern = re.compile(r"`((?:\./|\.\./|/)[\w./_-]+)`")
+        bare_file_pattern = re.compile(r"`([\w-]+(?:/[\w.-]+)+)`")
+        candidates = path_pattern.findall(content)
+        candidates.extend(p for p in bare_file_pattern.findall(content))
         facts.file_paths = sorted(
-            {p for p in path_pattern.findall(content) if _looks_like_repo_path(p)}
+            {p for p in candidates if _looks_like_repo_path(p)}
         )
 
         version_pattern = re.compile(r"\b(\d+\.\d+(?:\.\d+)?(?:[a-zA-Z0-9.+-]*))\b")

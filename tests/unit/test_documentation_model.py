@@ -6,6 +6,9 @@ and that Python never infers cognitive fields (personas, capabilities, journeys,
 visibility, etc.).
 """
 
+import pytest
+from pydantic import ValidationError
+
 from makewiki_skills.model.documentation_model import (
     ApiErrorSpec,
     ApiParameter,
@@ -28,9 +31,6 @@ from makewiki_skills.model.documentation_model import (
     RequestBodySpec,
     SchemaField,
 )
-
-import pytest
-from pydantic import ValidationError
 
 
 def _sample_model() -> DocumentationModel:

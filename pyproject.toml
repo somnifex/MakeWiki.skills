@@ -1,6 +1,6 @@
 [project]
 name = "makewiki-skills"
-version = "2.0.0"
+version = "3.0.0"
 description = "LLM-first, evidence-backed multi-agent documentation compiler and offline static wiki toolkit for AI coding assistants."
 readme = "README.md"
 license = {text = "MIT"}

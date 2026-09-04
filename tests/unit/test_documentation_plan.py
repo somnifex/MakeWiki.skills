@@ -362,3 +362,83 @@ def test_plan_page_consistency_relation_ok_when_endpoints_are_planned():
     )
     specs = [_spec("a"), _spec("b")]
     assert plan_page_consistency_errors(plan, specs) == []
+
+
+def test_documentation_section_accepts_personas_and_rationale():
+    """Producer spelling (`personas`) and section rationale load cleanly.
+
+    A real producer wrote section-level `personas` (plural) and a rationale
+    string; the canonical contract declared `persona` (singular). Both
+    spellings are schema fields now; Python only validates structure.
+    """
+    section = DocumentationSection.model_validate(
+        {
+            "id": "admin-guide",
+            "title_intent": "Administrator Guide",
+            "personas": ["persona.admin", "persona.root"],
+            "pages": ["admin/channels"],
+            "rationale": "Admin surface is this project's core management area.",
+        }
+    )
+    assert section.persona_ids == ["persona.admin", "persona.root"]
+    assert section.rationale == "Admin surface is this project's core management area."
+
+
+def test_documentation_section_personas_blank_entry_rejected():
+    with pytest.raises(ValidationError):
+        DocumentationSection.model_validate(
+            {"id": "s", "title_intent": "T", "personas": ["  "], "pages": ["a"]}
+        )
+
+
+def test_documentation_section_blank_rationale_rejected():
+    with pytest.raises(ValidationError):
+        DocumentationSection(id="s", title_intent="T", pages=["a"], rationale="   ")
+
+
+def test_documentation_plan_accepts_producer_metadata_fields():
+    """Plan-level metadata (id/producer/languages/design_intent/...) loads."""
+    plan = DocumentationPlan.model_validate(
+        {
+            "id": "demo.v3.documentation-plan",
+            "producer": "documentation-architect (Main Agent, orchestrated)",
+            "languages": ["en", "zh-CN"],
+            "source_documentation_model": "demo.v3.documentation-model",
+            "design_intent": "Four primary audiences; management API by resource.",
+            "sections": [
+                {
+                    "id": "overview",
+                    "title_intent": "Welcome & Platform Overview",
+                    "personas": ["persona.user", "persona.admin"],
+                    "pages": ["overview"],
+                    "rationale": "Single orientation page for every persona.",
+                }
+            ],
+            "relations": [],
+            "rationale": ["IA matches the project emphasis."],
+        }
+    )
+    assert plan.id == "demo.v3.documentation-plan"
+    assert plan.producer == "documentation-architect (Main Agent, orchestrated)"
+    assert plan.source_documentation_model == "demo.v3.documentation-model"
+    assert plan.languages == ["en", "zh-CN"]
+    assert plan.design_intent.startswith("Four primary audiences")
+    assert plan.sections[0].personas == ["persona.user", "persona.admin"]
+
+
+def test_documentation_plan_full_producer_artifact_loads():
+    """A full real-world-shaped plan (all sections + metadata) loads without
+    field loss: personas, rationale, notes, plan metadata, and cross-page
+    relations all survive validation."""
+    from pathlib import Path
+
+    import yaml
+
+    fixture = Path(__file__).parent / "fixtures" / "documentation_plan_full.yaml"
+    raw = yaml.safe_load(fixture.read_text(encoding="utf-8"))
+    plan = DocumentationPlan.model_validate(raw["documentation_plan"])
+    assert plan.sections, "sections must survive the load"
+    assert any(s.personas for s in plan.sections), "personas must not be dropped"
+    assert any(s.rationale for s in plan.sections), "section rationale must not be dropped"
+    assert plan.producer, "producer must be preserved"
+    assert plan.languages == ["en", "zh-CN"]

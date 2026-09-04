@@ -5,9 +5,9 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
-## [Unreleased]
+## [3.0.0] — 2026-09-04
 
-### V3 authoritative pipeline
+### Architecture
 
 MakeWiki's authoritative flow is now the V3 pipeline —
 
@@ -21,18 +21,25 @@ every phase.
   documentation planning, page splitting, and semantic review, while Python
   stays mechanical (validation, serialization, path/schema/parity/digest
   checks, site build, export).
+- **Stable role families + dynamic SubtaskSpecs**: Explorer, Semantic Analyst,
+  Documentation Architect, Writer, Reviewer, Integrator; the Main Agent
+  synthesizes per-run SubtaskSpecs from the authored InvestigationPlan /
+  DocumentationPlan within `agent.max_subagents` and host parallelism.
 - **DocumentationModel**: a first-class Documentation Architect layer turns
   "what the software is" into "what each audience must understand or
   accomplish" — personas, capabilities, journeys, concepts, references,
   interface references, and documentation gaps. The authoritative audience is
   `DocumentationModel.personas` (config `audience` fields are seed hints only).
-- **PageSpec**: Page Planning produces one `PageSpec` per page as the Writer's
-  direct contract (page type, audience, user goal, required sections,
-  forbidden topics, evidence refs); writers never hold global information
-  architecture authority.
+- **DocumentationPlan / PageSpec**: Page Planning expresses the page structure
+  (sections with persona references, cross-page relations, plan metadata) and
+  produces one language-neutral `PageSpec` per page as the Writer's direct
+  contract (page type, audience, user goal, required sections, forbidden
+  topics, evidence refs); writers never hold global information architecture
+  authority.
 - **Independent Review / Revision**: the Reviewer is read-only and emits
-  `ReviewFindings`; a separate Revision Agent implements only flagged pages; a
-  fresh independent re-review decides completion.
+  `ReviewFindings`; a separate Revision Agent implements only flagged pages;
+  a fresh independent re-review decides completion. ReBattle is a hard-conflict
+  escalation, not a mandatory stage.
 - **Operator & API reference**: operator/admin personas are first-class; typed
   interface models were added (`SchemaField`, `ApiErrorSpec`, `PaginationSpec`,
   `CliCommandReference`, `ConfigReference`, `OperationalEndpointReference`),
@@ -50,34 +57,54 @@ every phase.
   config field is LLM- or Python-consumed (no dead config), and that the
   auditor loop is budgeted by `agent.max_audit_rounds`.
 
-### Config ownership, authoritative orchestration, and legacy contract
+### Verification
 
-Clarified that the authoritative `/makewiki` configuration governs LLM
-orchestration, and that legacy Python config no longer pretends to steer the
-LLM-first flow.
+- **Integration draft lint** (`makewiki lint-drafts`): a mechanical
+  pre-verification check over the assembled deliverable tree — writer
+  frontmatter leaks, internal artifact path leaks, section-marker grammar and
+  PageSpec `required_sections`, stable block-ID structure, interface
+  disposition cross-references, and plan/spec/draft drift. Blocking errors
+  mean Integration is incomplete; it never judges page quality and never
+  changes the Quality Gate.
+- **L1/L4 extractor false-positive hardening**: path-shaped candidates are
+  gated by a repo-path shape test so HTTP routes are not classified as
+  repository files; dotted prose identifiers are treated as unproven
+  candidates (pending) instead of authoritative failures; only ALL_CAPS
+  env-style keys are fact-diffed across languages.
+- **Shell environment assignments** (`export NAME=value`, `NAME=value cmd`,
+  `unset`) are pending LLM candidates in L1, never mechanical failures.
+- **SemanticAuditBundle retained**: LLM audit verdicts merge into the report
+  only when the bundle's documents digest still matches (and, when declared,
+  the SemanticModel digest binds); stale bundles are rejected, never merged.
+- **Quality Gate reporting aggregation**: repeated same-kind mechanical
+  findings collapse into summary rows in human output; the JSON report keeps
+  every individual finding (display-only aggregation).
 
-- **Authoritative audit-loop budget**: the `/makewiki` Auditor's self-healing
-  loop (Phase 4) is now bounded by the LLM-owned `agent.max_audit_rounds`
-  (new field, LLM-consumed), not the legacy `revision.max_rounds`. `SKILL.md`
-  and `tasks/review.md` were corrected to reference it.
-- **Behavioral LLM-consumption contract**: `tests/contracts/
-  test_config_consumption_contract.py` now verifies every LLM_ONLY field is
-  actually referenced in the authoritative Skill layer (`SKILL.md` /
-  `tasks/*.md`), and that `revision.max_rounds` never steers the authoritative
-  loop. Dead config masked by category is now caught at test time.
-- **Dead config removed**: `scan.max_external_urls` was a futures-planning
-  field (no consumer, no fetch step) — removed.
-- **LLM_ONLY fields wired in**: `agent.rebattle_rounds` (Phase 2 ReBattle),
-  `content_depth.*`, `delivery.*`, `documentation_policy.*`, and
-  `language_profiles.*.tone` are now genuinely consumed by the Skill layer and
-  `tasks/write.md`, instead of being only classified.
-- **Mechanical review toggle renamed**: `review.enable_semantic_review` →
-  `review.enable_review_pair_generation`, so the name can no longer imply
-  closing the authoritative LLM semantic audit (it only gates the
-  `semantic-review` preparation command).
-- **Stale config key removed**: the inert `revision.min_grounding_score` was
-  dropped from `makewiki.config.yaml` (the threshold lives on
-  `quality.min_grounding_score`).
+### Documentation Quality
+
+- **Persona/capability/journey planning**: documentation structure derives
+  from DocumentationModel personas and capabilities, not fixed templates.
+- **Operator-first documentation capability**: deployment, configuration,
+  monitoring, maintenance, and security surfaces are first-class pages.
+- **Evidence-backed static API reference**: resource-grouped reference pages
+  document only proven response/error shapes; ungrounded fields stay UNKNOWN.
+- **Language-neutral PageSpec**: one canonical PageSpec per page shared by all
+  target languages; the target language belongs to the Writing Subtask.
+
+### Compatibility
+
+- `PageSpec.language` is a legacy compatibility field (optional, not
+  authoritative); `DocumentationSection` accepts both `persona` and
+  `personas` spellings.
+- All verification statuses keep their honest semantics; no renamed verdicts.
+- The version contract pins skill, toolkit, and plugin to the same version
+  (now `3.0.0`).
+
+### Validation
+
+- Large-repository benchmark (multi-persona management-API project) and a
+  cross-project CLI-tool canary both passed with no architecture-level
+  regression observed.
 
 ---
 

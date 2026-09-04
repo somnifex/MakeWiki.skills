@@ -8,7 +8,7 @@ stage, NOT a new verification level, and it never judges page quality,
 persona fit, or API semantics — those belong to the LLM Reviewer and the
 L0-L5 layers.
 
-Checks (each traceable to a defect proven by the NewAPI benchmark):
+Checks (each traceable to a defect class proven during RC verification):
 - writer frontmatter leak (page_id/audience/page_type keys in deliverable md)
 - internal artifact path leak (``.makewiki-artifacts/...`` in prose)
 - section-marker grammar + PageSpec ``required_sections`` presence
@@ -28,14 +28,10 @@ import re
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 
 from makewiki_skills.model.page_spec import PageSpec
 from makewiki_skills.review.section_parser import parse_document_sections
-from makewiki_skills.verification.l4_cross_language import (
-    _scan_blocks,
-    pair_blocks_by_section_id,
-)
 
 if TYPE_CHECKING:  # pragma: no cover
     from makewiki_skills.model.documentation_model import DocumentationModel
@@ -180,7 +176,6 @@ def _check_sections(
 
 def _check_block_ids(
     docs_by_base: dict[str, dict[str, str]],
-    wiki_dir: Path,
     issues: list[LintIssue],
 ) -> None:
     """A4 — duplicate [[id]] within one doc; en/zh block-ID SET equality.
@@ -238,7 +233,7 @@ def _check_block_ids(
 
 
 def _check_dispositions(
-    doc_model: "DocumentationModel | None",
+    doc_model: DocumentationModel | None,
     planned_pages: set[str],
     issues: list[LintIssue],
 ) -> None:
@@ -316,9 +311,9 @@ def _check_plan_drafts(
 
 def run_draft_lint(
     wiki_dir: Path,
-    plan: "DocumentationPlan | None",
+    plan: DocumentationPlan | None,
     page_specs: list[PageSpec],
-    doc_model: "DocumentationModel | None" = None,
+    doc_model: DocumentationModel | None = None,
     languages: list[str] | None = None,
 ) -> list[LintIssue]:
     """Run every mechanical draft-hygiene check; return all issues.
@@ -338,9 +333,8 @@ def run_draft_lint(
         planned_pages = set(getattr(plan, "pages", []) or [])
         for section in getattr(plan, "sections", []) or []:
             planned_pages.update(section.pages)
-    # The plan schema carries no languages field; callers pass the declared
-    # language set (the SitePresentationPlan / config languages). Default to
-    # the en+zh-CN V3 pair when unspecified.
+    # The plan schema has no languages field; the caller passes the declared
+    # set. Defaults to the V3 en+zh-CN pair.
     langs = set(languages) if languages else {"en", "zh-CN"}
 
     # per-document contents
@@ -353,12 +347,11 @@ def run_draft_lint(
         _check_artifact_paths(rel, content, issues)
         _check_sections(rel, content, {s.page_id: s for s in page_specs}, base, issues)
 
-    _check_block_ids(docs_by_base, wiki_dir, issues)
+    _check_block_ids(docs_by_base, issues)
     _check_dispositions(doc_model, planned_pages, issues)
     _check_plan_drafts(wiki_dir, planned_pages, langs, issues)
 
-    # plan ↔ spec cross-reference (existing helper, unchanged semantics);
-    # only meaningful when a schema-valid plan exists.
+    # plan ↔ spec cross-reference via the existing helper.
     if plan is not None:
         from makewiki_skills.model.documentation_plan import plan_page_consistency_errors
 

@@ -31,6 +31,9 @@ class DocumentationSection(BaseModel):
     """A named group of pages under one documented intent / persona set.
 
     Authored by the Architect; Python never groups pages or assigns personas.
+    ``persona`` / ``personas`` reference DocumentationModel persona ids (the
+    contract spells the field both ways; ``persona_ids`` merges them).
+    ``rationale`` optionally records the grouping reason.
     """
 
     model_config = _PLAN_CONFIG
@@ -38,7 +41,15 @@ class DocumentationSection(BaseModel):
     id: str = ""
     title_intent: str = ""
     persona: list[str] = Field(default_factory=list)
+    personas: list[str] = Field(default_factory=list)
     pages: list[str] = Field(default_factory=list)
+    rationale: str | None = None
+    note: str | None = None
+
+    @property
+    def persona_ids(self) -> list[str]:
+        """Merged persona references (both contract spellings)."""
+        return list(dict.fromkeys(self.persona + self.personas))
 
     @model_validator(mode="after")
     def _require_writable_section(self) -> DocumentationSection:
@@ -58,6 +69,24 @@ class DocumentationSection(BaseModel):
                 raise ValueError(
                     "DocumentationSection.pages must not contain a blank page id"
                 )
+        for p in self.persona:
+            if not p.strip():
+                raise ValueError(
+                    "DocumentationSection.persona must not contain blank entries"
+                )
+        for p in self.personas:
+            if not p.strip():
+                raise ValueError(
+                    "DocumentationSection.personas must not contain blank persona ids"
+                )
+        if self.rationale is not None and not self.rationale.strip():
+            raise ValueError(
+                "DocumentationSection.rationale, when present, must not be blank"
+            )
+        if self.note is not None and not self.note.strip():
+            raise ValueError(
+                "DocumentationSection.note, when present, must not be blank"
+            )
         return self
 
 
@@ -111,6 +140,11 @@ class DocumentationPlan(BaseModel):
 
     model_config = _PLAN_CONFIG
 
+    id: str = ""
+    producer: str = ""
+    languages: list[str] = Field(default_factory=list)
+    source_documentation_model: str = ""
+    design_intent: str = ""
     sections: list[DocumentationSection] = Field(default_factory=list)
     pages: list[str] = Field(default_factory=list)
     relations: list[DocumentationRelation] = Field(default_factory=list)
@@ -143,9 +177,9 @@ class DocumentationPlan(BaseModel):
             raise ValueError(f"Duplicate DocumentationPlan page ids: {dupes}")
 
         for section in self.sections:
-            pages = section.pages
-            if len(pages) != len(set(pages)):
-                dupes = sorted({pid for pid in pages if pages.count(pid) > 1})
+            section_pages = section.pages
+            if len(section_pages) != len(set(section_pages)):
+                dupes = sorted({pid for pid in section_pages if section_pages.count(pid) > 1})
                 raise ValueError(
                     f"Duplicate page ids in DocumentationSection {section.id!r}: {dupes}"
                 )

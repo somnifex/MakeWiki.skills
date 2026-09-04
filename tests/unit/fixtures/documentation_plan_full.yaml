@@ -1,0 +1,135 @@
+documentation_plan:
+  # Generic full-shape fixture: plan-level metadata, section-level
+  # personas/rationale/note, cross-page relations, and plan rationale —
+  # every field a real producer emits. Renaming the ids keeps this fixture
+  # project-agnostic while preserving the exact schema shape.
+  id: demo.v3.documentation-plan
+  producer: documentation-architect (Main Agent, orchestrated)
+  languages: [en, zh-CN]
+  source_documentation_model: demo.v3.documentation-model
+
+  design_intent: >-
+    The documentation is organized around the four primary audiences:
+    (1) end users of the service + self-service dashboard, (2) administrators
+    managing resources/permissions/billing, (3) operators
+    deploying/configuring/monitoring, and (4) developers integrating clients
+    against the service and management API. The management API reference is
+    organized by resource/capability (not source file) with explicit
+    role/permission, side effects, required inputs, and only evidence-backed
+    responses. Each major persona has a landing page, concepts underpin,
+    and references support.
+
+  sections:
+    - id: overview
+      title_intent: Welcome & Platform Overview
+      personas: [persona.user, persona.admin, persona.operator, persona.developer]
+      pages:
+        - overview
+      rationale: >-
+        A single orientation page that orients every persona to what the
+        product is, its two surfaces, and how to reach their guide.
+
+    - id: user-guide
+      title_intent: User Guide
+      personas: [persona.user]
+      pages:
+        - user/getting-started
+        - user/tokens
+        - user/security
+      rationale: >-
+        End users need a getting-started path, resource self-service, and
+        account security.
+
+    - id: admin-guide
+      title_intent: Administrator Guide
+      personas: [persona.admin, persona.root]
+      pages:
+        - admin/resources
+        - admin/billing
+        - admin/permissions
+      rationale: >-
+        Administrators manage resources, billing/quota, and the permission
+        catalog. This is the core management surface.
+
+    - id: operator-guide
+      title_intent: Operator Guide
+      personas: [persona.operator]
+      pages:
+        - operator/deployment
+        - operator/configuration
+        - operator/monitoring
+      rationale: >-
+        Operators deploy, configure, monitor, and secure the service; the
+        operator checklist in the DocumentationModel maps here.
+
+    - id: developer-guide
+      title_intent: Developer / Integration Guide
+      personas: [persona.developer, persona.user]
+      pages:
+        - developer/service-api
+        - developer/auth-model
+      rationale: >-
+        Integrators call the service API and need token/group/auth semantics;
+        developers also consume the management API reference.
+
+    - id: management-api
+      title_intent: Management API Reference
+      personas: [persona.admin, persona.root, persona.operator, persona.developer]
+      pages:
+        - reference/overview
+        - reference/manage/resources
+        - reference/manage/resource-create
+        - reference/manage/resource-update
+        - reference/manage/authorization
+      note: >-
+        The management API reference is organized by resource/capability,
+        with role/permission, side effects, and evidence-backed responses.
+
+  relations:
+    - from: overview
+      to: user/getting-started
+      type: related
+    - from: overview
+      to: admin/resources
+      type: related
+    - from: overview
+      to: operator/deployment
+      type: related
+    - from: user/getting-started
+      to: user/tokens
+      type: next
+    - from: user/tokens
+      to: developer/service-api
+      type: related
+    - from: admin/resources
+      to: admin/permissions
+      type: depends_on
+    - from: admin/resources
+      to: reference/manage/resources
+      type: reference
+    - from: admin/billing
+      to: reference/manage/authorization
+      type: reference
+    - from: operator/deployment
+      to: operator/configuration
+      type: next
+    - from: developer/service-api
+      to: reference/manage/resources
+      type: reference
+
+  rationale:
+    - >-
+      Persona-separated IA (overview, user, admin, operator, developer) keeps
+      each audience on a distinct guide surface instead of one mixed page.
+    - >-
+      The management API is a resource-grouped reference rather than a flat
+      method/path table, with role, side effects, required inputs, and known
+      responses per operation.
+    - >-
+      Resource operations are split into dedicated create/update pages when
+      their permission gates and request bodies differ; grouped otherwise.
+    - >-
+      Only proven response/error shapes are documented; ungrounded fields
+      stay UNKNOWN per the API_REFERENCE discipline.
+
+  no_documentation_reason: null

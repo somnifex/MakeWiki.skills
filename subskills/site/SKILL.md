@@ -1,7 +1,7 @@
 ---
 name: makewiki-site
 description: "Compile an existing MakeWiki markdown documentation directory into an offline, zero-dependency, responsive static website, driven by an LLM-authored SitePresentationPlan. Use when: a SitePresentationPlan exists and the user wants to build or rebuild static HTML wiki pages from generated makewiki markdown docs. Pure mechanical step — renders the plan, does not modify prose and never decides information architecture from filenames."
-version: "2.0.0"
+version: "3.0.0"
 argument-hint: "[path-to-makewiki-dir] [--plan <site_presentation.json>] [--theme <auto|light|dark>]"
 license: MIT
 allowed-tools: Bash(python */scripts/bootstrap_toolkit.py) Bash(python */scripts/run_toolkit.py *) Read Write Glob

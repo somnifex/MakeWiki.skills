@@ -38,7 +38,6 @@ from makewiki_skills.model.search_ledger import (
     parse_search_ledger_markdown,
 )
 from makewiki_skills.model.v3_artifacts import (
-    ClaimBundle,
     InvestigationPlan,
     RepositoryBrief,
     RepositoryHypothesis,

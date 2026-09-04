@@ -99,6 +99,7 @@ The CLI surface is designed around authoritative names with backward-compatible 
 | Toolkit: Claim verify           | `makewiki verify-claim <claim.json>`   | —                   | Per-claim L-status                                                   |
 | Toolkit: Model verify           | `makewiki verify-model <model.json>`   | —                   | SemanticModel schema + evidence-ref validation                       |
 | Toolkit: Parity                 | `makewiki parity <path>`               | —                   | Block-ID exact match + aligned passages                              |
+| Toolkit: Draft lint             | `makewiki lint-drafts <path>`          | —                   | Integration-time mechanical draft hygiene (frontmatter leaks / section markers / block IDs / plan drift) |
 | Toolkit: ReBattle diff          | `makewiki rebattle-diff`               | —                   | Deterministic dispute organizer                                      |
 | Toolkit: Site                   | `makewiki build-site <path>`           | —                   | Compile offline static site                                          |
 | Toolkit: Export                 | `makewiki export <path> --format html\|epub\|all` | — | Single-file export (rejects `pdf`) |
@@ -132,7 +133,7 @@ The document set is **bespoke** (project-specific): persona-aware guides, operat
 
 ## 💡 Two-Plane Architecture & Authority Boundary
 
-MakeWiki v2 splits cleanly into two planes and codifies a **Cognitive Authority Boundary**:
+MakeWiki v3 splits cleanly into two planes and codifies a **Cognitive Authority Boundary**:
 
 ```mermaid
 flowchart LR

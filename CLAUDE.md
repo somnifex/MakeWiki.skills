@@ -126,7 +126,7 @@ Python toolkit commands (mechanical only):
 - **Ephemeral execution**: keep environments clean and remove temporary
 
   artifacts.
-- **Version binding**: skill version (`2.0.0`) ↔ toolkit version (`2.0.0`)
+- **Version binding**: skill version (`3.0.0`) ↔ toolkit version (`3.0.0`)
 
   via the bootstrap script (`MAKEWIKI_TOOLKIT_VERSION`, plus
   `MAKEWIKI_TOOLKIT_COMMIT` for a Git install and

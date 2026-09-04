@@ -1,17 +1,17 @@
 ---
 name: makewiki
 description: "Generate evidence-backed multilingual wiki documentation and an offline static website for a software project using autonomous collaborative LLM subagents. Use when: user asks to generate wiki, docs, documentation, enterprise delivery manuals, or multilingual docs for a project."
-version: "2.0.0"
+version: "3.0.0"
 license: MIT
 ---
-# MakeWiki v2 - LLM-First, Evidence-Backed Documentation Compiler
+# MakeWiki v3 - LLM-First, Evidence-Backed Documentation Compiler
 
 MakeWiki is an **LLM-first, evidence-backed, multi-agent documentation compiler**.
 The LLM (Skill layer) decides what the repository means; Python (toolkit layer)
 proves what can be mechanically proven. Documentation is evidence-backed with
 layered automated verification (L0 - L5) and a single Quality Gate.
 
-This file binds skill `2.0.0` to toolkit `2.0.0`. The bootstrap script pins
+This file binds skill `3.0.0` to toolkit `3.0.0`. The bootstrap script pins
 the matching tag via `MAKEWIKI_TOOLKIT_VERSION`, the Git identity via
 `MAKEWIKI_TOOLKIT_COMMIT` (Git install) and the archive integrity checksum via
 `MAKEWIKI_TOOLKIT_ARCHIVE_SHA256` (Archive install).
@@ -440,6 +440,7 @@ returns `UNKNOWN`; none produce narrative content.
 | `review <wiki_dir>`      | —            | Standalone cross-language review                              |
 | `semantic-review <dir>`  | —            | Prepare aligned passages for LLM cross-language review       |
 | `validate <wiki_dir>`    | —            | Markdown structure & link validation (L0 helper)             |
+| `lint-drafts <wiki_dir>` | —            | Integration-time mechanical draft hygiene lint (pre-verification) |
 | `build-site <wiki_dir>`  | —            | Compile Markdown into offline SPA HTML site                  |
 | `export <wiki_dir>`      | —            | `--format html|epub|all`; **rejects pdf**                   |
 | `sync-bundle <wiki_dir>` | `sync`       | Prepare Confluence / Notion bundles; **does NOT publish**    |
@@ -500,5 +501,5 @@ See `tests/contracts/test_config_consumption_contract.py`.
   translation.
 - **100% code-block parity** across languages.
 - **Ephemeral execution**: clean up temporary artifacts after each phase.
-- **Version binding**: skill version (`2.0.0`) ↔ toolkit version (`2.0.0`) via
+- **Version binding**: skill version (`3.0.0`) ↔ toolkit version (`3.0.0`) via
   the bootstrap script.

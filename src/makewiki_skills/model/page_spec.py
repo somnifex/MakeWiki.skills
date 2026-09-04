@@ -20,9 +20,9 @@ the core contract (§2) and per-type requirements (§4).
 
 from __future__ import annotations
 
-from typing import Literal
+from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 #: Forbid unknown keys so a hand-authored PageSpec with a typo'd or unexpected
 #: key fails loudly at load time instead of being silently dropped.
@@ -75,7 +75,21 @@ class PageSpec(BaseModel):
     #: language belongs to the Writing Subtask + LanguageProfile, not the PageSpec.
     #: Retained (not removed) to avoid breaking serialization; it is OPTIONAL and
     #: NOT authoritative for V3 target-language selection. No consumer routes on it.
-    language: str = ""
+    #: ``None`` (a producer emitting ``language: null``) is normalized to ``""``.
+    language: str | None = None
+
+    @field_validator("language", mode="before")
+    @classmethod
+    def _normalize_legacy_language(cls, v: Any) -> Any:
+        """Normalize ``language: null`` to the legacy default ``""``."""
+        return "" if v is None else v
+
+    @model_validator(mode="after")
+    def _normalize_language_none(self) -> PageSpec:
+        """Default-field ``None`` (omitted) also normalizes to ``""``."""
+        if self.language is None:
+            object.__setattr__(self, "language", "")
+        return self
 
     @model_validator(mode="after")
     def _require_writable_contract(self) -> PageSpec:

@@ -2,8 +2,6 @@
 
 from pathlib import Path
 
-import pytest
-
 from makewiki_skills.model.documentation_model import (
     DocumentationGap,
     DocumentationModel,
@@ -14,7 +12,7 @@ from makewiki_skills.model.documentation_plan import (
     DocumentationSection,
 )
 from makewiki_skills.model.page_spec import PageSpec
-from makewiki_skills.verification.draft_lint import LintIssue, run_draft_lint
+from makewiki_skills.verification.draft_lint import run_draft_lint
 
 
 def _make_plan(pages: list[str], languages: list[str] | None = None) -> DocumentationPlan:

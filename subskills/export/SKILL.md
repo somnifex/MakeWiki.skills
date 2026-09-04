@@ -1,7 +1,7 @@
 ---
 name: makewiki-export
 description: "Compile generated makewiki Markdown documentation into single-file printable HTML and standard EPUB 2.0 electronic books. Use when: user wants to package documentation into portable single-file offline manuals or EPUB readers. (PDF export is intentionally not supported; use --format html|epub|all.)"
-version: "2.0.0"
+version: "3.0.0"
 argument-hint: "[path-to-makewiki-dir] [--format all|html|epub] [--lang <code>]"
 license: MIT
 allowed-tools: Bash(python */scripts/bootstrap_toolkit.py) Bash(python */scripts/run_toolkit.py *) Read Write Glob

@@ -1,7 +1,7 @@
 ---
 name: makewiki-review
 description: "Verify and review existing makewiki documentation: checks factual accuracy against project source code via the unified L0-L5 pipeline, compares structured facts and code blocks across all language versions, and audits enterprise delivery standards. Use when: user has generated multilingual docs and wants to verify consistency, accuracy, and completeness. Always finishes with the honest four-state Quality Gate verdict."
-version: "2.0.0"
+version: "3.0.0"
 argument-hint: "[--lang <code>...]"
 license: MIT
 allowed-tools: Bash(python */scripts/bootstrap_toolkit.py) Bash(python */scripts/run_toolkit.py *) Read Write Edit Glob Grep

@@ -183,3 +183,111 @@ def test_l1_evidence_backed_config_key_passes(tmp_path: Path):
         match = [c for c in report.checks if c.claim_type == "config_key" and c.claim_text == key]
         assert match, f"missing check for {key}"
         assert match[0].status == "passed", f"{key} -> {match[0].status}"
+
+
+def test_l1_export_env_assignment_is_pending_not_failed(tmp_path: Path):
+    """``export NAME=value`` is a shell env assignment, not a command claim."""
+    doc = GeneratedDocument(
+        filename="deploy.md",
+        base_name="deploy.md",
+        language_code="en",
+        content="# Deploy\n```bash\nexport OPENAI_API_KEY=sk-...\n```\n",
+    )
+    verifier = L1ExistenceVerifier(tmp_path)
+    report = verifier.verify_documents({"en": [doc]})
+
+    checks = [c for c in report.checks if c.claim_type == "command"]
+    assert len(checks) == 1
+    assert checks[0].status == "pending"
+    assert checks[0].verified is False
+    assert checks[0].verification_source == "generic_shell_semantics"
+    assert report.verdict == "pending"
+    assert not any(c.status == "failed" for c in report.checks)
+
+
+def test_l1_env_prefix_command_is_pending_not_failed(tmp_path: Path):
+    """``NAME=value command`` env-prefix form is a shell assignment, not a claim."""
+    doc = GeneratedDocument(
+        filename="deploy.md",
+        base_name="deploy.md",
+        language_code="en",
+        content="# Deploy\n```bash\nFOO=bar myapp serve\n```\n",
+    )
+    verifier = L1ExistenceVerifier(tmp_path)
+    report = verifier.verify_documents({"en": [doc]})
+
+    checks = [c for c in report.checks if c.claim_type == "command"]
+    assert len(checks) == 1
+    assert checks[0].status == "pending"
+    assert checks[0].verification_source == "generic_shell_semantics"
+    assert not any(c.status == "failed" for c in report.checks)
+
+
+def test_l1_standalone_env_assignment_is_pending_not_failed(tmp_path: Path):
+    """Bare ``NAME=value`` (with trailing comment) is a shell assignment."""
+    doc = GeneratedDocument(
+        filename="deploy.md",
+        base_name="deploy.md",
+        language_code="en",
+        content="# Deploy\n```bash\nNODE_TYPE=master   # master node\nunset SQL_DSN REDIS_CONN_STRING\n```\n",
+    )
+    verifier = L1ExistenceVerifier(tmp_path)
+    report = verifier.verify_documents({"en": [doc]})
+
+    checks = [c for c in report.checks if c.claim_type == "command"]
+    assert len(checks) == 2
+    assert all(c.status == "pending" for c in checks)
+    assert all(c.verification_source == "generic_shell_semantics" for c in checks)
+    assert not any(c.status == "failed" for c in report.checks)
+
+
+def test_l1_lowercase_dotted_config_key_not_swallowed_by_env_rule(tmp_path: Path):
+    """Prose `a=b`-shaped keys must keep their own adjudication path.
+
+    The env-assignment rule is scoped to *commands* (shell-fence lines); a
+    dotted config-key candidate extracted from prose must still reach the
+    dotted-identifier pending path, not be reclassified as a command.
+    """
+    doc = GeneratedDocument(
+        filename="reference.md",
+        base_name="reference.md",
+        language_code="en",
+        content="# Reference\nThe handler reads `response.data.id` and `a=b` in prose.\n",
+    )
+    verifier = L1ExistenceVerifier(tmp_path)
+    report = verifier.verify_documents({"en": [doc]})
+
+    # No command checks were manufactured from prose.
+    assert not any(c.claim_type == "command" for c in report.checks)
+    dotted = [c for c in report.checks if c.claim_text == "response.data.id"]
+    assert len(dotted) == 1
+    assert dotted[0].claim_type == "config_key"
+    assert dotted[0].status == "pending"
+
+
+def test_l1_evidence_backed_config_key_still_verified_alongside_env_rule(tmp_path: Path):
+    """The env-assignment rule must not suppress evidence-backed config keys."""
+    (tmp_path / ".env.example").write_text(
+        'SQL_DSN="postgres://localhost/db"\nPORT=3000\n', encoding="utf-8"
+    )
+    doc = GeneratedDocument(
+        filename="deploy.md",
+        base_name="deploy.md",
+        language_code="en",
+        content=(
+            "# Deploy\n\nSet `SQL_DSN` and `PORT` in your environment:\n"
+            "```bash\nexport SQL_DSN=postgres://localhost/db\n```\n"
+        ),
+    )
+    verifier = L1ExistenceVerifier(tmp_path)
+    report = verifier.verify_documents({"en": [doc]})
+
+    for key in ("SQL_DSN", "PORT"):
+        match = [c for c in report.checks if c.claim_type == "config_key" and c.claim_text == key]
+        assert match, f"missing check for {key}"
+        assert match[0].status == "passed", f"{key} -> {match[0].status}"
+
+    export_checks = [c for c in report.checks if c.claim_text.startswith("export ")]
+    assert len(export_checks) == 1
+    assert export_checks[0].status == "pending"
+    assert not any(c.status == "failed" for c in report.checks)

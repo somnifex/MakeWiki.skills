@@ -5,6 +5,9 @@ serializes. Tests confirm validation strictness (``extra="forbid"``) and a
 serialization round-trip — never that Python infers semantic content.
 """
 
+import pytest
+from pydantic import ValidationError
+
 from makewiki_skills.model.v3_artifacts import (
     Claim,
     ClaimBundle,
@@ -24,9 +27,6 @@ from makewiki_skills.model.v3_artifacts import (
     SubtaskSpec,
     SubtaskType,
 )
-
-import pytest
-from pydantic import ValidationError
 
 
 def _sample_brief() -> RepositoryBrief:

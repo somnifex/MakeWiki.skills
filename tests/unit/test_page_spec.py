@@ -5,10 +5,10 @@ The PageSpec is the Writer's contract. Python only validates the schema, checks
 pages or infers a page type.
 """
 
-from makewiki_skills.model.page_spec import PageSpec, PageType
-
 import pytest
 from pydantic import ValidationError
+
+from makewiki_skills.model.page_spec import PageSpec, PageType
 
 
 def _sample_spec() -> PageSpec:

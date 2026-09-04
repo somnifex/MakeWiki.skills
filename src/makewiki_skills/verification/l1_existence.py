@@ -41,6 +41,17 @@ _GENERIC_TOOL_PREFIXES: list[str] = [
     "sudo ",
 ]
 
+#: POSIX shell environment assignment / manipulation forms:
+#:   ``export NAME[=value]`` / ``unset NAME...`` / ``NAME=value[ command...]``
+#: Their leading token is a variable name, not a command claim against this
+#: repository. Matched only on lines extracted from shell fences, never prose.
+_SHELL_ENV_ASSIGN_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*=")
+_SHELL_ENV_MANIP_RE = re.compile(r"^(?:export|unset)(?:\s|$)")
+
+
+def _is_shell_env_assignment(cmd: str) -> bool:
+    return bool(_SHELL_ENV_ASSIGN_RE.match(cmd) or _SHELL_ENV_MANIP_RE.match(cmd))
+
 
 class L1ExistenceVerifier:
     """Verify that paths, commands, and config keys exist in the repository on disk."""
@@ -142,7 +153,27 @@ class L1ExistenceVerifier:
             if not stripped:
                 continue
 
-            # 1. Well-known generic shell tools: existence cannot be mechanically
+            # 1. Shell environment assignment/manipulation (``export NAME=...``,
+            #    ``NAME=value [command]``, ``unset NAME...``): the leading token
+            #    is a variable, not a command claim against this repository.
+            #    Pending LLM candidate — never a vacuous pass.
+            if _is_shell_env_assignment(stripped):
+                results.append(
+                    VerificationCheck(
+                        layer="L1",
+                        target=doc.filename,
+                        language_code=doc.language_code,
+                        claim_type="command",
+                        claim_text=stripped,
+                        verified=False,
+                        status="pending",
+                        verification_source="generic_shell_semantics",
+                        detail="Shell environment assignment; existence in this repo not mechanically proven - pending LLM review",
+                    )
+                )
+                continue
+
+            # 2. Well-known generic shell tools: existence cannot be mechanically
             #    proven against THIS repository, so it is a pending candidate for
             #    the LLM, never a vacuous pass.
             if any(stripped.startswith(p) for p in _GENERIC_TOOL_PREFIXES):
@@ -161,7 +192,7 @@ class L1ExistenceVerifier:
                 )
                 continue
 
-            # 2. Check project script / Makefile target
+            # 3. Check project script / Makefile target
             if self._command_matches(stripped, project_cmds):
                 results.append(
                     VerificationCheck(
@@ -178,7 +209,7 @@ class L1ExistenceVerifier:
                 )
                 continue
 
-            # 3. Placeholder command (templates): a `<...>` template is not proof
+            # 4. Placeholder command (templates): a `<...>` template is not proof
             #    the underlying command exists here - keep it a pending candidate.
             if "<" in stripped and ">" in stripped:
                 results.append(
@@ -196,7 +227,7 @@ class L1ExistenceVerifier:
                 )
                 continue
 
-            # 4. Check if hedged with uncertainty note. A hedging caveat is a
+            # 5. Check if hedged with uncertainty note. A hedging caveat is a
             #    signal the documented ground the command SUPPOSEDLY exists on was
             #    not established — it is NOT proof of existence here. Mark it a
             #    pending candidate for the LLM (mirroring L5's treatment of the
@@ -217,7 +248,7 @@ class L1ExistenceVerifier:
                 )
                 continue
 
-            # 5. Unverified command failure
+            # 6. Unverified command failure
             results.append(
                 VerificationCheck(
                     layer="L1",
@@ -294,31 +325,9 @@ class L1ExistenceVerifier:
                 )
                 continue
 
-            # An UPPER_CASE name matches the env-var pattern but is not proof the
-            # variable is actually declared anywhere here - keep it pending.
-            if re.match(r"^[A-Z][A-Z0-9_]+$", key):
-                results.append(
-                    VerificationCheck(
-                        layer="L1",
-                        target=doc.filename,
-                        language_code=doc.language_code,
-                        claim_type="config_key",
-                        claim_text=key,
-                        verified=False,
-                        status="pending",
-                        verification_source="generic_shell_semantics",
-                        detail="Matches uppercase env-var naming pattern; declared existence not mechanically proven - pending LLM review",
-                    )
-                )
-                continue
-
-            # A dotted identifier in prose (`foo.bar`) is a CANDIDATE, not a
-            # proven config key: prose symbols, Go identifiers, event names,
-            # and semantic doc-ids share the shape. Without mechanical config
-            # evidence it cannot be adjudicated failed (that would punish
-            # ordinary code references) nor passed. Demote to pending so the
-            # UNKNOWN discipline holds and the gate is not flooded with
-            # extractor false positives.
+            # Dotted prose identifiers (`foo.bar`) are candidates, not proven
+            # config keys — code symbols and event names share the shape. Keep
+            # them pending (UNKNOWN discipline) instead of failing the gate.
             results.append(
                 VerificationCheck(
                     layer="L1",
