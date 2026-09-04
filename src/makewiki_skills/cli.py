@@ -257,6 +257,10 @@ def lint_drafts(
     from makewiki_skills.model.documentation_model import DocumentationModel
     from makewiki_skills.model.documentation_plan import DocumentationPlan
     from makewiki_skills.model.page_spec import PageSpec
+    from makewiki_skills.model.site_presentation import (
+        SitePresentationPlan,
+        load_site_presentation,
+    )
     from makewiki_skills.verification.draft_lint import run_draft_lint
 
     wiki_dir = Path(wiki_dir).resolve()
@@ -374,26 +378,105 @@ def lint_drafts(
             "expected 07-documentation-model/documentation_model.yaml",
         )
 
-    # Declared languages for the lint: the canonical DocumentationPlan.languages
-    # (already in `plan`); when the plan is absent, fall back to the assembled
-    # SitePresentationPlan (the Integration language authority). Default
-    # language comes from the same plan (never assumed to be en).
-    default_language = "en"
-    if plan is not None and plan.languages:
-        default_language = plan.languages[0]
-    else:
+    # Language context (LANGUAGE SET and DEFAULT LANGUAGE are two independent
+    # mechanical facts; `languages[0]` is never a default). Resolution is
+    # per-fact, not per-source:
+    #   languages: DocumentationPlan.languages > SitePresentationPlan.languages
+    #     > makewiki.config.yaml languages (mechanical fallback)
+    #   default_language: SitePresentationPlan.default_language >
+    #     makewiki.config.yaml default_language > compatibility fallback only
+    #     (deterministic pick from the resolved set, labeled as such in the
+    #     code; never claimed authoritative, never plan.languages[0]).
+    # With no resolvable set, full Integration mode fails closed instead of
+    # silently guessing a legacy en + zh-CN pair.
+    plan_langs = list(plan.languages) if plan is not None else []
+
+    def _load_site_presentation_plan() -> SitePresentationPlan | None:
+        """Load the Integration site plan from the canonical wiki-tree path.
+
+        Reuses the existing ``load_site_presentation`` model loader (no second
+        loader, no dict guessing). A missing plan is None; a present-but-invalid
+        plan fails closed — the Integration artifact set is incomplete.
+        """
         for candidate in ("site_presentation.yaml", "site_presentation.yml", "site_presentation.json"):
             probe = wiki_dir / candidate
             if probe.is_file():
-                try:
-                    site_raw = yaml_lib.safe_load(probe.read_text(encoding="utf-8"))
-                    if isinstance(site_raw, dict):
-                        default_language = str(site_raw.get("default_language") or "en")
-                except Exception:  # noqa: BLE001 - unreadable plan: keep default
-                    pass
-                break
+                return load_site_presentation(probe)
+        return None
 
-    issues = run_draft_lint(wiki_dir, plan, page_specs, doc_model, default_language=default_language)
+    def _load_target_config() -> MakeWikiConfig | None:
+        """Reliably load the target config, or None when absent/corrupt."""
+        for candidate in (target / "makewiki.config.yaml", wiki_dir / "makewiki.config.yaml"):
+            if candidate.is_file():
+                try:
+                    return MakeWikiConfig.load(candidate, target)
+                except Exception:  # noqa: BLE001 - corrupt config is not authoritative
+                    return None
+        return None
+
+    site_plan: SitePresentationPlan | None = None
+    site_plan_error = ""
+    try:
+        site_plan = _load_site_presentation_plan()
+    except Exception as exc:  # noqa: BLE001 - schema drift is reported, not crashed on
+        site_plan_error = str(exc)[:160]
+        site_plan = None
+
+    # LANGUAGE SET: first authoritative source that declares a non-empty set.
+    languages: list[str] = []
+    if plan_langs:
+        languages = list(plan_langs)
+    elif site_plan is not None and site_plan.languages:
+        languages = list(site_plan.languages)
+    else:
+        cfg = _load_target_config()
+        if cfg is not None and cfg.languages:
+            languages = list(cfg.languages)
+    if not languages:
+        if site_plan_error:
+            _fail_closed(
+                "site_presentation (language authority)",
+                "language_context_unavailable",
+                f"DocumentationPlan.languages is empty and the "
+                f"SitePresentationPlan could not be loaded ({site_plan_error}...)",
+            )
+        _fail_closed(
+            "language context",
+            "language_context_unavailable",
+            "no declared language set could be resolved from "
+            "DocumentationPlan.languages, SitePresentationPlan, or "
+            "makewiki.config.yaml; full Integration mode does not guess a "
+            "language pair",
+        )
+
+    # DEFAULT LANGUAGE: an independent fact. SitePresentationPlan.default_language
+    # > config default_language > compatibility fallback only (never claimed
+    # authoritative, never plan.languages[0]).
+    default_language: str | None = None
+    if site_plan is not None:
+        default_language = site_plan.default_language or None
+    if default_language is None:
+        cfg = _load_target_config()
+        if cfg is not None:
+            default_language = cfg.default_language or None
+    if default_language is None:
+        # Compatibility fallback only: no authoritative source declared a
+        # default. Deterministic pick from the resolved set; never claimed
+        # authoritative, never plan.languages[0]-as-default.
+        default_language = "en" if "en" in languages else sorted(languages)[0]
+    if default_language not in languages:
+        _fail_closed(
+            "language context",
+            "language_context_unavailable",
+            f"default_language {default_language!r} is not in the declared "
+            f"language set {sorted(languages)}; the filename contract requires "
+            "the default to be a declared language",
+        )
+
+    issues = run_draft_lint(
+        wiki_dir, plan, page_specs, doc_model,
+        languages=languages, default_language=default_language,
+    )
 
     errors = [i for i in issues if i.severity == "error"]
     _render_lint_findings(
@@ -1100,6 +1183,34 @@ def _load_config(config_path: Path | None, target: Path) -> MakeWikiConfig:
     return MakeWikiConfig.default(target)
 
 
+def _resolve_default_language(wiki_dir: Path) -> str:
+    """Resolve the DEFAULT language for a wiki tree (filename contract).
+
+    The DEFAULT language names the plain ``.md`` files; every other declared
+    language carries ``.<lang>.md`` (``LanguageProfile.get_filename``).
+    Priority: SitePresentationPlan.default_language (the Integration language
+    authority) > makewiki.config.yaml default_language > compatibility
+    fallback "en". Callers pass the resolved value into consumers so ``en``
+    is never hardcoded in the mechanical plane.
+    """
+    from makewiki_skills.model.site_presentation import load_site_presentation
+
+    for candidate in ("site_presentation.json", "site_presentation.yaml", "site_presentation.yml"):
+        probe = wiki_dir / candidate
+        if probe.is_file():
+            try:
+                return load_site_presentation(probe).default_language
+            except Exception:  # noqa: BLE001 - invalid plan: next authority
+                break
+    for config_candidate in (wiki_dir / "makewiki.config.yaml", wiki_dir.parent / "makewiki.config.yaml"):
+        if config_candidate.is_file():
+            try:
+                return MakeWikiConfig.load(config_candidate, wiki_dir).default_language
+            except Exception:  # noqa: BLE001 - corrupt config: fallback
+                break
+    return "en"  # compatibility fallback only, never an authoritative claim
+
+
 # --- verify-docs honest rendering helpers ------------------------------------
 
 
@@ -1704,16 +1815,17 @@ def export(
         console.print("[red]Error:[/red] PDF export is not supported. Use --format html|epub|all.")
         raise typer.Exit(1)
 
+    default_language = _resolve_default_language(wiki_path)
     exporter = DocExporter(title=title)
     exported_files: list[Path] = []
 
     if format_type in ("all", "html"):
-        html_file = exporter.export_pdf_ready_html(wiki_path, lang=lang)
+        html_file = exporter.export_pdf_ready_html(wiki_path, lang=lang, default_language=default_language)
         exported_files.append(html_file)
         console.print(f"[green]Compiled PDF-ready HTML:[/green] {html_file}")
 
     if format_type in ("all", "epub"):
-        epub_file = exporter.export_epub(wiki_path, lang=lang)
+        epub_file = exporter.export_epub(wiki_path, lang=lang, default_language=default_language)
         exported_files.append(epub_file)
         console.print(f"[green]Compiled EPUB e-book:[/green] {epub_file}")
 
@@ -1757,12 +1869,16 @@ def sync_bundle(
 
     if target_platform in ("all", "confluence"):
         c_tool = ConfluenceSyncTool()
-        c_bundle = c_tool.build_sync_bundle(wiki_path, space_key=space_key, lang=lang)
+        c_bundle = c_tool.build_sync_bundle(
+            wiki_path, space_key=space_key, lang=lang, default_language=_resolve_default_language(wiki_path)
+        )
         console.print(f"[green]Generated Confluence Storage XML bundle:[/green] {c_bundle}")
 
     if target_platform in ("all", "notion"):
         n_tool = NotionSyncTool()
-        n_bundle = n_tool.build_sync_bundle(wiki_path, parent_page_id=parent_id, lang=lang)
+        n_bundle = n_tool.build_sync_bundle(
+            wiki_path, parent_page_id=parent_id, lang=lang, default_language=_resolve_default_language(wiki_path)
+        )
         console.print(f"[green]Generated Notion Block API payload bundle:[/green] {n_bundle}")
 
     console.print("[bold green]Knowledge base sync bundle preparation complete![/bold green]")

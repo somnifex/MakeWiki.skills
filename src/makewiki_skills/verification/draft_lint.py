@@ -18,6 +18,8 @@ Checks (each traceable to a defect class proven during RC verification):
   duplicate operation_id)
 - plan/spec/draft drift (planned page missing a per-language draft, plus the
   existing ``plan_page_consistency_errors`` cross-reference report)
+- language-set consistency (caller-resolved language context vs
+  ``DocumentationPlan.languages`` drift)
 
 Errors block entry into Final Verification (Integration incomplete). The
 Quality Gate's four-state semantics are untouched.
@@ -39,7 +41,23 @@ if TYPE_CHECKING:  # pragma: no cover
     from makewiki_skills.model.documentation_model import DocumentationModel
     from makewiki_skills.model.documentation_plan import DocumentationPlan
 
-__all__ = ["LintIssue", "run_draft_lint"]
+__all__ = [
+    "LanguageContextUnavailableError",
+    "LintIssue",
+    "run_draft_lint",
+]
+
+
+class LanguageContextUnavailableError(RuntimeError):
+    """Raised when full Integration mode has no authoritative language context.
+
+    Language SET and DEFAULT language are two independent mechanical facts.
+    When full Integration mode can resolve neither from the canonical
+    artifacts (DocumentationPlan.languages / SitePresentationPlan) nor from a
+    reliably loadable MakeWikiConfig, the lint fails closed instead of
+    silently guessing a legacy ``en`` + ``zh-CN`` pair.
+    """
+
 
 
 class LintIssue(BaseModel):
@@ -306,7 +324,7 @@ def run_draft_lint(
     page_specs: list[PageSpec],
     doc_model: DocumentationModel | None = None,
     languages: list[str] | None = None,
-    default_language: str = "en",
+    default_language: str | None = None,
     structural_only: bool = False,
 ) -> list[LintIssue]:
     """Run every mechanical draft-hygiene check; return all issues.
@@ -327,11 +345,23 @@ def run_draft_lint(
     their reference sets would be empty guesses — Python never fabricates a
     plan.
 
-    Language resolution priority: the canonical ``DocumentationPlan.languages``
-    (non-empty) wins; otherwise the caller-declared ``languages``; only a
-    legacy/standalone structural run with neither falls back to the V3
-    ``en`` + ``zh-CN`` pair. ``default_language`` names the language carried
-    by plain ``.md`` files (the filename contract: no suffix = default).
+    Language context (caller-resolved): ``languages`` is the declared
+    LANGUAGE SET and ``default_language`` is the DEFAULT language — two
+    independent mechanical facts; ``languages[0]`` is never a default. The
+    CLI full-Integration mode resolves both from the authoritative sources
+    (DocumentationPlan.languages > SitePresentationPlan > MakeWikiConfig)
+    and supplies them here. When neither the caller nor a non-empty
+    ``plan.languages`` yields a set in full mode, this raises
+    :class:`LanguageContextUnavailableError` — there is deliberately NO
+    legacy ``en`` + ``zh-CN`` fallback. ``default_language=None`` selects a
+    deterministic compatibility fallback from the resolved set ("en" when
+    declared, else the alphabetically first) — a compatibility fallback
+    only, never an authoritative default.
+
+    ``plan.languages`` is a consistency reference, never an override: when
+    the caller supplies a set that disagrees with a non-empty
+    ``plan.languages``, a ``language_set_drift`` error is reported and the
+    caller-resolved set drives resolution.
     """
     wiki_dir = Path(wiki_dir).resolve()
     issues: list[LintIssue] = []
@@ -343,9 +373,63 @@ def run_draft_lint(
         for section in getattr(plan, "sections", []) or []:
             planned_pages.update(section.pages)
         plan_langs = list(getattr(plan, "languages", []) or [])
-    # Priority: canonical plan languages > caller-declared > legacy fallback.
-    langs = set(plan_langs) or (set(languages) if languages else {"en", "zh-CN"})
-    default_lang = default_language if default_language in langs else (plan_langs[0] if plan_langs else ("en" if "en" in langs else sorted(langs)[0]))
+
+    # Declared LANGUAGE SET: the caller-resolved set wins (the CLI resolves it
+    # from DocumentationPlan.languages > SitePresentationPlan > config); when
+    # the caller supplies none, the canonical plan languages are the set.
+    # There is deliberately NO legacy {en, zh-CN} fallback in full Integration
+    # mode: with no resolvable language set it must fail closed (see the raise
+    # below), never guess a language pair. Only ``structural_only`` — the
+    # standalone compatibility scan — keeps the legacy pair, because its
+    # pure-Markdown checks never gate Integration and no artifact context
+    # exists to resolve a real set from.
+    caller_langs = set(languages) if languages else set()
+    if caller_langs:
+        langs = caller_langs
+        # Consistency report, not an override: plan-language drift is data.
+        drift = sorted(set(plan_langs) - caller_langs)
+        if drift:
+            issues.append(
+                LintIssue(
+                    rule="language_set_drift",
+                    severity="error",
+                    document="",
+                    message=(
+                        "DocumentationPlan.languages declares "
+                        f"{sorted(plan_langs)} but the resolved language context "
+                        f"is {sorted(langs)}; reconcile the artifacts"
+                    ),
+                )
+            )
+    elif plan_langs:
+        langs = set(plan_langs)
+    elif structural_only:
+        # Standalone compatibility scan: the legacy pair only groups the
+        # historical en + zh-CN draft pairs for the block-ID structure check;
+        # it never claims any authoritative language context.
+        langs = {"en", "zh-CN"}
+    else:
+        raise LanguageContextUnavailableError(
+            "language context unavailable: no declared language set could be "
+            "resolved from DocumentationPlan.languages, the caller, or config; "
+            "full Integration mode must not fall back to a guessed language pair"
+        )
+
+    # DEFAULT language: the caller's resolved value; otherwise a
+    # compatibility fallback from the resolved set (never an authoritative
+    # claim). ``plan.languages[0]`` is deliberately NOT used as an
+    # authoritative default — plan language order carries no default
+    # semantics.
+    if default_language is not None:
+        default_lang = default_language
+    elif langs:
+        default_lang = "en" if "en" in langs else sorted(langs)[0]
+    else:
+        # Structural-only with no resolved set: the cross-language and
+        # per-language checks below are all skipped, so no default-language
+        # semantics are ever consumed. The empty marker only keeps
+        # resolve_localized_filename deterministic.
+        default_lang = ""
 
     # per-document contents
     docs_by_base: dict[str, dict[str, str]] = {}

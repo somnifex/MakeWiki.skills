@@ -321,9 +321,10 @@ def test_case5_undeclared_suffix_gets_no_language_semantics(tmp_path: Path):
     assert [i for i in issues if i.rule == "planned_page_missing_draft"] == []
 
 
-def test_plan_languages_win_over_caller_arguments(tmp_path: Path):
-    """The canonical DocumentationPlan.languages drives resolution when
-    present, overriding caller-passed legacy sets."""
+def test_plan_provides_set_when_caller_supplies_none(tmp_path: Path):
+    """With no caller-supplied set, the canonical DocumentationPlan.languages
+    is the declared set (no zh-CN draft is demanded, and the ja draft is
+    recognized)."""
     from makewiki_skills.model.documentation_plan import DocumentationPlan, DocumentationSection
 
     wiki = tmp_path / "wiki"
@@ -335,7 +336,37 @@ def test_plan_languages_win_over_caller_arguments(tmp_path: Path):
         sections=[DocumentationSection(id="s1", title_intent="t", pages=["guide"])],
         languages=["en", "ja"],
     )
-    # Caller passes the legacy pair; the plan's en+ja must win (no zh-CN draft
-    # is demanded, and the ja draft is recognized).
-    issues = run_draft_lint(wiki, plan, [_spec("guide")], None, ["en", "zh-CN"])
+    issues = run_draft_lint(wiki, plan, [_spec("guide")], None)
     assert [i for i in issues if i.rule == "planned_page_missing_draft"] == []
+
+
+def test_caller_resolved_set_wins_plan_drift_is_reported(tmp_path: Path):
+    """The caller-resolved language set drives resolution; a non-empty
+    plan.languages that disagrees is reported as language_set_drift, never
+    silently overridden. The default language comes from the caller, not
+    plan.languages[0]."""
+    from makewiki_skills.model.documentation_plan import DocumentationPlan, DocumentationSection
+
+    wiki = tmp_path / "wiki"
+    wiki.mkdir()
+    body = "<!-- makewiki:section=overview -->\n## Overview\n"
+    (wiki / "guide.md").write_text(body, encoding="utf-8")
+    (wiki / "guide.ja.md").write_text(body, encoding="utf-8")
+    plan = DocumentationPlan(
+        sections=[DocumentationSection(id="s1", title_intent="t", pages=["guide"])],
+        languages=["ja", "en"],  # ja first: NOT the default
+    )
+    # Caller resolved en+ja with default en; guide.md must be read as en.
+    issues = run_draft_lint(wiki, plan, [_spec("guide")], None, ["en", "ja"], default_language="en")
+    assert [i for i in issues if i.rule == "planned_page_missing_draft"] == []
+    assert [i for i in issues if i.rule == "language_set_drift"] == []
+
+    # A plan declaring a language outside the resolved set is a drift error.
+    plan_drift = DocumentationPlan(
+        sections=[DocumentationSection(id="s1", title_intent="t", pages=["guide"])],
+        languages=["en", "ja", "de"],
+    )
+    issues = run_draft_lint(wiki, plan_drift, [_spec("guide")], None, ["en", "ja"], default_language="en")
+    drift = [i for i in issues if i.rule == "language_set_drift"]
+    assert len(drift) == 1
+    assert "de" in drift[0].message

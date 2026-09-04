@@ -109,19 +109,28 @@ class ConfluenceSyncTool:
         makewiki_dir: Path,
         space_key: str = "WIKI",
         lang: str = "en",
+        default_language: str = "en",
     ) -> Path:
-        """Compile documentation into Confluence Storage XML pages ready for API sync."""
+        """Compile documentation into Confluence Storage XML pages ready for API sync.
+
+        Follows the language-profile filename contract: the DEFAULT language's
+        content is the plain ``<base>.md`` while every other declared language
+        carries ``.<lang>.md``. ``lang`` selects which language's pages go into
+        the bundle; ``default_language`` names the plain-``.md`` form (both
+        come from the caller's resolved language context — ``en`` is never
+        hardcoded).
+        """
         makewiki_path = Path(makewiki_dir).resolve()
         sync_dir = makewiki_path / "sync" / "confluence" / lang
         sync_dir.mkdir(parents=True, exist_ok=True)
 
-        suffix = f".{lang}.md" if lang != "en" else ".md"
+        suffix = f".{lang}.md" if lang != default_language else ".md"
         pages: list[dict[str, Any]] = []
 
         for p in makewiki_path.rglob("*.md"):
-            if lang != "en" and not p.name.endswith(suffix):
+            if lang != default_language and not p.name.endswith(suffix):
                 continue
-            if lang == "en" and "." in p.name[:-3]:
+            if lang == default_language and "." in p.name[:-3]:
                 continue
             if "export" in p.parts or "sync" in p.parts or "site" in p.parts:
                 continue

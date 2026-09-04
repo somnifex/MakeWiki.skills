@@ -50,9 +50,12 @@ _test_targets/
 # host-authored handoff; never committed)
 evals/runs/
 
+# MakeWiki temporary artifacts (local benchmark / convergence scratch; never committed)
+.makewiki-tmp/
+
 # Generated documentation output directories
 makewiki/
 */makewiki/
 */makewiki/site/
 */makewiki/export/
-*/makewiki/sync/
+*/makewiki/sync/

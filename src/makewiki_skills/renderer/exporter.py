@@ -92,17 +92,28 @@ class DocExporter:
         makewiki_dir: Path,
         lang: str = "en",
         output_file: Path | None = None,
+        default_language: str = "en",
     ) -> Path:
-        """Compile all documentation chapters for a specific language into a single printable HTML file."""
+        """Compile all documentation chapters for a specific language into a single printable HTML file.
+
+        ``lang`` selects the exported language; ``default_language`` names the
+        plain-``.md`` form per the language-profile filename contract (both
+        come from the caller's resolved language context — ``en`` is never
+        hardcoded).
+        """
         makewiki_path = Path(makewiki_dir).resolve()
         export_dir = makewiki_path / "export"
         export_dir.mkdir(parents=True, exist_ok=True)
 
         if output_file is None:
-            filename = f"documentation.{lang}.html" if lang != "en" else "documentation.html"
+            filename = (
+                f"documentation.{lang}.html"
+                if lang != default_language
+                else "documentation.html"
+            )
             output_file = export_dir / filename
 
-        chapters = self._collect_ordered_chapters(makewiki_path, lang)
+        chapters = self._collect_ordered_chapters(makewiki_path, lang, default_language)
         rendered_chapters: list[dict[str, str]] = []
 
         toc_items: list[tuple[str, str]] = []
@@ -281,17 +292,26 @@ class DocExporter:
         makewiki_dir: Path,
         lang: str = "en",
         output_file: Path | None = None,
+        default_language: str = "en",
     ) -> Path:
-        """Compile documentation into a standard, valid EPUB e-book archive."""
+        """Compile documentation into a standard, valid EPUB e-book archive.
+
+        ``lang`` selects the exported language; ``default_language`` names the
+        plain-``.md`` form per the language-profile filename contract.
+        """
         makewiki_path = Path(makewiki_dir).resolve()
         export_dir = makewiki_path / "export"
         export_dir.mkdir(parents=True, exist_ok=True)
 
         if output_file is None:
-            filename = f"documentation.{lang}.epub" if lang != "en" else "documentation.epub"
+            filename = (
+                f"documentation.{lang}.epub"
+                if lang != default_language
+                else "documentation.epub"
+            )
             output_file = export_dir / filename
 
-        chapters = self._collect_ordered_chapters(makewiki_path, lang)
+        chapters = self._collect_ordered_chapters(makewiki_path, lang, default_language)
         book_uuid = str(uuid.uuid4())
         date_str = datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
 
@@ -394,10 +414,16 @@ blockquote { border-left: 3px solid #3b82f6; background: #eff6ff; padding: 0.5em
         return output_file
 
     def _collect_ordered_chapters(
-        self, makewiki_path: Path, lang: str
+        self, makewiki_path: Path, lang: str, default_language: str = "en"
     ) -> list[tuple[str, str, str]]:
-        """Collect and order markdown files for a target language."""
-        suffix = f".{lang}.md" if lang != "en" else ".md"
+        """Collect and order markdown files for a target language.
+
+        Follows the language-profile filename contract (``LanguageProfile.get_filename``):
+        the DEFAULT language's content is the plain ``<base>.md`` while every
+        other declared language carries ``.<lang>.md`` — ``en`` is never
+        hardcoded.
+        """
+        suffix = f".{lang}.md" if lang != default_language else ".md"
         standard_order = [
             ("README", "Overview"),
             ("getting-started", "Getting Started"),

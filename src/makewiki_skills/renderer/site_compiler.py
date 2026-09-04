@@ -99,16 +99,19 @@ class SiteCompiler:
         return [str(index_file)]
 
     @staticmethod
-    def _lang_document_path(makewiki_dir: Path, document_id: str, lang: str) -> Path:
+    def _lang_document_path(makewiki_dir: Path, document_id: str, lang: str, default_language: str) -> Path:
         """Mechanical path resolution for a plan document_id + language.
 
-        Follows the markdown naming convention: the ``en`` content is the plain
-        ``<document_id>.md`` while every other language is ``<document_id>.<lang>
-        .md``. ``document_id`` IS the relative path from the wiki root (e.g.
-        ``"usage/deploy"`` resolves to ``usage/deploy.md``). No filename/keyword
-        semantics are interpreted here — the id names the file verbatim.
+        Follows the language-profile filename contract (``LanguageProfile.get_filename``):
+        the DEFAULT language's content is the plain ``<document_id>.md`` while
+        every other declared language is ``<document_id>.<lang>.md``. The
+        default comes from the plan (``plan.default_language``) — ``en`` is
+        never hardcoded. ``document_id`` IS the relative path from the wiki
+        root (e.g. ``"usage/deploy"`` resolves to ``usage/deploy.md``). No
+        filename/keyword semantics are interpreted here — the id names the
+        file verbatim.
         """
-        suffix = "" if lang == "en" else f".{lang}"
+        suffix = "" if lang == default_language else f".{lang}"
         return makewiki_dir / f"{document_id}{suffix}.md"
 
     @staticmethod
@@ -154,7 +157,7 @@ class SiteCompiler:
 
         for lang in plan.languages:
             for item in nav_items:
-                path = self._lang_document_path(makewiki_dir, item.document_id, lang)
+                path = self._lang_document_path(makewiki_dir, item.document_id, lang, plan.default_language)
                 if not path.is_file():
                     # Recorded so effective languages can be computed; not an
                     # error the renderer should fail on (a doc may be absent for
