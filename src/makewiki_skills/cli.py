@@ -200,6 +200,37 @@ def validate(
         raise typer.Exit(1)
 
 
+def _render_lint_findings(
+    title: str,
+    issues: list[Any],
+    errors: list[Any],
+    *,
+    pass_message: str,
+    block_message: str,
+) -> None:
+    """Render lint issues grouped by rule, then exit 1 on blocking errors."""
+    warnings = [i for i in issues if i.severity != "error"]
+    by_rule: dict[str, list[Any]] = {}
+    for i in issues:
+        by_rule.setdefault(i.rule, []).append(i)
+
+    console.print(f"[bold]{title}[/bold] — {len(errors)} errors, {len(warnings)} warnings")
+    for rule, items in sorted(by_rule.items()):
+        severity = "error" if any(i.severity == "error" for i in items) else "warning"
+        color = "red" if severity == "error" else "yellow"
+        console.print(f"  [{color}]{rule}[/{color}]: {len(items)}")
+        for i in items[:3]:
+            loc = f" {i.document}:" if i.document else ""
+            console.print(f"    {loc} {i.message[:120]}")
+        if len(items) > 3:
+            console.print(f"    ... and {len(items) - 3} more")
+
+    if errors:
+        console.print(f"[red]{block_message}[/red]")
+        raise typer.Exit(1)
+    console.print(f"[green]{pass_message}[/green]")
+
+
 @app.command(name="lint-drafts")
 def lint_drafts(
     wiki_dir: Path = typer.Argument(..., help="Path to assembled makewiki/ output directory"),
@@ -236,29 +267,13 @@ def lint_drafts(
     if structural_only:
         issues = run_draft_lint(wiki_dir, None, [], None, structural_only=True)
         errors = [i for i in issues if i.severity == "error"]
-        warnings = [i for i in issues if i.severity != "error"]
-        by_rule: dict[str, list] = {}
-        for i in issues:
-            by_rule.setdefault(i.rule, []).append(i)
-        console.print(
-            f"[bold]Structural draft lint[/bold] — {len(errors)} errors, "
-            f"{len(warnings)} warnings"
-        )
-        for rule, items in sorted(by_rule.items()):
-            severity = "error" if any(i.severity == "error" for i in items) else "warning"
-            color = "red" if severity == "error" else "yellow"
-            console.print(f"  [{color}]{rule}[/{color}]: {len(items)}")
-            for i in items[:3]:
-                loc = f" {i.document}:" if i.document else ""
-                console.print(f"    {loc} {i.message[:120]}")
-            if len(items) > 3:
-                console.print(f"    ... and {len(items) - 3} more")
-        if errors:
-            console.print("[red]Structural draft lint found blocking errors.[/red]")
-            raise typer.Exit(1)
-        console.print(
-            "[green]Structural draft lint passed; V3 cross-artifact checks "
-            "were not run.[/green]"
+        _render_lint_findings(
+            "Structural draft lint", issues, errors,
+            pass_message=(
+                "Structural draft lint passed; V3 cross-artifact checks "
+                "were not run."
+            ),
+            block_message="Structural draft lint found blocking errors.",
         )
         return
 
@@ -310,6 +325,9 @@ def lint_drafts(
             "expected 10-documentation-plan/documentation_plan.yaml",
         )
 
+    # Fail-closed raises above when the plan is missing/invalid, so `plan`
+    # is non-None from here on; the assert makes that explicit for type check.
+    assert plan is not None
     planned_page_count = len(set(plan.pages)) + sum(len(s.pages) for s in plan.sections)
     spec_dir = artifacts / "11-page-specs"
     spec_files = sorted(spec_dir.glob("page_specs.*.yaml")) if spec_dir.is_dir() else []
@@ -378,26 +396,11 @@ def lint_drafts(
     issues = run_draft_lint(wiki_dir, plan, page_specs, doc_model, default_language=default_language)
 
     errors = [i for i in issues if i.severity == "error"]
-    warnings = [i for i in issues if i.severity != "error"]
-    by_rule: dict[str, list] = {}
-    for i in issues:
-        by_rule.setdefault(i.rule, []).append(i)
-
-    console.print(f"[bold]Draft lint[/bold] — {len(errors)} errors, {len(warnings)} warnings")
-    for rule, items in sorted(by_rule.items()):
-        severity = "error" if any(i.severity == "error" for i in items) else "warning"
-        color = "red" if severity == "error" else "yellow"
-        console.print(f"  [{color}]{rule}[/{color}]: {len(items)}")
-        for i in items[:3]:
-            loc = f" {i.document}:" if i.document else ""
-            console.print(f"    {loc} {i.message[:120]}")
-        if len(items) > 3:
-            console.print(f"    ... and {len(items) - 3} more")
-
-    if errors:
-        console.print("[red]Integration incomplete: blocking draft-lint errors.[/red]")
-        raise typer.Exit(1)
-    console.print("[green]Draft lint passed.[/green]")
+    _render_lint_findings(
+        "Draft lint", issues, errors,
+        pass_message="Draft lint passed.",
+        block_message="Integration incomplete: blocking draft-lint errors.",
+    )
 
 
 @app.command(name="verify-docs")
