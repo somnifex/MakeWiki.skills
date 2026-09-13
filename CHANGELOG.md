@@ -5,6 +5,55 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [3.1.0] — 2026-09-13
+
+### Writing Style
+
+The Anti-AI Cliché style guide (`references/anti_ai_cliche.md`) is now the
+authoritative full writing-style guide, and every prompt that generates or
+judges text binds to it.
+
+- **语体 (Register)**: standard written register — accurate, professional,
+  naturally flowing. Chat tone (语气词, "咱们/搞定"), officialese ("综上所述/
+  至关重要"), and translation tone (欧化长句, 生硬被动句) are rewritten on
+  sight; domain terminology follows convention, neither dumbed down nor piled up.
+- **Sentence discipline**: one idea per sentence; alternating sentence lengths
+  (uniformly polished rhythm reads as machine-written); every sentence adds
+  new information; one consistent name per concept; concrete people, actions,
+  causes, and results. Details and data need sources — uncited "研究表明/
+  数据显示" framing is dropped, never invented; fabricated scene detail is deleted.
+- **Content-type tuning** for narrative, social posts, progress reports, and
+  technical documents / contracts / manuals (limiting words like "必须" stay;
+  empty intensifiers like "非常" go).
+- **Rewrite boundary**: style rewrites change the saying, never the facts —
+  no invented numbers, examples, sources, or inner states; no dropped core
+  facts; numbers / times / units stay with what they modify (ambiguous
+  quantity relations are flagged for confirmation, not resolved); terms,
+  commands, code, and quotations stay verbatim; revise sentence by sentence,
+  never by word-list find-and-replace.
+- **AI-tic phrasings → plain replacements** ("一句话总结 / 简单来说" deleted,
+  "不是X而是Y" split, verbal-noun padding "对流程进行了优化" restored to verbs,
+  vague references and metaphorical body-action verbs replaced, "颗粒度"
+  reworded per context) and an expanded banned-word list (深度赋能, 抓手,
+  沉淀, 打法, 势能, 生态位, 顶层设计, 全链路, 拉齐, 打通, 对标, 倒逼, 引爆点, …).
+- **Wiring**: Writer self-reflection (`tasks/write.md`, `tasks/write-page.md`),
+  revision rewrite boundary (`tasks/revise.md` §3a), Page Reviewer style
+  findings (`tasks/review.md`), Final Semantic Auditor L5 style scope
+  (`subskills/review/SKILL.md` + mirrored `anti_cliche_rules.md`), top-level
+  summaries (SKILL / AGENTS / CLAUDE / CONTRIBUTING / architecture), and
+  per-language `generation_hints` (zh-CN full rules; en / ja / de / fr
+  distilled language-independent core).
+
+### Internal
+
+- Draft linting supports cross-language block-ID equality; language-context
+  resolution refactored for linting and exporting.
+- Lint result rendering extracted and reused to simplify the lint command.
+- Obsolete V2 helper scripts (delta metrics, pending-ID extraction, section
+  marker fixes, verdict generation, link checking, post-convergence) removed.
+
+---
+
 ## [3.0.0] — 2026-09-04
 
 ### Architecture
