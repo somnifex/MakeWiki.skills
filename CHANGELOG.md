@@ -5,6 +5,34 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [3.1.1] — 2026-09-13
+
+### Fixed
+
+- **Path resolution (`verify-model` / `verify-claim` / L1)**: dot-prefixed
+  paths (`.env.example`) were mangled by a character-class `lstrip("./")` and
+  falsely reported missing. All path-resolution sites now share one
+  `strip_ref_prefix` helper that preserves real dotfile names (the same fix
+  the eval scorer already carried).
+- **Config serialisation**: `to_yaml` leaked runtime state into the user's
+  `makewiki.config.yaml` (`target_dir: !!python/object/...` via unsafe
+  `yaml.dump`), crashing the next `yaml.safe_load`. Serialisation is now
+  runtime-state-free `yaml.safe_dump`, and `load` reports a polluted legacy
+  config with an actionable error instead of a raw ConstructorError.
+- **`parity` summary honesty**: the human summary printed the passed count
+  next to FAIL ("FAIL 50/229") and exited 1 on `pending` — the normal terminal
+  state (mechanical checks clean, aligned passages ready for the LLM
+  Auditor). The summary now names the real verdict (PASS / PENDING / FAILED)
+  with failed, passed, and total counts, and only a real failure exits 1.
+- **BOM-safe markdown reads**: a leading UTF-8 BOM made the `\A---`
+  frontmatter regex silently miss `frontmatter_leak` and could leak
+  frontmatter into rendered HTML; markdown reads across lint / verify /
+  parity / review / render / export / sync now strip the BOM (`utf-8-sig`).
+- **.gitignore**: dropped the `.claude-plugin/` rule shadowing the tracked
+  `plugin.json`; ignore `.zcode/` tool artifacts.
+
+---
+
 ## [3.1.0] — 2026-09-13
 
 ### Writing Style

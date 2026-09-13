@@ -11,7 +11,7 @@ import zipfile
 from pathlib import Path
 
 REPO_URL = "https://github.com/somnifex/MakeWiki.skills.git"
-DEFAULT_VERSION = "3.1.0"
+DEFAULT_VERSION = "3.1.1"
 # Provenance env vars. Version pins the skill↔toolkit pair; commit pins the Git
 # identity; archive SHA256 is the archive integrity checksum. These are kept
 # distinct — a checksum is NOT a Git identity.
