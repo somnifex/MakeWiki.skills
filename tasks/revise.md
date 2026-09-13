@@ -71,6 +71,23 @@ SemanticModel / DocumentationModel slices, and the source claims / evidence:
 
   `disputed` with the evidence ref, rather than complying.
 
+### 3a. Style rewrites respect the rewrite boundary
+
+When a finding asks for a prose or style correction (anti-AI-cliché, register,
+per `references/anti_ai_cliche.md`), the rewrite changes the saying, never
+the facts:
+
+- add no numbers, examples, sources, or inner states the original lacks; drop
+  no core fact; alter no actor, causality, condition, or negation;
+- keep numbers, times, and units together with what they modify; when a
+  quantity relation is ambiguous ("缩小了3倍"), keep the original wording and
+  flag it for confirmation instead of picking one interpretation;
+- keep terms, commands, code, and quotations verbatim;
+- revise by reading sentence by sentence — never a word-list-driven
+  find-and-replace pass;
+- after trimming filler, land the sentence on facts already present — prefer
+  shorter over refilling with emptier phrases ("有提升", "见成效").
+
 ---
 
 ## 4. Preserve stable identity

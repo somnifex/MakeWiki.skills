@@ -240,8 +240,10 @@ submitting claims or writing documents (purely cognitive; not Python-enforced):
    code; speculative assertions hedged with `high / medium / low` confidence and
    recorded `uncertainty`.
 2. **Parity** — code/config/CLI samples match the canonical SemanticModel 100%.
-3. **Anti-AI-cliché** — purge binary tropes, buzzwords, formulaic openings, and
-   trailing colons; write direct, natural, active engineer prose.
+3. **Anti-AI-cliché** — clean written register, one idea per sentence,
+   alternating sentence lengths, one consistent name per concept; purge
+   binary tropes, buzzwords, AI-tic frames, unfounded sources, and trailing
+   colons; state facts at their true strength, without uplifting closings.
 4. **Adversarial defense** — would the claim withstand an opposing agent's
    AST-evidence challenge? Refine confidence; evidence backs the claim, it is
    not itself a confidence level.
@@ -359,7 +361,8 @@ A **read-only Page Reviewer** evaluates each drafted page for page-local fitness
 and completeness against its evidence slice and the cross-language contract
 (`tasks/review.md`): documentation fitness, audience fit, task completeness,
 operator completeness, API contract completeness, obvious unsupported/grounding
-defects, and page-local cross-language issues. It emits structured
+defects, obvious style-guide violations, and page-local cross-language issues.
+It emits structured
 **`ReviewFindings`** and does **not** edit pages in place. It may flag obvious
 behavior/epistemic problems, but the authoritative L3 / L4b / L5 verdicts and the
 `SemanticAuditBundle` are the **Final Semantic Auditor's** job (§4).
@@ -495,8 +498,10 @@ See `tests/contracts/test_config_consumption_contract.py`.
   escalates to adversarial ReBattle (`tasks/rebattle.md`).
 - **Review is read-only**: Reviewer emits `ReviewFindings`; a separate Revision
   Agent implements flagged pages; a fresh re-review decides completion.
-- **Natural human engineer tone**: ban binary tropes, buzzwords, formulaic
-  openings, trailing colons (`references/anti_ai_cliche.md`).
+- **Natural human engineer tone**: clean written register, one idea per
+  sentence, one consistent name per concept; ban binary tropes, buzzwords,
+  AI-tic frames, unfounded sources, inflated praise, and trailing colons
+  (`references/anti_ai_cliche.md`).
 - **Independent generation per language** from the SemanticModel; no machine
   translation.
 - **100% code-block parity** across languages.

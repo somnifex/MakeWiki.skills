@@ -56,8 +56,14 @@ filenames — the `PageSpec`s already encode the page intent.
    - *Grounding*: Check that every command, flag, and configuration key is backed by the
      evidence/`SemanticModel`.
    - *Parity*: Ensure code blocks match character-for-character across languages.
-   - *Anti-AI Cliché*: Purge binary tropes ("不是……而是……"), buzzwords ("收敛", "赋能"),
-     and redundant trailing colons. See `references/anti_ai_cliche.md`.
+   - *Anti-AI Cliché*: Clean written register, one idea per sentence,
+     alternating sentence lengths, one consistent name per concept. Purge
+     binary tropes ("不是……而是……"), AI-tic frames ("一句话总结", "简单来说"),
+     buzzwords ("收敛", "赋能", "抓手"), unfounded sources, inflated praise,
+     and redundant trailing colons; state facts at their true strength and
+     end where the content ends. See `references/anti_ai_cliche.md` for the
+     full style guide (register, sentence discipline, banned words, rewrite
+     boundary).
    - *Tone*: Deliver direct, concise, professional engineer documentation.
 
 ---

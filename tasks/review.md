@@ -43,6 +43,11 @@ Semantic Auditor (not a substitute for it):
 7. **Page-local cross-language issues** when applicable: a page's descriptions,
    warnings, and technical blocks stay consistent with the same page's other
    languages (the mechanical `parity` / `semantic-review` support is only material).
+8. **Obvious style-guide violations**: glaring breaches of the shared writing
+   style guide `references/anti_ai_cliche.md` (banned buzzwords, AI-tic
+   frames, machine-polished uniform rhythm, inflated or uplifting closings)
+   are reported as `minor` findings; deep style judgment stays with the Final
+   Semantic Auditor (L5).
 
 The Reviewer may still **surface** an obvious behavior or epistemic problem it
 notices, but it is **not required to produce the complete final semantic audit**.

@@ -55,9 +55,19 @@ PROFILE = LanguageProfile(
         number_format="1\u00a0000",
     ),
     generation_hints=(
-        "R\u00e9digez une documentation technique claire et professionnelle en fran\u00e7ais. "
-        "Utilisez le vouvoiement. Les termes techniques anglais couramment utilis\u00e9s "
-        "peuvent \u00eatre conserv\u00e9s tels quels."
+        "Rédigez une documentation technique claire et professionnelle en français. "
+        "Utilisez le vouvoiement. Les termes techniques anglais couramment utilisés "
+        "peuvent être conservés tels quels. "
+        "Une idée par phrase ; découpez les phrases longues et variez leur longueur, "
+        "car un rythme uniforme trahit un polissage machine. "
+        "Nommez toujours la même chose de la même façon, sans rehausser le "
+        "vocabulaire pour éviter une répétition ; chaque phrase apporte une information nouvelle. "
+        "Évitez les formules IA (« En résumé », « En bref », « Il convient de noter », "
+        "« ce n'est pas X, c'est Y »). "
+        "Énoncez les faits à leur force réelle : aucune emphase, aucune conclusion "
+        "promotionnelle. N'invoquez jamais de source que vous n'avez pas "
+        "(« des études montrent »). "
+        "Suivez le guide de style partagé du skill (references/anti_ai_cliche.md)."
     ),
     file_suffix=".fr",
 )

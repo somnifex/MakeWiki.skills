@@ -47,10 +47,15 @@ from another language. Use natural, correct phrasing for the target language (e.
 Chinese / English engineer prose), the writer tone from the language profile, and direct,
 concise, professional engineer tone.
 
-Self-review before finishing (grounding / parity / anti-AI-cliché / tone):
+Self-review before finishing (grounding / parity / anti-AI-cliché / tone),
+per the shared style guide `references/anti_ai_cliche.md`:
 - every command, flag, and config key is backed by the given model/evidence slice;
 - technical blocks match the model character-for-character;
-- no AI-trope phrasing or redundant trailing colons;
+- clean written register — no chat tone, officialese, or translation tone —
+  one idea per sentence, alternating sentence lengths;
+- one consistent name per concept; no AI-trope phrasing, banned buzzwords,
+  uncited "studies show" sources, or redundant trailing colons;
+- facts stated at their true strength — no inflation, no uplifting closing;
 - no fabrication of runtime values, UI specifics, or unproven behavior.
 
 ---

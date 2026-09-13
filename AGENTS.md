@@ -141,17 +141,21 @@ and does NOT publish. `review` is a standalone command (runs
    critique loop before submitting claims or writing documents:
    - Grounding check: every command / key cited with real code lines.
    - Parity check: 100% code block and parameter match.
-   - Anti-cliché check: strip binary tropes ("不是而是"), buzzwords ("收敛"),
-     and trailing colons.
+   - Anti-cliché check: strip binary tropes ("不是而是"), AI-tic frames
+     ("一句话总结"), buzzwords ("收敛", "赋能", "抓手"), and trailing colons;
+     keep one consistent name per concept and state facts at their true
+     strength (see `references/anti_ai_cliche.md`).
    - Adversarial defense: hedge or retract unprovable assertions.
 5. **Zero Human Intervention**: Execute end-to-end autonomously from the
 
    initial skill invocation. Never pause to ask intermediate confirmation
    questions (e.g. outline approval, scan mode choices). Auto-select defaults
    and self-heal in place.
-6. **No AI Clichés**: Ban binary tropes ("不是而是"), abstract buzzwords
-
-   ("收敛"), and trailing colons. Write natural, professional engineer prose.
+6. **No AI Clichés**: Ban binary tropes ("不是而是"), AI-tic frames ("一句话总结",
+   "简单来说"), abstract buzzwords ("收敛", "赋能", "抓手", "沉淀"), and trailing
+   colons. Write clean written-register engineer prose: one idea per sentence,
+   alternating sentence lengths, one consistent name per concept, facts at
+   their true strength, no unfounded sources. See `references/anti_ai_cliche.md`.
 7. **Code Block Parity (keyed on stable IDs)**: Every technical fenced code
 
    block MUST carry a stable block ID `[[id:<slug>]]` (an untagged technical

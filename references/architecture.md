@@ -224,7 +224,9 @@ mechanical_unknown_contract:
 2. **Parity Invariant**: 100% parameter, key, and code-block equivalence across languages.
 3. **Anti-Cliché Invariant**: Zero tolerance for `不是……而是……`, `不仅……而且……`,
 
-   `收敛`, `赋能`, and trailing colons in headings.
+   AI-tic frames (`一句话总结`, `简单来说`), buzzwords (`收敛`, `赋能`, `抓手`,
+   `沉淀`), unfounded sources, and trailing colons in headings — full scope in
+   `references/anti_ai_cliche.md`.
 4. **Adversarial Invariant**: Unprovable claims must be hedged or retracted during ReBattle.
 
 ## Topological Comparison: Before vs After

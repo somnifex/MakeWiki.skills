@@ -116,9 +116,10 @@ Python toolkit commands (mechanical only):
   re-checking evidence or a targeted `conflict_resolution` subtask; only a
   genuinely hard dispute escalates to adversarial ReBattle. The mechanical
   dispute organizer (`rebattle-diff`) is optional and never decides truth.
-- **Natural human engineer tone**: ban AI clichés (`不是……而是……`, `收敛`,
+- **Natural human engineer tone**: clean written register, one idea per
 
-  `这是`, trailing colons). See `references/anti_ai_cliche.md`.
+  sentence; ban AI clichés (`不是……而是……`, `一句话总结`, `收敛`, `这是`,
+  trailing colons). See `references/anti_ai_cliche.md`.
 - **Independent generation per language** from the semantic model; no machine
 
   translation.

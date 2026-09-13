@@ -67,8 +67,13 @@ aligned passages, then judges the LLM-judged layers:
 3. **L5 Over-Assertion Audit** — are any claims more confident than the
    evidence supports? Are anti-AI-cliché rules followed?
 
-The Auditor uses the `references/anti_ai_cliche.md` style guide plus the
-Quality Gate thresholds from `makewiki.config.yaml:quality`.
+The Auditor uses the `references/anti_ai_cliche.md` writing-style guide plus
+the Quality Gate thresholds from `makewiki.config.yaml:quality`. The style
+check covers the guide's full scope: register (chat tone / officialese /
+translation tone), machine-polished uniform rhythm, banned buzzwords and
+AI-tic frames, inflated or uplifting closings, fabricated scene detail, and
+uncited "studies show" sources. The rewrite boundary (change the wording,
+never the facts) governs the in-place revision in Step 3.
 
 **Emit the SemanticAuditBundle.** After judging, the Auditor writes a
 machine-readable `SemanticAuditBundle` JSON capturing its L3 / L4b / L5

@@ -56,8 +56,16 @@ PROFILE = LanguageProfile(
     ),
     generation_hints=(
         "Schreiben Sie klare, professionelle technische Dokumentation auf Deutsch. "
-        "Verwenden Sie die Sie-Form. Fachbegriffe k\u00f6nnen auf Englisch bleiben, "
-        "wenn sie im Deutschen \u00fcblich sind."
+        "Verwenden Sie die Sie-Form. Fachbegriffe können auf Englisch bleiben, "
+        "wenn sie im Deutschen üblich sind. "
+        "Ein Gedanke pro Satz; lange Sätze aufteilen und die Satzlänge variieren, "
+        "denn gleichförmiger Rhythmus wirkt maschinell geglättet. "
+        "Dasselbe Objekt immer gleich benennen, ohne zur Wiederholungsvermeidung "
+        "Wörter aufzuwerten; jeder Satz bringt neue Information. "
+        "Keine KI-Floskeln ('Kurz gesagt', 'Nicht X, sondern Y', 'Es ist erwähnenswert'). "
+        "Fakten in ihrer tatsächlichen Stärke formulieren: keine Aufwertung, kein "
+        "werblicher Ausklang. Keine unbelegten Quellen ('Studien zeigen'). "
+        "Folgen Sie dem gemeinsamen Stilguide des Skills (references/anti_ai_cliche.md)."
     ),
     file_suffix=".de",
 )

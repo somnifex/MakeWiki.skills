@@ -9,7 +9,7 @@ Thank you for your interest in contributing to **MakeWiki.skills**! We welcome c
 When contributing to MakeWiki.skills, keep these four architectural pillars in mind:
 1. **Ground-Truth First**: All generated documentation facts must be traceable to real project evidence (source AST, configs, manifests, or commands).
 2. **Subagent Budget Discipline**: Never spawn unbounded agents. Keep subagent allocations bounded (1 to 10 max).
-3. **No AI Clichés (去 AI 腔)**: Technical writing must sound natural, concise, and professional. Avoid binary tropes ("not X but Y"), abstract buzzwords ("convergence"), and trailing colons in headings.
+3. **No AI Clichés (去 AI 腔)**: Technical writing must sound natural, concise, and professional. Avoid binary tropes ("not X but Y"), AI-tic frames ("in summary", "it's worth noting"), abstract buzzwords ("convergence"), and trailing colons in headings. The shared style guide is `references/anti_ai_cliche.md`.
 4. **Zero Pollution**: Tools must operate ephemerally and leave no stray files outside the designated `makewiki/` directory.
 
 ---
