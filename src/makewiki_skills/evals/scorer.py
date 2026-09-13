@@ -21,6 +21,7 @@ from typing import Any
 from pydantic import BaseModel, Field
 
 from . import artifact
+from makewiki_skills.toolkit.filesystem import strip_ref_prefix as _strip_ref_prefix
 
 # Gold files that live beside the trap repo and must NOT be treated as citable
 # source evidence (they are the evaluator's fixtures, not the repo under test).
@@ -365,15 +366,8 @@ def _resolve_evidence_ref(
     return True
 
 
-def _strip_ref_prefix(path_part: str) -> str:
-    """Normalise a ref path: backslashes to slashes, optional leading ``./``
-    removed. Unlike a character-class ``lstrip("./")``, a leading dot that is a
-    *real filename* (e.g. ``.env``, ``.config/app.yml``) is preserved so hidden
-    files resolve exactly."""
-    norm = path_part.strip().replace("\\", "/")
-    if norm.startswith("./"):
-        norm = norm[2:]
-    return norm
+# _strip_ref_prefix: shared implementation lives in toolkit.filesystem
+# (imported above) so every path-resolution site strips prefixes identically.
 
 
 # ---------------------------------------------------------------------------

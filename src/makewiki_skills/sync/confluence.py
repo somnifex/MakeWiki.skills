@@ -135,7 +135,7 @@ class ConfluenceSyncTool:
             if "export" in p.parts or "sync" in p.parts or "site" in p.parts:
                 continue
 
-            raw_md = p.read_text(encoding="utf-8", errors="replace")
+            raw_md = p.read_text(encoding="utf-8-sig", errors="replace")
             title_match = re.search(r"^#\s+(.+)$", raw_md, re.MULTILINE)
             title = title_match.group(1).strip() if title_match else p.stem
 

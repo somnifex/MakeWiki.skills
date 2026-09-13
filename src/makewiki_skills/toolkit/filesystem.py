@@ -10,6 +10,17 @@ from typing import Any, cast
 from makewiki_skills.toolkit.base import ToolResult
 
 
+def strip_ref_prefix(path_part: str) -> str:
+    """Normalise a ref path: backslashes to slashes, optional leading ``./``
+    removed. Unlike a character-class ``lstrip("./")``, a leading dot that is a
+    *real filename* (e.g. ``.env``, ``.config/app.yml``) is preserved so hidden
+    files resolve exactly."""
+    norm = path_part.strip().replace("\\", "/")
+    if norm.startswith("./"):
+        norm = norm[2:]
+    return norm
+
+
 class FilesystemTool:
     name = "filesystem"
 

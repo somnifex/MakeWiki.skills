@@ -16,6 +16,7 @@ from rich.console import Console
 from rich.table import Table
 
 from makewiki_skills.config import MakeWikiConfig
+from makewiki_skills.toolkit.filesystem import strip_ref_prefix
 
 app = typer.Typer(
     name="makewiki",
@@ -559,7 +560,7 @@ def verify_docs(
             if profile.file_suffix:
                 base_name = base_name.replace(profile.file_suffix, "")
 
-            content = md_file.read_text(encoding="utf-8", errors="replace")
+            content = md_file.read_text(encoding="utf-8-sig", errors="replace")
             docs.append(
                 GeneratedDocument(
                     filename=str(rel).replace("\\", "/"),
@@ -792,7 +793,7 @@ def verify_model(
                 if src not in seen_refs:
                     seen_refs.add(src)
                     checked += 1
-                    norm = src.lstrip("./")
+                    norm = strip_ref_prefix(src)
                     is_real_path = Path(src).is_absolute() or (target / norm).exists()
                     if not is_real_path:
                         missing.append((src, ""))
@@ -814,7 +815,7 @@ def verify_model(
             if src not in seen_refs:
                 seen_refs.add(src)
                 checked += 1
-                norm = src.lstrip("./")
+                norm = strip_ref_prefix(src)
                 is_real_path = Path(src).is_absolute() or (target / norm).exists()
                 if not is_real_path:
                     missing.append((src, ""))
@@ -901,7 +902,7 @@ def parity(
             base_name = str(rel).replace("\\", "/")
             if profile.file_suffix:
                 base_name = base_name.replace(profile.file_suffix, "")
-            content = md_file.read_text(encoding="utf-8", errors="replace")
+            content = md_file.read_text(encoding="utf-8-sig", errors="replace")
             docs.append(
                 GeneratedDocument(
                     filename=str(rel).replace("\\", "/"),
@@ -936,20 +937,31 @@ def parity(
                 "passages": passage.texts,
             })
 
+    # pending (mechanical checks clean, aligned passages ready for the LLM
+    # Auditor) is the normal terminal state of `parity` — only a real failure
+    # exits non-zero.
+    exit_code = 1 if l4_report.verdict == "failed" else 0
     if output_format == "json":
         typer.echo(json_lib.dumps({
             "l4": l4_report.model_dump(),
             "aligned_passages": aligned,
         }, indent=2, ensure_ascii=False))
-        raise typer.Exit(0 if l4_report.passed else 1)
+        raise typer.Exit(exit_code)
 
     console.print("[bold]Language Parity (L4)[/bold]")
-    state = "[green]PASS[/green]" if l4_report.passed else "[red]FAIL[/red]"
-    console.print(f"  L4 (Cross-language): {state}  {l4_report.passed_count}/{l4_report.total_checks}")
+    state = {
+        "passed": "[green]PASS[/green]",
+        "pending": "[yellow]PENDING[/yellow]",
+        "not_applicable": "[dim]N/A[/dim]",
+    }.get(l4_report.verdict, "[red]FAILED[/red]")
+    console.print(
+        f"  L4 (Cross-language): {state}  "
+        f"{l4_report.failed_count} failed, {l4_report.passed_count} passed / {l4_report.total_checks} checks"
+    )
     for check in l4_report.failures():
         console.print(f"    [red]{check.target}[/red]: {check.detail}")
     console.print(f"[bold]Aligned passages:[/bold] {len(aligned)} item(s) ready for LLM prose review")
-    raise typer.Exit(0 if l4_report.passed else 1)
+    raise typer.Exit(exit_code)
 
 
 @app.command()
@@ -1005,7 +1017,7 @@ def review(
             if profile.file_suffix:
                 base_name = base_name.replace(profile.file_suffix, "")
 
-            content = md_file.read_text(encoding="utf-8", errors="replace")
+            content = md_file.read_text(encoding="utf-8-sig", errors="replace")
             docs.append(
                 GeneratedDocument(
                     filename=str(rel).replace("\\", "/"),
@@ -1103,7 +1115,7 @@ def semantic_review(
                     base = rel.replace(profile.file_suffix, "")
                     break
 
-        content = md_file.read_text(encoding="utf-8", errors="replace")
+        content = md_file.read_text(encoding="utf-8-sig", errors="replace")
         pages.setdefault(base, {})[detected_lang] = content
 
     review_pairs: list[dict[str, Any]] = []

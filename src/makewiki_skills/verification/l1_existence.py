@@ -9,6 +9,7 @@ from makewiki_skills.model.document_artifact import DocumentArtifact
 from makewiki_skills.toolkit.command_probe import CommandProbeTool
 from makewiki_skills.toolkit.config_reader import ConfigReaderTool
 from makewiki_skills.toolkit.markdown_tools import MarkdownTool
+from makewiki_skills.toolkit.filesystem import strip_ref_prefix
 from makewiki_skills.verification.report import LayerReport, VerificationCheck
 
 _GENERIC_TOOL_PREFIXES: list[str] = [
@@ -94,7 +95,7 @@ class L1ExistenceVerifier:
         results: list[VerificationCheck] = []
 
         for path in paths:
-            normalised = path.lstrip("./")
+            normalised = strip_ref_prefix(path)
             if normalised in real or path in real:
                 results.append(
                     VerificationCheck(

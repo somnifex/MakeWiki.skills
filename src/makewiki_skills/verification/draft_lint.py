@@ -435,7 +435,7 @@ def run_draft_lint(
     docs_by_base: dict[str, dict[str, str]] = {}
     undeclared: set[str] = set()
     for rel, path in _iter_docs(wiki_dir):
-        content = path.read_text(encoding="utf-8", errors="replace")
+        content = path.read_text(encoding="utf-8-sig", errors="replace")
         resolved = resolve_localized_filename(rel, langs, default_lang)
         if not resolved.declared:
             # A ``.<x>.md`` suffix matching no declared language: no language

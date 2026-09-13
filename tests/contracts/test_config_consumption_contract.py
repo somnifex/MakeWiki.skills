@@ -11,6 +11,8 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
+import pytest
+import yaml
 from pydantic import ValidationError
 
 from makewiki_skills.config import (
@@ -265,6 +267,35 @@ def test_runtime_only_target_dir_is_excluded_from_consumption_contract():
     assert "MakeWikiConfig.target_dir" not in python_consumed_field_paths()
     assert "MakeWikiConfig.target_dir" not in llm_consumed_field_paths()
     assert "MakeWikiConfig.target_dir" not in all_field_categories()
+
+
+def test_to_yaml_round_trips_through_safe_load(tmp_path: Path):
+    """Regression: to_yaml once serialised runtime state (``target_dir`` as a
+    ``!!python/object`` Path tag) into the user config, crashing the next
+    ``yaml.safe_load``. The serialisation must be runtime-state-free,
+    safe_load-able, and accepted by ``load`` itself."""
+    cfg = MakeWikiConfig.default(tmp_path)
+    text = cfg.to_yaml()
+    assert "target_dir" not in text
+    assert "!!python" not in text
+    assert isinstance(yaml.safe_load(text), dict)
+
+    config_path = tmp_path / "makewiki.config.yaml"
+    config_path.write_text(text, encoding="utf-8")
+    loaded = MakeWikiConfig.load(config_path)
+    assert loaded.output_dir == cfg.output_dir
+
+
+def test_load_reports_polluted_config_with_clear_error(tmp_path: Path):
+    """A config polluted by an older init-config (a ``!!python`` tag) fails
+    with an actionable error instead of a raw yaml.constructor.ConstructorError."""
+    config_path = tmp_path / "makewiki.config.yaml"
+    config_path.write_text(
+        "output_dir: makewiki\ntarget_dir: !!python/object/apply:pathlib.WindowsPath []\n",
+        encoding="utf-8",
+    )
+    with pytest.raises(ValueError, match="!!python"):
+        MakeWikiConfig.load(config_path)
 
 
 def _authoritative_skill_text() -> str:

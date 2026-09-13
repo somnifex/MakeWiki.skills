@@ -13,6 +13,7 @@ if TYPE_CHECKING:
 
 from makewiki_skills.scanner.evidence_registry import EvidenceRegistry
 from makewiki_skills.scanner.project_detector import ProjectDetectionResult
+from makewiki_skills.toolkit.filesystem import strip_ref_prefix
 
 Confidence = Literal["high", "medium", "low", "inferred"]
 
@@ -372,7 +373,7 @@ def verify_claims_against_codebase(
         if claim.claim_type == "path":
             p = claim.object
             if isinstance(p, str):
-                norm = p.lstrip("./")
+                norm = strip_ref_prefix(p)
                 if (target_dir / norm).exists():
                     claim.verification.l1_existence = "passed"
                 else:

@@ -41,7 +41,9 @@ Thumbs.db
 .pytest_temp/
 uv.lock
 .claude/
-.claude-plugin/
+# NOTE: .claude-plugin/ is NOT ignored — .claude-plugin/plugin.json is a
+# tracked release artifact and an ignore rule here would shadow it.
+.zcode/
 
 # MakeWiki test targets (cloned repos for testing)
 _test_targets/

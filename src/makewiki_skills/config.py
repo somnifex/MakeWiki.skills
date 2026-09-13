@@ -340,7 +340,15 @@ class MakeWikiConfig(BaseModel):
         config_path = Path(config_path)
         if config_path.is_file():
             raw = config_path.read_text(encoding="utf-8")
-            data = cast(dict[str, Any], yaml.safe_load(raw) or {})
+            try:
+                data = cast(dict[str, Any], yaml.safe_load(raw) or {})
+            except yaml.YAMLError as exc:
+                raise ValueError(
+                    f"Invalid YAML in {config_path}: {exc}. If the file carries a "
+                    "'!!python' tag (e.g. a 'target_dir' line written by an older "
+                    "init-config), delete that line or regenerate the config with "
+                    "'init-config'."
+                ) from exc
         cfg = cls.model_validate(data)
         if target_dir is not None:
             cfg.target_dir = Path(target_dir).resolve()
@@ -355,8 +363,14 @@ class MakeWikiConfig(BaseModel):
 
     def to_yaml(self) -> str:
         """Serialise to YAML (excludes runtime-only attributes like target_dir)."""
-        data = self.model_dump()
-        return str(yaml.dump(data, default_flow_style=False, allow_unicode=True, sort_keys=False))
+        # ``mode="json"`` turns Path values into plain strings so the output is
+        # always safe_dump-able; ``target_dir`` is runtime state (see
+        # RUNTIME_ONLY_FIELDS) and must never land in a user-facing config file
+        # — a ``!!python`` tag here would crash the next ``yaml.safe_load``.
+        data = self.model_dump(mode="json", exclude={"target_dir"})
+        return str(
+            yaml.safe_dump(data, default_flow_style=False, allow_unicode=True, sort_keys=False)
+        )
 
 
 def iter_config_models() -> list[type[BaseModel]]:

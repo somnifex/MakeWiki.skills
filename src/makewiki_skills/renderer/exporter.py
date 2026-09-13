@@ -441,7 +441,7 @@ blockquote { border-left: 3px solid #3b82f6; background: #eff6ff; padding: 0.5em
             target_filename = f"{base}{suffix}"
             p = makewiki_path / target_filename
             if p.is_file():
-                content = p.read_text(encoding="utf-8", errors="replace")
+                content = p.read_text(encoding="utf-8-sig", errors="replace")
                 title = self._extract_first_h1(content) or default_title
                 slug = re.sub(r"[^a-z0-9]+", "-", base.lower()).strip("-")
                 chapters.append((title, content, slug))
@@ -456,7 +456,7 @@ blockquote { border-left: 3px solid #3b82f6; background: #eff6ff; padding: 0.5em
                     and p.is_file()
                     and not p.name.startswith("overview")
                 ):
-                    content = p.read_text(encoding="utf-8", errors="replace")
+                    content = p.read_text(encoding="utf-8-sig", errors="replace")
                     title = self._extract_first_h1(content) or p.stem
                     slug = f"usage-{p.stem.replace(suffix[:-3], '')}"
                     chapters.append((title, content, slug))

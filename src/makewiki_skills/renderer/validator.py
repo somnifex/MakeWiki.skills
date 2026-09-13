@@ -55,7 +55,7 @@ class OutputValidator:
         report.files_checked = len(md_files)
 
         for md_file in md_files:
-            content = md_file.read_text(encoding="utf-8", errors="replace")
+            content = md_file.read_text(encoding="utf-8-sig", errors="replace")
             file_has_issues = False
 
             if self._md.check_empty(content):

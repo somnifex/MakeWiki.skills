@@ -28,6 +28,8 @@ from markdown_it.renderer import RendererHTML
 from markdown_it.token import Token
 from markdown_it.utils import EnvType, OptionsDict
 
+from makewiki_skills.toolkit.filesystem import strip_ref_prefix
+
 __all__ = ["slugify", "render_markdown_document"]
 
 # One shared parser per document: CommonMark plus tables and strikethrough.
@@ -92,7 +94,13 @@ def _link_open(tokens: Sequence[Token], idx: int, options: OptionsDict, env: Env
         token.attrSet("class", "anchor-link")
     else:
         # Internal wiki link. Normalize a Markdown-ish href into a route.
-        normalized = href.lstrip("./")
+        # Links address documents by id, not by filesystem path: leading ./ or
+        # ../ segments are dropped, while a leading dot that starts a real
+        # filename (e.g. ".env.example") is preserved by strip_ref_prefix.
+        normalized = strip_ref_prefix(href)
+        while normalized.startswith("../"):
+            normalized = normalized[3:]
+        normalized = normalized.lstrip("/")
         fragment = ""
         if "#" in normalized:
             normalized, fragment = normalized.split("#", 1)

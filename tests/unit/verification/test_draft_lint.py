@@ -79,6 +79,23 @@ def test_frontmatter_leak_fails(tmp_path: Path):
     assert "frontmatter_leak" in rules
 
 
+def test_bom_prefixed_frontmatter_leak_still_fails(tmp_path: Path):
+    """Regression: a leading UTF-8 BOM used to make the ``\\A---`` frontmatter
+    regex silently miss the leak. Reads are BOM-safe now, so the leak surface.
+    """
+    wiki = tmp_path / "wiki"
+    body = (
+        "---\npage_id: user/tokens\naudience: [user]\n---\n\n"
+        "<!-- makewiki:section=overview -->\n## Overview\n"
+    )
+    (wiki / "user").mkdir(parents=True, exist_ok=True)
+    (wiki / "user" / "tokens.md").write_bytes(b"\xef\xbb\xbf" + body.encode("utf-8"))
+    (wiki / "user" / "tokens.zh-CN.md").write_bytes(b"\xef\xbb\xbf" + body.encode("utf-8"))
+    plan = _make_plan(["user/tokens"])
+    issues = run_draft_lint(wiki, plan, [_spec("user/tokens")], None, ["en", "zh-CN"])
+    assert "frontmatter_leak" in {i.rule for i in issues}
+
+
 def test_non_writer_frontmatter_allowed(tmp_path: Path):
     """Frontmatter without writer-echo keys is not a lint error (renderer strips it)."""
     wiki = tmp_path / "wiki"

@@ -163,7 +163,7 @@ class SiteCompiler:
                     # error the renderer should fail on (a doc may be absent for
                     # one language while present for another).
                     continue
-                content_md = path.read_text(encoding="utf-8", errors="replace")
+                content_md = path.read_text(encoding="utf-8-sig", errors="replace")
                 content_by_lang[lang][item.document_id] = {
                     "html": render_markdown_document(content_md, route_map=route_map),
                     "title": self._extract_h1(content_md) or item.title,

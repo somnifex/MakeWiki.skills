@@ -121,7 +121,7 @@ def assemble_judge_input(
     docs_dir = run_dir / "docs"
     if docs_dir.is_dir():
         for md in sorted(docs_dir.glob("*.md")):
-            docs[md.name] = md.read_text(encoding="utf-8", errors="replace")
+            docs[md.name] = md.read_text(encoding="utf-8-sig", errors="replace")
     # Weights come from the rubric under its human-readable name, defaulting to
     # 0.0 when the rubric does not grade a given semantic metric.
     semantic_weights: dict[str, float] = {}

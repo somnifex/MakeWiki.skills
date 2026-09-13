@@ -321,6 +321,85 @@ def test_verify_model_exits_zero_on_all_resolvable(tmp_path: Path):
     assert result.exit_code == 0, result.output
 
 
+def test_verify_model_resolves_dot_prefixed_evidence_ref(tmp_path: Path):
+    """Regression: `.env.example` must resolve exactly. A character-class
+    ``lstrip("./")`` mangled it into ``env.example`` and reported the existing
+    file as a missing evidence reference."""
+    runner = CliRunner()
+
+    project_dir = tmp_path / "project"
+    project_dir.mkdir()
+    (project_dir / ".env.example").write_text("KEY=value\n", encoding="utf-8")
+
+    semantic_model = {
+        "model_id": "smoke",
+        "project_type": "python-cli",
+        "evidence_summary": {},
+        "identity": {"name": "smoke"},
+        "installation": {
+            "steps": [
+                {
+                    "order": 1,
+                    "title": "Configure",
+                    "commands": ["cp .env.example .env"],
+                    "evidence": [
+                        {
+                            "source_path": ".env.example",
+                            "raw_text": "KEY=value",
+                            "confidence": "high",
+                        }
+                    ],
+                }
+            ],
+            "prerequisites": [],
+        },
+    }
+    model_file = tmp_path / "model.json"
+    model_file.write_text(json.dumps(semantic_model), encoding="utf-8")
+
+    result = runner.invoke(
+        app,
+        ["verify-model", str(model_file), "--target", str(project_dir), "--format", "json"],
+    )
+    assert result.exit_code == 0, result.output
+    payload = json.loads(result.stdout)
+    assert payload["evidence_references_missing"] == []
+
+
+def test_verify_claim_resolves_dot_prefixed_path(tmp_path: Path):
+    """Regression: a ``path`` claim on a dot-prefixed file verifies against the
+    real file, not the lstrip-mangled name."""
+    runner = CliRunner()
+
+    dotfile = tmp_path / ".env.example"
+    dotfile.write_text("KEY=value\n", encoding="utf-8")
+
+    claim_payload = {
+        "project_name": "smoke",
+        "claims": [
+            {
+                "claim_id": "PATH_DOTFILE",
+                "claim_type": "path",
+                "semantic_key": "filesystem.path.dotfile",
+                "subject": ".env.example",
+                "predicate": "exists",
+                "object": ".env.example",
+            },
+        ],
+    }
+    claim_file = tmp_path / "claim.json"
+    claim_file.write_text(json.dumps(claim_payload), encoding="utf-8")
+
+    result = runner.invoke(
+        app,
+        ["verify-claim", str(claim_file), "--target", str(tmp_path), "--format", "json"],
+    )
+    assert result.exit_code == 0, result.output
+    payload = json.loads(result.stdout)
+    claim_by_id = {c["claim_id"]: c for c in payload["claims"]}
+    assert claim_by_id["PATH_DOTFILE"]["verification"]["l1_existence"] == "passed"
+
+
 # ---------- bootstrap_toolkit pure-helper pinning tests ----------------------
 
 
