@@ -487,6 +487,89 @@ def lint_drafts(
     )
 
 
+@app.command(name="verify-html")
+def verify_html(
+    makewiki_dir: Path = typer.Argument(..., help="Path to the assembled makewiki/ directory"),
+    target: str = typer.Option(
+        "all", "--target", "-t", help="Which artifacts to audit: site | export | all"
+    ),
+    langs: list[str] = typer.Option([], "--lang", "-l", help="Restrict the audit to these language codes"),
+    default_language: str | None = typer.Option(
+        None,
+        "--default-lang",
+        help="Default language for the localized-filename contract (resolved from "
+        "SitePresentationPlan / makewiki.config.yaml when omitted)",
+    ),
+    output_format: str = typer.Option(
+        "human", "--format", "-f", help="Output format: human | json"
+    ),
+) -> None:
+    """Mechanical rendered-output audit: segment the generated artifacts against
+    their source Markdown and check each pair item by item.
+
+    Covers the compiled site (``site/index.html`` with its embedded per-language
+    documents), the printable HTML exports, and EPUB bundles. Fails closed:
+    missing artifacts that the requested target covers are blocking findings,
+    and any critical/major finding exits 1 so a defective artifact cannot ship.
+    Fix the Markdown SOURCE (never the HTML), rebuild, and re-run; the loop is
+    bounded by ``agent.max_audit_rounds`` in the skill workflow.
+    """
+    import json as json_lib
+
+    from makewiki_skills.verification.render_audit import run_render_audit
+
+    resolved = Path(makewiki_dir).resolve()
+    if not resolved.is_dir():
+        console.print(f"[red]Error:[/red] Directory not found: {resolved}")
+        raise typer.Exit(1)
+    if target not in ("site", "export", "all"):
+        console.print(f"[red]Error:[/red] Invalid --target {target!r}; expected site | export | all.")
+        raise typer.Exit(1)
+
+    result = run_render_audit(
+        resolved,
+        target=target,
+        langs=list(langs) or None,
+        default_language=default_language,
+    )
+
+    if output_format == "json":
+        typer.echo(result.model_dump_json(indent=2, ensure_ascii=False))
+    else:
+        blocking = result.blocking
+        minors = [f for f in result.findings if f.severity == "minor"]
+        console.print(
+            f"[bold]Rendered-output audit[/bold] — {len(result.artifacts)} artifact(s), "
+            f"{result.documents_audited} document(s), {result.segments_audited} segment(s): "
+            f"{len(blocking)} blocking, {len(minors)} minor"
+        )
+        by_check: dict[str, list[Any]] = {}
+        for finding in result.findings:
+            by_check.setdefault(finding.check, []).append(finding)
+        for check, items in sorted(by_check.items()):
+            is_blocking = any(f.severity in ("critical", "major") for f in items)
+            color = "red" if is_blocking else "yellow"
+            console.print(f"  [{color}]{check}[/{color}]: {len(items)}")
+            for finding in items[:3]:
+                location = f"{finding.language}/{finding.document_id}"
+                if finding.section_id:
+                    loc += f"#{finding.section_id}"
+                console.print(f"    {finding.message[:150]}")
+            if len(items) > 3:
+                console.print(f"    ... and {len(items) - 3} more")
+        if result.blocking:
+            console.print(
+                f"[red]{len(blocking)} blocking finding(s): fix the Markdown source, "
+                "rebuild, and re-run verify-html. Do not hand-edit the generated HTML.[/red]"
+            )
+            raise typer.Exit(1)
+        console.print(
+            f"[green]Rendered-output audit passed ({result.verdict}); artifacts verified "
+            "segment by segment.[/green]"
+        )
+    raise typer.Exit(0)
+
+
 @app.command(name="verify-docs")
 def verify_docs(
     target: Path = typer.Argument(..., help="Target project directory"),

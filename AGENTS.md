@@ -24,7 +24,7 @@ cognitive_plane:
 
 mechanical_plane:
   owner: "Python toolkit (run_toolkit.py)"
-  proves: "Census, evidence extraction, L0/L1/L2/L4-exact, schema, parity, site, export, sync-bundle"
+  proves: "Census, evidence extraction, L0/L1/L2/L4-exact, schema, parity, site, export, sync-bundle, rendered-output audit"
   forbidden: "Inventing narrative content (FAQ / troubleshooting / usage)"
 
 bridge:
@@ -101,6 +101,7 @@ python scripts/run_toolkit.py review <wiki_dir>            # standalone CrossLan
 python scripts/run_toolkit.py semantic-review <wiki_dir>
 python scripts/run_toolkit.py validate <wiki_dir>
 python scripts/run_toolkit.py build-site <wiki_dir> --theme auto
+python scripts/run_toolkit.py verify-html <wiki_dir>            # blocking rendered-output audit (site + export + EPUB)
 python scripts/run_toolkit.py export <wiki_dir> --format html|epub|all --lang <code>
 python scripts/run_toolkit.py sync-bundle <wiki_dir> --target confluence|notion --lang <code>
 python scripts/run_toolkit.py rebattle-diff <claim_files...>
@@ -109,7 +110,10 @@ python scripts/run_toolkit.py init-config <target>
 
 `export` rejects `--format pdf`. `sync-bundle` prepares bundles on disk
 and does NOT publish. `review` is a standalone command (runs
-`CrossLanguageReviewer`), not an alias of `parity`.
+`CrossLanguageReviewer`), not an alias of `parity`. `verify-html` audits the
+GENERATED artifacts (compiled site, printable HTML, EPUB) against their source
+Markdown segment by segment; a blocking finding stops delivery until the
+Markdown source is fixed and the artifact is rebuilt (`references/render_audit.md`).
 
 ---
 
@@ -122,7 +126,7 @@ and does NOT publish. `review` is a standalone command (runs
    work is decomposed into **SubtaskSpec** units and delegated; ReBattle is a
    hard-conflict escalation, not a default phase. Python is strictly reserved
    as mechanical proof tooling (census, evidence extraction, L0 / L1 / L2 / L4-
-   exact, parity, site, export, sync-bundle).
+   exact, parity, site, export, sync-bundle, rendered-output audit).
 2. **Cognitive Authority Boundary**: Python never invents FAQ / troubleshooting
 
    / usage / workflow content; it returns `UNKNOWN` instead. The LLM fills

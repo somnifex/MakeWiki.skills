@@ -5,6 +5,43 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [3.2.0] — 2026-09-15
+
+### Added
+
+- **Rendered-output audit (`verify-html`)**: the toolkit now answers for its
+  GENERATED artifacts. The audit recovers the real shipped bodies (the SPA's
+  embedded per-language documents, exported chapters, EPUB XHTML), re-pairs
+  each with its source Markdown segment by segment (preamble + H2 sections,
+  stable `<!-- makewiki:section=<id> -->` identity when authored), and checks
+  every pair item by item: marker leaks (critical), heading parity, prose
+  coverage, code-block / table / callout integrity, and unrendered
+  link/fence residue. Fails closed (exit 1 blocks delivery; missing covered
+  artifacts are blocking findings). See `references/render_audit.md`.
+- **Blocking workflow integration**: `build-site` → `verify-html --target
+  site` and `export` → `verify-html --target export` are now mandatory steps
+  in SKILL.md §9.11, `tasks/build_site.md`, `tasks/export.md`,
+  `subskills/site`, and `subskills/export`; revision pre-submit checks
+  (`tasks/revise.md` §4b) include the audit when rendering is touched. The
+  fix loop targets the Markdown source (never the generated HTML) and is
+  bounded by `agent.max_audit_rounds`.
+
+### Fixed
+
+- **Renderer marker leakage (root cause)**: `render_markdown_document` now
+  strips whole-line build markers before parsing — `[[id:<slug>]]`,
+  `[[parity:ignore ...]]` (including the documented first-line-inside-fence
+  position) and `<!-- makewiki:section=<id> -->` — so pipeline metadata never
+  renders as visible paragraphs, code text, or comment residue. Mid-line
+  occurrences pass through untouched and are flagged by the audit instead.
+- **Renderer divergence eliminated**: the printable HTML and EPUB exports
+  were converted from a duplicated hand-rolled translator to the SAME
+  markdown-it-py pipeline the site uses (XHTML flavor for EPUB). Links render
+  as anchors, tables as one `<table>` with proper `thead`/`tbody`, nested
+  lists nest, frontmatter is stripped, and callouts keep their typed styling.
+
+---
+
 ## [3.1.1] — 2026-09-13
 
 ### Fixed

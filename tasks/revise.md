@@ -163,6 +163,11 @@ makewiki parity <target> --lang en --lang <sibling>
 # full structural lint (markers, required sections, block-ID sets,
 # frontmatter/artifact leaks) when the assembled tree is available:
 makewiki lint-drafts <assembled_wiki_dir>
+
+# rendered-output audit when the revision touches anything that reaches the
+# compiled site or export bundles (rebuild first, then verify):
+makewiki build-site <assembled_wiki_dir> --theme auto
+makewiki verify-html <assembled_wiki_dir> --target site
 ```
 
 If the check fails, the Revision Agent continues fixing WITHIN the current

@@ -1,7 +1,7 @@
 ---
 name: makewiki-site
 description: "Compile an existing MakeWiki markdown documentation directory into an offline, zero-dependency, responsive static website, driven by an LLM-authored SitePresentationPlan. Use when: a SitePresentationPlan exists and the user wants to build or rebuild static HTML wiki pages from generated makewiki markdown docs. Pure mechanical step — renders the plan, does not modify prose and never decides information architecture from filenames."
-version: "3.1.1"
+version: "3.2.0"
 argument-hint: "[path-to-makewiki-dir] [--plan <site_presentation.json>] [--theme <auto|light|dark>]"
 license: MIT
 allowed-tools: Bash(python */scripts/bootstrap_toolkit.py) Bash(python */scripts/run_toolkit.py *) Read Write Glob
@@ -57,10 +57,28 @@ python <makewiki_root>/scripts/run_toolkit.py build-site ./makewiki --theme auto
 The Main Agent must have authored `./makewiki/site_presentation.json` first; if
 it is absent, the build stays pending (see above).
 
-### Step 2: Output Confirmation
+### Step 2: Rendered-Output Audit (mechanical, blocking)
 
-The compiler produces `<makewiki_dir>/site/index.html`.
-Confirm that:
-1. `index.html` was generated (requires the plan).
-2. The rendered navigation matches the plan's groups, ordering, and hierarchy.
-3. The user can open `<makewiki_dir>/site/index.html` directly in their browser without a local web server.
+The compiler produces `<makewiki_dir>/site/index.html`. Do not eyeball it —
+audit it:
+
+```bash
+python <makewiki_root>/scripts/run_toolkit.py verify-html ./makewiki --target site
+```
+
+The audit re-pairs every embedded rendered document with its source Markdown,
+segment by segment (preamble + H2 sections), and checks each pair for marker
+leaks, heading parity, prose coverage, code-block/table/callout integrity, and
+unrendered markdown residue. The command exits 0 clean and 1 on blocking
+findings.
+
+On blocking findings:
+1. Locate the offending **Markdown source** from the finding's
+   `language/document_id#section_id` location — never hand-edit the generated
+   HTML.
+2. Fix the source, rebuild (`build-site`), and re-run `verify-html`.
+3. Repeat within the `agent.max_audit_rounds` budget; if the budget is
+   exhausted, surface the failure explicitly instead of shipping.
+
+Finally confirm that `index.html` opens directly in a browser without a local
+web server.

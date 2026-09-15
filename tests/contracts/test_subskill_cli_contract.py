@@ -20,13 +20,16 @@ from makewiki_skills.cli import app
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 
-# Map subskill name to the Typer command it documents as its primary surface.
-SUBSKILL_TO_COMMAND: dict[str, str] = {
-    "scan": "evidence",                # subskills/scan documents the `evidence` command
-    "site": "build-site",
-    "export": "export",
-    "sync": "sync-bundle",
-    "init": "init-config",
+# Map subskill name to the Typer command(s) it documents as its surface.
+# A subskill may compose several commands (e.g. makewiki-site compiles the
+# site AND runs the rendered-output audit), so the value is a list and a
+# documented flag passes when ANY of the listed commands accepts it.
+SUBSKILL_TO_COMMAND: dict[str, list[str]] = {
+    "scan": ["evidence"],              # subskills/scan documents the `evidence` command
+    "site": ["build-site", "verify-html"],
+    "export": ["export", "verify-html"],
+    "sync": ["sync-bundle"],
+    "init": ["init-config"],
 }
 
 
@@ -77,12 +80,14 @@ def _documented_flags(subskill_md: Path) -> set[str]:
 
 def test_subskill_documented_flags_exist_on_cli():
     violations: list[str] = []
-    for subskill_name, command_name in SUBSKILL_TO_COMMAND.items():
+    for subskill_name, command_names in SUBSKILL_TO_COMMAND.items():
         skill_md = PROJECT_ROOT / "subskills" / subskill_name / "SKILL.md"
         if not skill_md.is_file():
             continue
         documented = _documented_flags(skill_md)
-        actual = _iter_command_options(command_name)
+        actual: set[str] = set()
+        for command_name in command_names:
+            actual |= _iter_command_options(command_name)
         # Subtract "false positive" flags from surrounding prose that happen to
         # mention a CLI flag with no claim on the specific command.
         # Only enforce flags that look like real tool options (must be at
@@ -93,10 +98,9 @@ def test_subskill_documented_flags_exist_on_cli():
             # Some flags (like --version / --help) are universal.
             if flag in {"--help", "--version", "-h"}:
                 continue
-            # Cross-tool flags documented for completeness: skip if the
-            # command only differs in supported set.
             violations.append(
-                f"{skill_md.relative_to(PROJECT_ROOT)} documents {flag} but {command_name!r} does not accept it"
+                f"{skill_md.relative_to(PROJECT_ROOT)} documents {flag} but none of "
+                f"{command_names!r} accepts it"
             )
     assert not violations, "\n".join(violations)
 
@@ -115,11 +119,12 @@ def test_subskill_documents_execution_block():
 
 def test_unknown_subskill_command_mapping_fails_fast():
     """Sanity guard: every entry in SUBSKILL_TO_COMMAND resolves to a registered Typer cmd."""
-    for subskill_name, command_name in SUBSKILL_TO_COMMAND.items():
+    for subskill_name, command_names in SUBSKILL_TO_COMMAND.items():
         names = {
             cmd.name or (cmd.callback.__name__ if cmd.callback else "")
             for cmd in app.registered_commands
         }
-        assert command_name in names, (
-            f"subskill {subskill_name!r} maps to unknown Typer command {command_name!r}"
-        )
+        for command_name in command_names:
+            assert command_name in names, (
+                f"subskill {subskill_name!r} maps to unknown Typer command {command_name!r}"
+            )

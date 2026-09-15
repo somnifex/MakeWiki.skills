@@ -48,6 +48,93 @@ class SitePlanRequiredError(RuntimeError):
     """
 
 
+# The SPA shell embeds the pre-rendered documents as one single-line JSON
+# object per variable (json.dumps never emits newlines), so the payload is
+# recoverable by exact line extraction — the rendered-output audit uses this
+# to inspect what was actually shipped.
+_DOCS_CONTENT_PREFIX = "const docsContent = "
+
+
+def _parse_const_json(line: str, prefix: str) -> Any:
+    """Parse ``const <name> = <json>;`` from one SPA script line.
+
+    The compiler JSON-escapes ``<`` as ``\\u003c`` for script safety; ``\\u003c``
+    is a legal JSON escape, so the payload parses as-is."""
+    if not line.startswith(prefix):
+        raise ValueError(f"line does not start with {prefix!r}")
+    payload = line[len(prefix) :].rstrip()
+    if payload.endswith(";"):
+        payload = payload[:-1]
+    return json.loads(payload)
+
+
+def extract_docs_content(index_html: str) -> dict[str, dict[str, str]]:
+    """Recover ``{ lang: { document_id: pre_rendered_html } }`` from a compiled
+    ``index.html`` (the ``docsContent`` JSON payload embedded in the SPA)."""
+    for line in index_html.splitlines():
+        stripped = line.strip()
+        if stripped.startswith(_DOCS_CONTENT_PREFIX):
+            return _parse_const_json(stripped, _DOCS_CONTENT_PREFIX)
+    raise ValueError(
+        "index.html carries no docsContent payload; it was not produced by "
+        "SiteCompiler and cannot be audited."
+    )
+
+
+def _lang_document_path(
+    makewiki_dir: Path, document_id: str, lang: str, default_language: str
+) -> Path:
+    """Mechanical path resolution for a plan document_id + language.
+
+    Follows the language-profile filename contract (``LanguageProfile.get_filename``):
+    the DEFAULT language's content is the plain ``<document_id>.md`` while
+    every other declared language is ``<document_id>.<lang>.md``. The default
+    comes from the plan (``plan.default_language``) — ``en`` is never
+    hardcoded. ``document_id`` IS the relative path from the wiki root (e.g.
+    ``"usage/deploy"`` resolves to ``usage/deploy.md``). No filename/keyword
+    semantics are interpreted here — the id names the file verbatim.
+    """
+    suffix = "" if lang == default_language else f".{lang}"
+    return makewiki_dir / f"{document_id}{suffix}.md"
+
+
+def flatten_nav_items(items: list[SiteNavItem]) -> list[SiteNavItem]:
+    """Flatten root + child nav items into one list (site nav never nests
+    beyond two levels)."""
+    flat: list[SiteNavItem] = []
+    for item in items:
+        flat.append(item)
+        flat.extend(item.children)
+    return flat
+
+
+def iter_plan_documents(
+    makewiki_dir: Path, plan: SitePresentationPlan
+) -> list[tuple[str, str, str]]:
+    """Yield ``(lang, document_id, raw_markdown)`` for every plan document that
+    resolved for that language.
+
+    The document set is EXACTLY the plan's navigation. A document missing for a
+    given language is skipped (mechanical absence — a translation may lag while
+    another language carries the page); the rendering and the rendered-output
+    audit both walk this same iteration so they can never disagree about which
+    documents exist.
+    """
+    nav_items = SiteCompiler._flatten_nav_items(plan.navigation)
+    for lang in plan.languages:
+        for item in nav_items:
+            path = SiteCompiler._lang_document_path(
+                makewiki_dir, item.document_id, lang, plan.default_language
+            )
+            if not path.is_file():
+                continue
+            yield (
+                lang,
+                item.document_id,
+                path.read_text(encoding="utf-8-sig", errors="replace"),
+            )
+
+
 class SiteCompiler:
     """Compiles a plan + a directory of makewiki Markdown files into a site.
 
@@ -155,19 +242,12 @@ class SiteCompiler:
         nav_items = self._flatten_nav_items(plan.navigation)
         route_map = {item.document_id: item.route for item in nav_items}
 
-        for lang in plan.languages:
-            for item in nav_items:
-                path = self._lang_document_path(makewiki_dir, item.document_id, lang, plan.default_language)
-                if not path.is_file():
-                    # Recorded so effective languages can be computed; not an
-                    # error the renderer should fail on (a doc may be absent for
-                    # one language while present for another).
-                    continue
-                content_md = path.read_text(encoding="utf-8-sig", errors="replace")
-                content_by_lang[lang][item.document_id] = {
-                    "html": render_markdown_document(content_md, route_map=route_map),
-                    "title": self._extract_h1(content_md) or item.title,
-                }
+        for lang, doc_id, content_md in iter_plan_documents(makewiki_dir, plan):
+            content_by_lang[lang][doc_id] = {
+                "html": render_markdown_document(content_md, route_map=route_map),
+                "title": self._extract_h1(content_md)
+                or next(i.title for i in nav_items if i.document_id == doc_id),
+            }
 
         return content_by_lang
 

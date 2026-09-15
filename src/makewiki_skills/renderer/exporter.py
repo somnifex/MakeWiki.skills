@@ -1,8 +1,15 @@
-"""Single-file documentation exporters for PDF-ready HTML, EPUB, and offline printable bundles."""
+"""Single-file documentation exporters for PDF-ready HTML, EPUB, and offline printable bundles.
+
+Markdown conversion goes through the SAME mechanical pipeline as the static
+site (:func:`makewiki_skills.renderer.markdown_render.render_markdown_document`,
+backed by ``markdown-it-py``), so print/EPUB output cannot drift from the site
+renderer: frontmatter and build markers are stripped, tables render as one
+``<table>``, lists nest, links and callouts keep their semantics. The exporter
+only adds the printable/EPUB shell around the shared renderer.
+"""
 
 from __future__ import annotations
 
-import html
 import io
 import re
 import uuid
@@ -10,74 +17,112 @@ import zipfile
 from datetime import UTC, datetime
 from pathlib import Path
 
+from makewiki_skills.renderer.markdown_render import render_markdown_document
 
-class SimpleMarkdownRenderer:
-    """Converts Markdown text into clean, printable HTML."""
+__all__ = [
+    "DocExporter",
+    "collect_ordered_chapters",
+    "parse_export_chapters",
+]
 
-    def to_html(self, markdown: str) -> str:
-        html_lines: list[str] = []
-        lines = markdown.splitlines()
-        in_code = False
-        code_lines: list[str] = []
+# Chapter wrapper of the compiled printable HTML: one section per chapter.
+_CHAPTER_OPEN_RE = re.compile(
+    r'<section class="chapter" id="([^"]+)">', re.IGNORECASE
+)
 
-        for line in lines:
-            fence_match = re.match(r"^```(\w*)\s*$", line.strip())
-            if fence_match:
-                if in_code:
-                    escaped_code = html.escape("\n".join(code_lines))
-                    html_lines.append(f"<pre><code>{escaped_code}</code></pre>")
-                    in_code = False
-                    code_lines = []
-                else:
-                    in_code = True
-                    code_lines = []
-                continue
 
-            if in_code:
-                code_lines.append(line)
-                continue
+def parse_export_chapters(html_text: str) -> list[tuple[str, str]]:
+    """Split a compiled printable HTML file back into ``(slug, body_html)``.
 
-            stripped = line.strip()
-            if not stripped:
-                continue
+    The audit endpoint pairs each chapter with its source Markdown; this helper
+    lives next to the compiler so the section shell cannot drift away from
+    what the audit expects.
+    """
+    chapters: list[tuple[str, str]] = []
+    opens = list(_CHAPTER_OPEN_RE.finditer(html_text))
+    for i, m in enumerate(opens):
+        # A chapter body runs to the next chapter's open tag, the end of the
+        # body container, or the end of the document — whichever comes first.
+        if i + 1 < len(opens):
+            end = opens[i + 1].start()
+        else:
+            end = html_text.find("</body>", m.end())
+            if end == -1:
+                end = len(html_text)
+        body = html_text[m.end() : end].strip()
+        body = re.sub(r"</section>\s*$", "", body)
+        chapters.append((m.group(1), body.strip()))
+    return chapters
 
-            h_match = re.match(r"^(#{1,6})\s+(.+)$", stripped)
-            if h_match:
-                lvl = len(h_match.group(1))
-                h_text = html.escape(h_match.group(2))
-                html_lines.append(f"<h{lvl}>{h_text}</h{lvl}>")
-                continue
 
-            if stripped.startswith(">"):
-                q_text = html.escape(stripped.lstrip("> ").strip())
-                html_lines.append(f"<blockquote><p>{q_text}</p></blockquote>")
-                continue
+def render_chapter_html(md: str) -> str:
+    """Render one chapter through the shared site renderer (HTML flavor)."""
+    return render_markdown_document(md, route_map={})
 
-            if stripped.startswith("|") and stripped.endswith("|"):
-                cells = [c.strip() for c in stripped.split("|")[1:-1]]
-                if all(re.match(r"^:?-+:?$", c) for c in cells):
-                    continue
-                row_html = "".join(f"<td>{html.escape(c)}</td>" for c in cells)
-                html_lines.append(f"<table><tbody><tr>{row_html}</tr></tbody></table>")
-                continue
 
-            if stripped.startswith("- ") or stripped.startswith("* "):
-                item = html.escape(stripped[2:].strip())
-                item = re.sub(r"`([^`]+)`", r"<code>\1</code>", item)
-                item = re.sub(r"\*\*([^*]+)\*\*", r"<strong>\1</strong>", item)
-                html_lines.append(f"<ul><li>{item}</li></ul>")
-                continue
+def render_chapter_xhtml_body(md: str) -> str:
+    """Render one chapter body as XHTML for the EPUB archive (self-closed
+    void tags keep the OEBPS well-formed XML)."""
+    return render_markdown_document(md, route_map={}, xhtml_out=True)
 
-            escaped = html.escape(stripped)
-            escaped = re.sub(r"`([^`]+)`", r"<code>\1</code>", escaped)
-            escaped = re.sub(r"\*\*([^*]+)\*\*", r"<strong>\1</strong>", escaped)
-            html_lines.append(f"<p>{escaped}</p>")
 
-        if in_code and code_lines:
-            escaped_code = html.escape("\n".join(code_lines))
-            html_lines.append(f"<pre><code>{escaped_code}</code></pre>")
+def collect_ordered_chapters(
+    makewiki_path: Path, lang: str, default_language: str = "en"
+) -> list[tuple[str, str, str]]:
+    """Collect and order markdown files for a target language.
 
-        return "\n".join(html_lines)
+    Follows the language-profile filename contract (``LanguageProfile.get_filename``):
+    the DEFAULT language's content is the plain ``<base>.md`` while every
+    other declared language carries ``.<lang>.md`` — ``en`` is never
+    hardcoded.
+    """
+    suffix = f".{lang}.md" if lang != default_language else ".md"
+    standard_order = [
+        ("README", "Overview"),
+        ("getting-started", "Getting Started"),
+        ("installation", "Installation & Deployment"),
+        ("configuration", "Configuration Matrix"),
+        ("usage/overview", "Usage Overview"),
+        ("faq", "Frequently Asked Questions"),
+        ("troubleshooting", "Troubleshooting Runbook"),
+    ]
+
+    chapters: list[tuple[str, str, str]] = []
+    seen_paths: set[str] = set()
+
+    for base, default_title in standard_order:
+        target_filename = f"{base}{suffix}"
+        p = makewiki_path / target_filename
+        if p.is_file():
+            content = p.read_text(encoding="utf-8-sig", errors="replace")
+            title = _extract_first_h1(content) or default_title
+            slug = re.sub(r"[^a-z0-9]+", "-", base.lower()).strip("-")
+            chapters.append((title, content, slug))
+            seen_paths.add(str(p.resolve()))
+
+    # Collect additional usage/ module files
+    usage_dir = makewiki_path / "usage"
+    if usage_dir.is_dir():
+        for p in sorted(usage_dir.glob(f"*{suffix}")):
+            if (
+                str(p.resolve()) not in seen_paths
+                and p.is_file()
+                and not p.name.startswith("overview")
+            ):
+                content = p.read_text(encoding="utf-8-sig", errors="replace")
+                title = _extract_first_h1(content) or p.stem
+                slug = f"usage-{p.stem.replace(suffix[:-3], '')}"
+                chapters.append((title, content, slug))
+                seen_paths.add(str(p.resolve()))
+
+    return chapters
+
+
+def _extract_first_h1(content: str) -> str | None:
+    match = re.search(r"^#\s+(.+)$", content, re.MULTILINE)
+    if match:
+        return match.group(1).strip()
+    return None
 
 
 class DocExporter:
@@ -85,7 +130,6 @@ class DocExporter:
 
     def __init__(self, title: str = "Project Documentation") -> None:
         self._title = title
-        self._md = SimpleMarkdownRenderer()
 
     def export_pdf_ready_html(
         self,
@@ -113,12 +157,12 @@ class DocExporter:
             )
             output_file = export_dir / filename
 
-        chapters = self._collect_ordered_chapters(makewiki_path, lang, default_language)
+        chapters = collect_ordered_chapters(makewiki_path, lang, default_language)
         rendered_chapters: list[dict[str, str]] = []
 
         toc_items: list[tuple[str, str]] = []
         for title, raw_md, slug in chapters:
-            html = self._md.to_html(raw_md)
+            html = render_chapter_html(raw_md)
             rendered_chapters.append({"title": title, "html": html, "slug": slug})
             toc_items.append((title, slug))
 
@@ -250,6 +294,16 @@ class DocExporter:
       margin: 1rem 0;
       border-radius: 0 6px 6px 0;
     }}
+    .callout {{
+      border-left: 4px solid #2563eb;
+    }}
+    .callout-label {{
+      font-weight: 700;
+      text-transform: uppercase;
+      font-size: 0.8em;
+      letter-spacing: 0.04em;
+      margin-right: 0.4em;
+    }}
     @media print {{
       body {{ padding: 0; font-size: 11pt; }}
       .print-controls {{ display: none; }}
@@ -311,7 +365,7 @@ class DocExporter:
             )
             output_file = export_dir / filename
 
-        chapters = self._collect_ordered_chapters(makewiki_path, lang, default_language)
+        chapters = collect_ordered_chapters(makewiki_path, lang, default_language)
         book_uuid = str(uuid.uuid4())
         date_str = datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
 
@@ -335,7 +389,7 @@ class DocExporter:
             nav_points: list[str] = []
 
             for idx, (title, raw_md, slug) in enumerate(chapters, start=1):
-                html_body = self._md.to_html(raw_md)
+                html_body = render_chapter_xhtml_body(raw_md)
                 chapter_xhtml = f"""<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE html>
 <html xmlns="http://www.w3.org/1999/xhtml" lang="{lang}">
@@ -370,7 +424,8 @@ code { font-family: monospace; background: #f1f5f9; padding: 0.1em 0.3em; }
 table { width: 100%; border-collapse: collapse; margin: 1em 0; }
 th, td { border: 1px solid #cbd5e1; padding: 0.5em; text-align: left; }
 th { background: #f8fafc; font-weight: bold; }
-blockquote { border-left: 3px solid #3b82f6; background: #eff6ff; padding: 0.5em 1em; margin: 1em 0; }"""
+blockquote { border-left: 3px solid #3b82f6; background: #eff6ff; padding: 0.5em 1em; margin: 1em 0; }
+.callout-label { font-weight: bold; }"""
             epub.writestr("OEBPS/style.css", epub_css)
 
             # 5. content.opf
@@ -396,7 +451,7 @@ blockquote { border-left: 3px solid #3b82f6; background: #eff6ff; padding: 0.5em
 
             # 6. toc.ncx
             toc_ncx = f"""<?xml version="1.0" encoding="UTF-8"?>
-<ncx xmlns="http://www.daisy.org/z3986/2005/ncx/" version="2005-1">
+<ncx xmlns="http://www.daisy.org/z398/2005/ncx" version="2005-1">
   <head>
     <meta name="dtb:uid" content="{book_uuid}"/>
     <meta name="dtb:depth" content="1"/>
@@ -412,61 +467,3 @@ blockquote { border-left: 3px solid #3b82f6; background: #eff6ff; padding: 0.5em
 
         output_file.write_bytes(zip_buffer.getvalue())
         return output_file
-
-    def _collect_ordered_chapters(
-        self, makewiki_path: Path, lang: str, default_language: str = "en"
-    ) -> list[tuple[str, str, str]]:
-        """Collect and order markdown files for a target language.
-
-        Follows the language-profile filename contract (``LanguageProfile.get_filename``):
-        the DEFAULT language's content is the plain ``<base>.md`` while every
-        other declared language carries ``.<lang>.md`` — ``en`` is never
-        hardcoded.
-        """
-        suffix = f".{lang}.md" if lang != default_language else ".md"
-        standard_order = [
-            ("README", "Overview"),
-            ("getting-started", "Getting Started"),
-            ("installation", "Installation & Deployment"),
-            ("configuration", "Configuration Matrix"),
-            ("usage/overview", "Usage Overview"),
-            ("faq", "Frequently Asked Questions"),
-            ("troubleshooting", "Troubleshooting Runbook"),
-        ]
-
-        chapters: list[tuple[str, str, str]] = []
-        seen_paths: set[str] = set()
-
-        for base, default_title in standard_order:
-            target_filename = f"{base}{suffix}"
-            p = makewiki_path / target_filename
-            if p.is_file():
-                content = p.read_text(encoding="utf-8-sig", errors="replace")
-                title = self._extract_first_h1(content) or default_title
-                slug = re.sub(r"[^a-z0-9]+", "-", base.lower()).strip("-")
-                chapters.append((title, content, slug))
-                seen_paths.add(str(p.resolve()))
-
-        # Collect additional usage/ module files
-        usage_dir = makewiki_path / "usage"
-        if usage_dir.is_dir():
-            for p in sorted(usage_dir.glob(f"*{suffix}")):
-                if (
-                    str(p.resolve()) not in seen_paths
-                    and p.is_file()
-                    and not p.name.startswith("overview")
-                ):
-                    content = p.read_text(encoding="utf-8-sig", errors="replace")
-                    title = self._extract_first_h1(content) or p.stem
-                    slug = f"usage-{p.stem.replace(suffix[:-3], '')}"
-                    chapters.append((title, content, slug))
-                    seen_paths.add(str(p.resolve()))
-
-        return chapters
-
-    @staticmethod
-    def _extract_first_h1(content: str) -> str | None:
-        match = re.search(r"^#\s+(.+)$", content, re.MULTILINE)
-        if match:
-            return match.group(1).strip()
-        return None

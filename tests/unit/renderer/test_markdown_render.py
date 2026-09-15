@@ -212,3 +212,52 @@ def test_table_and_code_in_one_document_with_horizontal_scroll_markup():
     assert "<table>" in html
     assert 'class="language-js"' in html
     assert 'id="t"' in html
+
+
+# --- build-metadata marker hygiene -------------------------------------------
+
+
+def test_section_marker_line_is_stripped():
+    html = _render("<!-- makewiki:section=install -->\n\n## Install\n\nBody.\n")
+    assert "<h2" in html
+    assert "makewiki:section" not in html  # never a comment residue
+
+
+def test_block_id_marker_before_fence_is_stripped():
+    html = _render("## S\n\n[[id:run_cmd]]\n```bash\nmake build\n```\n")
+    assert "[[id:" not in html
+    assert "<pre><code" in html
+
+
+def test_block_id_first_line_inside_fence_is_stripped():
+    html = _render("```bash\n[[id:install_cmd]]\npip install x\n```\n")
+    assert "<pre><code" in html
+    assert "[[id:" not in html  # metadata slot at fence head is dropped
+
+
+def test_parity_ignore_marker_is_stripped():
+    html = _render("[[parity:ignore reason=\"generated\"]]\n\n```text\nverbatim\n```\n")
+    assert "[[parity:" not in html
+
+
+def test_marker_syntax_inside_code_mid_block_is_preserved():
+    # Code content that merely contains marker syntax mid-block is real code,
+    # not a metadata slot: the renderer must not rewrite it.
+    html = _render("```text\na [[id:x]] b\n```\n")
+    assert "a [[id:x]] b" in html
+
+
+def test_frontmatter_stripped_and_marker_lines_dropped_together():
+    md = "---\npage_id: x\n---\n\n<!-- makewiki:section=a -->\n\n## H\n\n[[id:c]]\n```bash\nls\n```\n"
+    html = _render(md)
+    assert "page_id" not in html
+    assert "[[id:" not in html
+    assert "makewiki:section" not in html
+    assert "<h2" in html
+
+
+def test_xhtml_out_self_closes_void_tags():
+    html = render_markdown_document("a\n\n---\n\nb", route_map={}, xhtml_out=True)
+    assert "<hr />" in html
+    plain = render_markdown_document("a\n\nb", route_map={})
+    assert "<p>" in plain

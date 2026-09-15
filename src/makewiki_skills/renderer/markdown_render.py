@@ -28,23 +28,20 @@ from markdown_it.renderer import RendererHTML
 from markdown_it.token import Token
 from markdown_it.utils import EnvType, OptionsDict
 
+from makewiki_skills.review.section_parser import SECTION_MARKER_LINE
 from makewiki_skills.toolkit.filesystem import strip_ref_prefix
 
-__all__ = ["slugify", "render_markdown_document"]
+__all__ = ["slugify", "strip_build_metadata", "render_markdown_document"]
 
-# One shared parser per document: CommonMark plus tables and strikethrough.
+# One shared parser per XHTML mode: CommonMark plus tables and strikethrough.
 # The ``gfm-like`` preset is intentionally avoided because it enables linkify,
-# whose ``linkify-it-py`` dependency is not installed.
-_PARSER = MarkdownIt("commonmark").enable(["table", "strikethrough"])
+# whose ``linkify-it-py`` dependency is not installed. Built lazily so the
+# module import stays cheap and the custom rules below are already defined.
 
 # A single reusable token renderer for the small set of overridden rules. Rule
 # functions are invoked unbound as ``rules[type](tokens, i, options, env)``, so
 # they carry no ``self``; we delegate tag emission to a real ``RendererHTML``.
 _RENDERER = RendererHTML()
-
-# markdown-it-py types ``MarkdownIt.renderer`` as a narrow ``RendererProtocol``
-# that hides the ``rules`` table; the concrete renderer is a ``RendererHTML``.
-_RENDERER_RULES: dict[str, Any] = cast(RendererHTML, _PARSER.renderer).rules
 
 _NON_WORD = re.compile(r"[^\w\s-]")
 _SPACES = re.compile(r"[\s_]+")
@@ -123,9 +120,6 @@ def _link_open(tokens: Sequence[Token], idx: int, options: OptionsDict, env: Env
     return _RENDERER.renderToken(tokens, idx, options, env)
 
 
-_RENDERER_RULES["heading_open"] = _heading_open
-_RENDERER_RULES["link_open"] = _link_open
-
 # A deterministic callout convention: a blockquote whose first paragraph begins
 # with a bracketed keyword is rendered as a typed callout (note/tip/warning/
 # danger) with an accessible type label. The type is authored by the LLM in the
@@ -165,12 +159,90 @@ def _apply_callouts(html: str) -> str:
 
 _FRONTMATTER_RE = re.compile(r"\A---[ \t]*\r?\n.*?\r?\n---[ \t]*\r?\n?", re.DOTALL)
 
+# --- build-metadata marker hygiene -------------------------------------------
+# The verification plane authors three marker families into the Markdown:
+# stable code-block IDs ([[id:<slug>]]), parity exemptions ([[parity:ignore
+# ...]]) and stable section markers (<!-- makewiki:section=<id> -->). They are
+# pipeline metadata consumed by the L4/parity tooling, never reader-facing
+# content, so the renderer drops WHOLE-LINE occurrences before parsing. The
+# line grammars mirror the authoritative patterns in
+# ``verification/l4_cross_language.py`` (block ids) and
+# ``review/section_parser.py`` (section markers).
+_MARKER_LINE_RE = re.compile(
+    r"^\s*(?:"
+    r"\[\[id:[A-Za-z0-9_.\-]+\]\]"
+    r"|\[\[parity:ignore[^\]]*\]\]"
+    r")\s*$"
+)
+# Fence OPENING line: up to three leading spaces, 3+ fence chars, then any
+# info string. The closing line is only the fence character repeated.
+_FENCE_OPEN_RE = re.compile(r"^\s{0,3}(`{3,}|~{3,})")
 
-def render_markdown_document(md: str, *, route_map: Mapping[str, str]) -> str:
+
+def strip_build_metadata(md: str) -> str:
+    """Remove build-metadata marker lines from one Markdown document.
+
+    Outside a fence a marker occupies its own line, so the line is dropped
+    (otherwise markdown-it renders it as a visible paragraph). Inside a fence
+    only the leading marker lines — the documented first-line position of a
+    stable block ID — are dropped; a marker further inside code content is
+    left alone and the rendered-output audit flags it instead, so this
+    mechanical transform never rewrites real code semantics.
+    """
+    out: list[str] = []
+    fence: str | None = None  # the opening fence token (``` or ~~~)
+    at_fence_head = False  # inside the documented marker position of a fence
+    for line in md.splitlines():
+        if fence is not None:
+            if re.fullmatch(rf"\s{{0,3}}{re.escape(fence[0])}{{3,}}\s*", line):
+                fence = None
+                out.append(line)
+                continue
+            if at_fence_head and _MARKER_LINE_RE.match(line):
+                continue
+            at_fence_head = False
+            out.append(line)
+            continue
+        fence_match = _FENCE_OPEN_RE.match(line)
+        if fence_match:
+            fence = fence_match.group(1)
+            at_fence_head = True
+            out.append(line)
+            continue
+        if _MARKER_LINE_RE.match(line) or SECTION_MARKER_LINE.match(line):
+            continue
+        out.append(line)
+    return "\n".join(out)
+
+
+def _build_parser(*, xhtml: bool) -> MarkdownIt:
+    """One parser per XHTML mode with the shared custom render rules."""
+    parser = MarkdownIt("commonmark").enable(["table", "strikethrough"])
+    if xhtml:
+        # EPUB chapters are XHTML; self-close void elements so the archive
+        # stays well-formed XML.
+        parser.options.update({"xhtmlOut": True})
+    rules = cast(RendererHTML, parser.renderer).rules
+    rules["heading_open"] = _heading_open
+    rules["link_open"] = _link_open
+    return parser
+
+
+_PARSER = _build_parser(xhtml=False)
+_PARSER_XHTML = _build_parser(xhtml=True)
+
+
+def render_markdown_document(
+    md: str, *, route_map: Mapping[str, str], xhtml_out: bool = False
+) -> str:
     """Render one Markdown document to HTML, resolving wiki links against
     ``route_map`` (a mapping of document id -> route) and re-seeding heading ids
-    per call. A leading YAML frontmatter block is stripped (metadata, not content)."""
+    per call. A leading YAML frontmatter block is stripped (metadata, not
+    content), as are whole-line build markers. ``xhtml_out=True`` emits
+    XHTML-style void tags for XML consumers such as EPUB."""
     md = _FRONTMATTER_RE.sub("", md, count=1)
+    md = strip_build_metadata(md)
     env: EnvType = {"route_map": route_map, "heading_ids": set()}
-    rendered = cast(str, _PARSER.render(md, env))
+    parser = _PARSER_XHTML if xhtml_out else _PARSER
+    rendered = cast(str, parser.render(md, env))
     return _apply_callouts(rendered)

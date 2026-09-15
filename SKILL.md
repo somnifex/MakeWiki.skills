@@ -1,7 +1,7 @@
 ---
 name: makewiki
 description: "Generate evidence-backed multilingual wiki documentation and an offline static website for a software project using autonomous collaborative LLM subagents. Use when: user asks to generate wiki, docs, documentation, enterprise delivery manuals, or multilingual docs for a project."
-version: "3.1.1"
+version: "3.2.0"
 license: MIT
 ---
 # MakeWiki v3 - LLM-First, Evidence-Backed Documentation Compiler
@@ -11,7 +11,7 @@ The LLM (Skill layer) decides what the repository means; Python (toolkit layer)
 proves what can be mechanically proven. Documentation is evidence-backed with
 layered automated verification (L0 - L5) and a single Quality Gate.
 
-This file binds skill `3.1.1` to toolkit `3.1.1`. The bootstrap script pins
+This file binds skill `3.2.0` to toolkit `3.2.0`. The bootstrap script pins
 the matching tag via `MAKEWIKI_TOOLKIT_VERSION`, the Git identity via
 `MAKEWIKI_TOOLKIT_COMMIT` (Git install) and the archive integrity checksum via
 `MAKEWIKI_TOOLKIT_ARCHIVE_SHA256` (Archive install).
@@ -84,6 +84,7 @@ Repository Orientation
 → Integration                            (SitePresentationPlan)
 → Verification + Final Semantic Audit    (SemanticAuditBundle)
 → Quality Gate
+→ Rendered-Output Audit                  (verify-html, blocking)
 → Site / Export / Delivery
 ```
 
@@ -408,13 +409,23 @@ python <makewiki_root>/scripts/run_toolkit.py build-site <output_dir> --theme au
 
 ### 11. Deliver
 
-1. Prepare delivery bundles (mechanical):
+1. Prepare delivery bundles (mechanical), then audit every generated artifact —
+   site, printable HTML, and EPUB — with the blocking rendered-output audit:
    ```bash
+   python <makewiki_root>/scripts/run_toolkit.py build-site <wiki_dir> --theme auto
+   python <makewiki_root>/scripts/run_toolkit.py verify-html <wiki_dir> --target site
    python <makewiki_root>/scripts/run_toolkit.py export <wiki_dir> --format html|epub|all --lang <code>
    python <makewiki_root>/scripts/run_toolkit.py sync-bundle <wiki_dir> --target confluence|notion --lang <code>
+   python <makewiki_root>/scripts/run_toolkit.py verify-html <wiki_dir> --target export
    ```
    `export` rejects `--format pdf`. `sync-bundle` only **prepares** bundles on
-   disk; it does NOT publish.
+   disk; it does NOT publish. `verify-html` re-pairs every generated artifact
+   with its source Markdown segment by segment (marker leaks, heading parity,
+   prose coverage, code-block/table/callout integrity, unrendered residue) and
+   exits 1 on blocking findings — fix the Markdown source, rebuild/re-export,
+   and re-run within the `agent.max_audit_rounds` budget; never hand-edit the
+   generated HTML and never ship with a failing audit
+   (`references/render_audit.md`).
 2. Clean up temporary scratch logs.
 3. The Main Agent evaluates the Quality Gate verdict, coverage completeness, and
    user requirements, deciding final delivery.
@@ -445,6 +456,7 @@ returns `UNKNOWN`; none produce narrative content.
 | `validate <wiki_dir>`    | —            | Markdown structure & link validation (L0 helper)             |
 | `lint-drafts <wiki_dir>` | —            | Integration-time mechanical draft hygiene lint (pre-verification) |
 | `build-site <wiki_dir>`  | —            | Compile Markdown into offline SPA HTML site                  |
+| `verify-html <wiki_dir>` | —            | Blocking rendered-output audit (site / export / EPUB, segmented) |
 | `export <wiki_dir>`      | —            | `--format html|epub|all`; **rejects pdf**                   |
 | `sync-bundle <wiki_dir>` | `sync`       | Prepare Confluence / Notion bundles; **does NOT publish**    |
 | `init-config <target>`   | —            | Generate default `makewiki.config.yaml`                      |
@@ -506,5 +518,5 @@ See `tests/contracts/test_config_consumption_contract.py`.
   translation.
 - **100% code-block parity** across languages.
 - **Ephemeral execution**: clean up temporary artifacts after each phase.
-- **Version binding**: skill version (`3.1.1`) ↔ toolkit version (`3.1.1`) via
+- **Version binding**: skill version (`3.2.0`) ↔ toolkit version (`3.2.0`) via
   the bootstrap script.

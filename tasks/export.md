@@ -33,3 +33,21 @@ explicit error.
 # Export documentation in all formats for specified language
 python scripts/run_toolkit.py export <output_dir> --format all --lang zh-CN
 ```
+
+---
+
+## 3. Rendered-Output Audit (mechanical, blocking)
+
+Export bundles are verified, never trusted:
+
+```bash
+python scripts/run_toolkit.py verify-html <output_dir> --target export
+```
+
+Every exported chapter — including the XHTML files inside the EPUB archive —
+is paired with its source Markdown and checked segment by segment for marker
+leaks, heading parity, prose coverage, code-block/table/callout integrity, and
+unrendered markdown residue. The check fails closed (exit 1 blocks delivery):
+fix the Markdown source named by the finding, re-export, and re-run until
+clean or the `agent.max_audit_rounds` budget is exhausted; an unresolved
+failure is surfaced explicitly, never shipped (see `references/render_audit.md`).

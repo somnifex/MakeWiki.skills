@@ -27,3 +27,35 @@ through the Quality Gate; the site compiler only packages the result.
 # Compile wiki markdown directory into offline static HTML site
 python scripts/run_toolkit.py build-site <output_dir> --theme auto
 ```
+
+---
+
+## 3. Rendered-Output Audit (mechanical, blocking)
+
+`build-site` output is verified, never trusted:
+
+```bash
+python scripts/run_toolkit.py verify-html <output_dir> --target site
+```
+
+The audit extracts the per-language rendered documents embedded in the SPA and
+re-pairs each one with its source Markdown segment by segment (preamble + H2
+sections keyed by stable `<!-- makewiki:section=<id> -->` identity when
+authored). Each pair is checked item by item for:
+
+- `marker_leak` (critical) — `[[id:...]]` / `[[parity:ignore ...]]` / section
+  markers, internal artifact paths, or writer frontmatter reaching a reader
+- `heading_parity` (major) — every source section heading survives at the same
+  level, and segment counts match
+- `prose_coverage` (major) — every substantive source prose line appears in
+  the rendered segment (normalized containment)
+- `code_block_parity` / `table_integrity` / `callout_fidelity` — structural
+  parity between source and artifact
+- `fence_residue` / `link_residue` (major) — unrendered markdown syntax
+
+This check **fails closed**: exit 1 means delivery is blocked. Fix the
+Markdown source identified by the finding (never the HTML), rebuild, and
+re-run until clean or the `agent.max_audit_rounds` budget is exhausted; an
+unresolved failure is surfaced explicitly, never shipped. The Quality Gate's
+four-state semantics are untouched — this is a post-render mechanical audit,
+not a new verification layer (see `references/render_audit.md`).

@@ -33,6 +33,13 @@ _SECTION_MARKER = re.compile(
     r"<!--\s*makewiki:section=([A-Za-z0-9_.\-]+)\s*-->"
 )
 
+#: Whole-line marker form (leading/trailing whitespace tolerated). Shared by
+#: the render plane (strips the marker from rendered output) and the rendered-
+#: output audit so the grammar has exactly one definition.
+SECTION_MARKER_LINE = re.compile(
+    r"^\s*<!--\s*makewiki:section=([A-Za-z0-9_.\-]+)\s*-->\s*$"
+)
+
 # Any heading line (H1..H6). A marker is satisfied when immediately followed by
 # a heading of ANY level — the level under a section marker is display metadata
 # (existing docs put H1/H2 under markers interchangeably) — but only H2 is

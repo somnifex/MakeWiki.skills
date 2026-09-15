@@ -1,7 +1,7 @@
 ---
 name: makewiki-export
 description: "Compile generated makewiki Markdown documentation into single-file printable HTML and standard EPUB 2.0 electronic books. Use when: user wants to package documentation into portable single-file offline manuals or EPUB readers. (PDF export is intentionally not supported; use --format html|epub|all.)"
-version: "3.1.1"
+version: "3.2.0"
 argument-hint: "[path-to-makewiki-dir] [--format all|html|epub] [--lang <code>]"
 license: MIT
 allowed-tools: Bash(python */scripts/bootstrap_toolkit.py) Bash(python */scripts/run_toolkit.py *) Read Write Glob
@@ -41,8 +41,21 @@ exporter:
 python <makewiki_root>/scripts/run_toolkit.py export ./makewiki --format all --lang zh-CN
 ```
 
-### Step 2: Output Verification
+### Step 2: Rendered-Output Audit (mechanical, blocking)
 
 The exporter generates:
 - `<makewiki_dir>/export/documentation.<lang>.html` (single-file printable HTML with cover page and page break styles)
 - `<makewiki_dir>/export/documentation.<lang>.epub` (standard EPUB 2.0 archive with table of contents)
+
+Audit the bundles before delivery — do not eyeball them:
+
+```bash
+python <makewiki_root>/scripts/run_toolkit.py verify-html ./makewiki --target export
+```
+
+The audit pairs every exported chapter (XHTML inside the EPUB archive included)
+with its source Markdown and checks each segment for marker leaks, heading
+parity, prose coverage, code-block/table/callout integrity, and unrendered
+markdown residue. Exit 1 means delivery is blocked: fix the Markdown source
+named by the finding, re-export, and re-run within the `agent.max_audit_rounds`
+budget; surface an unresolved failure explicitly instead of shipping.
