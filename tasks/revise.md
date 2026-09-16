@@ -154,7 +154,15 @@ checks.
 
 Never judge "the markers look aligned" by inspection. After editing, the
 Revision Agent runs the EXISTING deterministic checks over the revised pages
-and includes the result in the completion record:
+and includes the result in the completion record. When the ReviewFindings
+carry `benchmark_leakage` items (see `tasks/review.md`), the fix is to REMOVE
+or re-ground the ungrounded content — never to borrow more from the
+benchmark:
+
+```bash
+# mechanical candidate list (review input, not a verdict):
+python scripts/run_toolkit.py benchmark-leakage <wiki_dir> --profile <profile.yaml>
+```
 
 ```bash
 # block-ID set + body parity for the revised pages (L4a utility):

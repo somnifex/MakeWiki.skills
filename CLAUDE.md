@@ -75,6 +75,8 @@ wall-clock changes.
   LLM semantic review.
 - `/makewiki-validate` — validate markdown structure and links (L0 helper).
 - `/makewiki-init` — generate default `makewiki.config.yaml`.
+- `/makewiki-benchmark` — curate the Benchmark Reference Library and issue
+  per-page advisory ReferenceProfiles (selector subtask).
 
 ## Authoritative CLI surface
 
@@ -93,10 +95,14 @@ Python toolkit commands (mechanical only):
 | `semantic-review <dir>`  | —        | Aligned passages for LLM cross-language review                                                                  |
 | `validate <wiki_dir>`    | —        | Markdown structure & link validation                                                                            |
 | `build-site <wiki_dir>`  | —        | Compile Markdown into offline SPA HTML site                                                                     |
-| `export <wiki_dir>`      | —        | `--format html                                                                                                  | epub | all`; **rejects pdf** |
+| `export <wiki_dir>`      | —        | `--format html\|epub\|all`; **rejects pdf** |
 | `sync-bundle <wiki_dir>` | `sync`   | Prepare Confluence / Notion bundles; does NOT publish                                                           |
 | `init-config <target>`   | —        | Generate default `makewiki.config.yaml`                                                                         |
 | `rebattle-diff <files>`  | —        | Deterministic dispute organizer over multiple ClaimSets                                                         |
+| `benchmark-index <corpus>` | —      | Validate the benchmark corpus and generate the compact stage-1 index                                            |
+| `benchmark-acquire <ids>` | —       | Licensing-gated fetch of benchmark source pages into `sources/`                                                 |
+| `verify-reference-profile <profile>` | — | Mechanical ReferenceProfile validation (exit 1 = blocking defect)   |
+| `benchmark-leakage <wiki_dir>` | —   | Mechanical candidate scan for benchmark provider terms (review input)                                           |
 
 `review` is a standalone command, not an alias of `parity`.
 

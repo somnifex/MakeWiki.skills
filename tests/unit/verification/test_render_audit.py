@@ -10,7 +10,9 @@ drift, dropped prose/cells/sections) is detected at its exact location.
 from __future__ import annotations
 
 import json
+from pathlib import Path
 
+from makewiki_skills.model.site_presentation import SitePresentationPlan
 from makewiki_skills.verification.render_audit import audit_markdown_pair, run_render_audit
 
 # --- pure pair checks (no filesystem) -----------------------------------------
@@ -32,7 +34,6 @@ def test_dropped_section_is_a_blocking_finding() -> None:
     findings, segments = audit_markdown_pair(
         language="en", document_id="doc", source_md=source, rendered_html=rendered
     )
-    parity = [f for f in findings if f.check == "heading_parity"]
     assert segments == 3  # preamble + two sections on the source side
     assert any(f.severity == "major" for f in findings)
 
@@ -99,7 +100,7 @@ def test_dropped_section_is_blocking() -> None:
 # --- artifact-level: real compile + audit round trip ---------------------------
 
 
-def _plan() -> "SitePresentationPlan":
+def _plan() -> SitePresentationPlan:
     from makewiki_skills.model.site_presentation import (
         SiteNavItem,
         SitePresentationPlan,

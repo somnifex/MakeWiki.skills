@@ -1,0 +1,23 @@
+id: version-history
+description: Explains how a system records versions and how to navigate, compare, and restore them from one entry point.
+suitable_when:
+  - Users need to recover or audit earlier states of an artifact.
+  - Retention or plan-based limits must be visible without hunting.
+information_shape:
+  - version_recording_model
+  - history_entry_point
+  - navigation_and_comparison
+  - restore_procedure
+  - retention_limits
+  - escalation_admin_notes
+good_traits:
+  - Recovery goal stated first.
+  - Limits presented in one compact table.
+  - Restore and delete kept clearly distinct.
+anti_patterns:
+  - Version concepts explained before the menu path.
+  - Retention limits left implicit.
+  - Audit needs ignored.
+source_examples:
+  - notion-version-history
+  - confluence-page-history

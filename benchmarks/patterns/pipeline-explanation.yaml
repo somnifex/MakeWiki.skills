@@ -1,0 +1,22 @@
+id: pipeline-explanation
+description: Explains a multi-stage processing flow by following data through each stage, so the page structure mirrors execution order.
+suitable_when:
+  - Data is transformed across several stages and readers must reason about the whole flow.
+  - Stage parameters belong to reference pages and must not be duplicated here.
+information_shape:
+  - pipeline_overview_diagram
+  - stage_definitions
+  - per_stage_inputs_outputs
+  - end_to_end_example
+  - tuning_pointers
+good_traits:
+  - Stage order equals data order.
+  - Input and output contracts stated per stage.
+  - Links to reference pages instead of copying parameters.
+anti_patterns:
+  - Stages named in an order the data does not follow.
+  - Parameters copied from reference pages.
+  - An example that only covers the first stage.
+source_examples:
+  - dify-knowledge-pipeline
+  - unstructured-partitioning

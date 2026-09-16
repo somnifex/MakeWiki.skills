@@ -1,0 +1,40 @@
+id: langgraph-agents
+source:
+  provider: langchain
+  title: Agents
+  url: https://langchain-ai.github.io/langgraph/concepts/agents/
+summary: "The page defines an agent as a system-plus-tools composition and then decomposes the idea into graph primitives such as nodes, edges, and state, keeping the abstractions reusable beyond any single framework. Single-agent and multi-agent topologies are contrasted with small diagrams before any API or runtime details appear. Lifecycle concerns such as persistence, human-in-the-loop interruption, and memory appear as dedicated follow-on concepts, linked at the exact points where they become relevant."
+observed_archetypes:
+  - concept-guide
+  - topology-survey
+suitable_intents:
+  - understand-agent-abstractions
+  - plan-a-multi-agent-graph
+information_shape:
+  - agent_definition
+  - primitive_decomposition
+  - topology_comparison
+  - state_and_runtime_concepts
+  - persistence_interruption_pointers
+  - deeper_concept_links
+strong_traits:
+  - Diagram-first topology contrast.
+  - Primitives named once and reused.
+  - Lifecycle topics linked rather than inlined.
+anti_patterns:
+  - Framework API calls mixed into concept prose.
+  - One monolithic agent example carrying the whole page.
+useful_for:
+  - Explaining abstraction layers.
+  - Connecting concepts to lifecycle management.
+  - Contrasting system topologies.
+tags:
+  - agents
+  - concepts
+  - orchestration
+pattern_ids:
+  - concept-mental-model
+  - lifecycle-management
+retrieved_at: null
+license_or_usage_note: "Structural summary only; page content is (c) the provider - do not redistribute prose."
+verification: unverified-structural-summary

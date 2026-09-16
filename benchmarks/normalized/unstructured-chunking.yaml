@@ -1,0 +1,40 @@
+id: unstructured-chunking
+source:
+  provider: unstructured
+  title: Chunking
+  url: https://docs.unstructured.io/open-source/core-functionality/chunking
+summary: "The page frames chunking as a decision before it is a configuration: it names the strategies, states when each preserves or reorganizes document structure, and only then lists parameters. Each strategy section carries a compact code snippet whose parameters mirror the prose claims, plus notes on titles-based versus fixed-size behavior. Links to the partitioning settings keep the two pipeline stages discoverable from either direction."
+observed_archetypes:
+  - strategy-selection-guide
+  - parameterized-concept-page
+suitable_intents:
+  - choose-a-chunking-strategy
+  - tune-chunk-size
+information_shape:
+  - chunking_purpose
+  - strategy_catalog
+  - per_strategy_behavior
+  - parameter_reference
+  - comparison_snippets
+  - related_stage_links
+strong_traits:
+  - Decision-first structure.
+  - Strategy names reused across prose and snippets.
+  - Trade-off notes per strategy.
+anti_patterns:
+  - Parameter dumps without selection guidance.
+  - Strategy names renamed between prose and code.
+useful_for:
+  - Writing strategy-selection pages.
+  - Structuring parameter references after decisions.
+  - Keeping concept and configuration layers apart.
+tags:
+  - chunking
+  - rag
+  - configuration
+pattern_ids:
+  - concept-strategy-selection
+  - configuration-reference
+retrieved_at: null
+license_or_usage_note: "Structural summary only; page content is (c) the provider - do not redistribute prose."
+verification: unverified-structural-summary

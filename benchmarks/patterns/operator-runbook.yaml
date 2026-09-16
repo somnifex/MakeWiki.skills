@@ -1,0 +1,22 @@
+id: operator-runbook
+description: Gives operators imperative, copyable procedures for runtime control with failure semantics stated next to every action.
+suitable_when:
+  - Readers operate a live system under time pressure.
+  - Each procedure must be executable without reading surrounding prose.
+information_shape:
+  - run_context_prereqs
+  - procedure_per_verb
+  - verification_steps
+  - failure_semantics_rollback
+  - escalation_pointers
+good_traits:
+  - One control verb per section.
+  - Commands copyable with their context.
+  - Guarantees and rollback stated explicitly.
+anti_patterns:
+  - Configuration tuning mixed with runtime procedures.
+  - Procedures without failure notes.
+  - Narrative history standing in for steps.
+source_examples:
+  - kubernetes-production-setup
+  - nginx-runtime-operations

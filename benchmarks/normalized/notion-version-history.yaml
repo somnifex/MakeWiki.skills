@@ -1,0 +1,40 @@
+id: notion-version-history
+source:
+  provider: notion
+  title: Page history
+  url: https://www.notion.com/help/page-history
+summary: "The page is a short support article that answers access and recovery in the first screens, showing where the history menu lives, what the timeline displays, and how to restore a version. Plan-dependent retention windows are stated in a compact table so expectations are visible without further reading. Troubleshooting stays bounded to a handful of named scenarios and points to the workspace owner or support when restore is unavailable."
+observed_archetypes:
+  - support-article
+  - feature-guide
+suitable_intents:
+  - recover-a-previous-version
+  - check-retention-limits
+information_shape:
+  - access_entry_point
+  - timeline_navigation
+  - restore_procedure
+  - plan_limits_table
+  - troubleshooting_scenarios
+  - support_escalation
+strong_traits:
+  - Recovery goal first.
+  - Retention table for plan limits.
+  - Bounded troubleshooting scope.
+anti_patterns:
+  - Version theory before the menu path.
+  - Support links standing in for content.
+useful_for:
+  - Writing version-history pages.
+  - Structuring support articles.
+  - Documenting plan-based limits.
+tags:
+  - version-history
+  - support
+  - collaboration
+pattern_ids:
+  - version-history
+  - troubleshooting
+retrieved_at: null
+license_or_usage_note: "Structural summary only; page content is (c) the provider - do not redistribute prose."
+verification: unverified-structural-summary

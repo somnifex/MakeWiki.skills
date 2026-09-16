@@ -1,0 +1,40 @@
+id: github-rest-auth
+source:
+  provider: github
+  title: Authenticating to the REST API
+  url: https://docs.github.com/en/rest/authentication/authenticating-to-the-rest-api
+summary: "The page states the credential categories up front and then devotes one section per credential type, keeping request examples short enough to copy verbatim. Failure modes such as expired tokens and missing scopes are folded into each credential section as brief numbered checks rather than pushed to a distant errors chapter. Environment-specific guidance, for example running inside CI, is scoped to clearly marked subsections so the base flow stays generic."
+observed_archetypes:
+  - authentication-guide
+  - api-security-reference
+suitable_intents:
+  - authenticate-api-requests
+  - choose-a-credential-type
+  - debug-auth-failures
+information_shape:
+  - category_overview
+  - token_creation
+  - header_usage
+  - failure_checks
+  - environment_variants
+strong_traits:
+  - One credential per section.
+  - Minimal request examples.
+  - Failure checks adjacent to usage.
+anti_patterns:
+  - Mixed credential examples.
+  - Scope semantics deferred to an appendix.
+useful_for:
+  - Writing authentication sections.
+  - Documenting credential lifecycles.
+  - Placing security guidance in API docs.
+tags:
+  - authentication
+  - api
+  - security
+pattern_ids:
+  - authentication-rbac
+  - api-operation
+retrieved_at: null
+license_or_usage_note: "Structural summary only; page content is (c) the provider - do not redistribute prose."
+verification: unverified-structural-summary

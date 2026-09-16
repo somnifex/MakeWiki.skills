@@ -92,6 +92,7 @@ CLI 表面按权威名 + 向后兼容别名设计，Python 部分严格只做机
 | 文档质量复核               | `/makewiki-review`                       | `semantic-review`   | 机械      | 提取跨语言对齐段落 + 行为证据                                            |
 | 项目测绘                 | `/makewiki-scan`                         | —                   | 认知 + 机械 | 提取代码库特征普查与事实（调用 `census` 与 `evidence`）               |
 | 配置生成                 | `/makewiki-init`                         | —                   | —       | 生成默认 `makewiki.config.yaml`                                 |
+| 参考基准层                 | `/makewiki-benchmark`                    | —                   | 认知 + 机械 | 维护优秀文档参考语料并为每页产出咨询性 ReferenceProfile（Selector 子任务） |
 | Toolkit: 事实普查        | `makewiki census <path>`                 | `makewiki sizing`   | 机械      | 提取代码库原始事实（文件数、语言、清单、入口、单体/多包等）                 |
 | Toolkit: 证据          | `makewiki evidence <path>`               | `makewiki scan`     | 机械      | 输出事实 JSON（不解读）                                              |
 | Toolkit: 覆盖率         | `makewiki coverage <path>`               | —                   | 机械      | 机械覆盖报告：发现/扫描/跳过/忽略、未覆盖类别、低置信度事实                               |

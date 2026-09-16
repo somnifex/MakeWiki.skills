@@ -29,8 +29,9 @@ from __future__ import annotations
 
 import html
 import json
+from collections.abc import Iterator
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from makewiki_skills.languages.registry import LanguageRegistry
 from makewiki_skills.model.site_presentation import (
@@ -74,7 +75,7 @@ def extract_docs_content(index_html: str) -> dict[str, dict[str, str]]:
     for line in index_html.splitlines():
         stripped = line.strip()
         if stripped.startswith(_DOCS_CONTENT_PREFIX):
-            return _parse_const_json(stripped, _DOCS_CONTENT_PREFIX)
+            return cast(dict[str, dict[str, str]], _parse_const_json(stripped, _DOCS_CONTENT_PREFIX))
     raise ValueError(
         "index.html carries no docsContent payload; it was not produced by "
         "SiteCompiler and cannot be audited."
@@ -110,7 +111,7 @@ def flatten_nav_items(items: list[SiteNavItem]) -> list[SiteNavItem]:
 
 def iter_plan_documents(
     makewiki_dir: Path, plan: SitePresentationPlan
-) -> list[tuple[str, str, str]]:
+) -> Iterator[tuple[str, str, str]]:
     """Yield ``(lang, document_id, raw_markdown)`` for every plan document that
     resolved for that language.
 

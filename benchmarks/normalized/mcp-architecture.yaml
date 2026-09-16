@@ -1,0 +1,42 @@
+id: mcp-architecture
+source:
+  provider: mcp
+  title: Architecture
+  url: https://modelcontextprotocol.io/docs/concepts/architecture
+summary: "The page fixes terminology first, defining hosts, clients, and servers, and then presents the one-to-many client-server topology in a single diagram that the rest of the document leans on. Protocol mechanics are layered, with message types, connection lifecycle, and capability negotiation each getting a short section that ends in the concrete JSON-RPC shape. The body stays provider-neutral, delegating integration examples to linked client and server pages."
+observed_archetypes:
+  - architecture-overview
+  - protocol-concept-page
+suitable_intents:
+  - understand-protocol-structure
+  - position-a-new-integration
+information_shape:
+  - actor_glossary
+  - topology_diagram
+  - message_layer_concepts
+  - lifecycle_negotiation
+  - design_principles
+  - integration_pointers
+strong_traits:
+  - Glossary before diagram.
+  - One diagram reused as the anchor.
+  - Provider-neutral body text.
+  - Lifecycle covered explicitly.
+anti_patterns:
+  - Vendor-specific digressions.
+  - Transport details mixed into the topology story.
+useful_for:
+  - Writing architecture overviews.
+  - Establishing shared vocabulary.
+  - Introducing ecosystem roles.
+tags:
+  - architecture
+  - protocol
+  - concepts
+pattern_ids:
+  - architecture-overview
+  - integration-guide
+  - product-overview
+retrieved_at: null
+license_or_usage_note: "Structural summary only; page content is (c) the provider - do not redistribute prose."
+verification: unverified-structural-summary

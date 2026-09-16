@@ -1,0 +1,22 @@
+id: task-how-to
+description: Walks an experienced reader through one concrete goal, handling decision points explicitly and relegating background to links.
+suitable_when:
+  - The reader knows the concepts and wants to accomplish one specific thing.
+  - Branching by environment or variant is unavoidable and needs explicit handling.
+information_shape:
+  - goal_statement
+  - prerequisites_check
+  - core_procedure
+  - variant_handling
+  - result_verification
+  - troubleshooting_pointers
+good_traits:
+  - Goal verb in the title.
+  - Steps imperative and ordered.
+  - Branches labeled with the conditions that trigger them.
+anti_patterns:
+  - Concepts re-explained in the middle of a procedure.
+  - One goal split across several pages.
+  - A final state that was never verified.
+source_examples:
+  - mcp-tools

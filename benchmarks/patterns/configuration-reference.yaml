@@ -1,0 +1,23 @@
+id: configuration-reference
+description: Documents every configurable knob in a stable, scannable layout so readers can find one setting and its exact semantics.
+suitable_when:
+  - Parameters have types, defaults, and side effects that must be stated precisely.
+  - Readers look up a single option instead of reading linearly.
+information_shape:
+  - config_scope_overview
+  - entry_per_setting
+  - type_and_default
+  - valid_values_and_constraints
+  - interaction_notes
+  - example_per_group
+good_traits:
+  - Stable one-entry-per-parameter layout.
+  - Exact defaults with units.
+  - Cross-references between related settings.
+anti_patterns:
+  - Narrative paragraphs per option.
+  - Stale defaults.
+  - Settings entries that are actually concepts without configurable surface.
+source_examples:
+  - unstructured-partitioning
+  - nginx-runtime-operations

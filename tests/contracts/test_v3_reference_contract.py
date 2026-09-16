@@ -31,6 +31,7 @@ RUNTIME_AUTHORITY = {
     "API_REFERENCE.md",
     "PAGE_SPEC.md",
     "QUALITY_POLICY.md",
+    "BENCHMARK_LIBRARY.md",
 }
 
 HISTORICAL = {

@@ -1,0 +1,22 @@
+id: quickstart-happy-path
+description: Gets a first-time user to a visible, verifiable success in the shortest sequence of runnable steps.
+suitable_when:
+  - The product can produce a working result within minutes.
+  - Onboarding bounce risk is high and success must be verifiable without interpretation.
+information_shape:
+  - prereq_check
+  - setup_access
+  - first_working_command
+  - verify_expected_output
+  - extend_one_step
+  - next_steps_pointers
+good_traits:
+  - Expected output shown after every step.
+  - No branching in the happy path.
+  - Time to first success kept minimal.
+anti_patterns:
+  - Theory before the first command.
+  - Optional configuration folded into the happy path.
+  - Example code that was never executed.
+source_examples:
+  - docker-get-started

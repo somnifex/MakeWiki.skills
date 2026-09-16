@@ -1,0 +1,22 @@
+id: installation-guide
+description: Delivers a complete, verifiable route from prerequisites to a running installation for one platform at a time.
+suitable_when:
+  - Installation differs by operating system, platform, or environment.
+  - Readers arrive ready to act and need checkable command sequences.
+information_shape:
+  - prerequisites_and_compat
+  - platform_or_route_selection
+  - numbered_install_steps
+  - post_install_verification
+  - upgrade_and_rollback_path
+good_traits:
+  - Each platform path is self-contained.
+  - Verification placed at the end of every path.
+  - Support status of each install route stated up front.
+anti_patterns:
+  - Command steps buried inside paragraphs.
+  - One page forcing all platforms through a single narrative.
+  - Upgrade or uninstall paths left undocumented.
+source_examples:
+  - docker-engine-install
+  - kubernetes-production-setup

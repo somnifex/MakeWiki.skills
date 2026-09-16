@@ -20,8 +20,9 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
-from . import artifact
 from makewiki_skills.toolkit.filesystem import strip_ref_prefix as _strip_ref_prefix
+
+from . import artifact
 
 # Gold files that live beside the trap repo and must NOT be treated as citable
 # source evidence (they are the evaluator's fixtures, not the repo under test).

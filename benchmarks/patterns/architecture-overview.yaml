@@ -1,0 +1,22 @@
+id: architecture-overview
+description: Positions the moving parts of a system and their responsibilities so readers can reason about the whole before studying any part.
+suitable_when:
+  - A protocol, product, or system has named actors whose relationships need a canonical statement.
+  - Downstream pages will assume vocabulary established here.
+information_shape:
+  - actor_glossary
+  - topology_diagram
+  - responsibility_boundaries
+  - interaction_sequences
+  - design_principles
+  - pointers_to_details
+good_traits:
+  - One diagram reused as an anchor across pages.
+  - One consistent term per actor.
+  - Explicit non-goals and boundaries.
+anti_patterns:
+  - A repository tour standing in for concepts.
+  - Per-component marketing claims.
+  - A diagram inconsistent with the prose.
+source_examples:
+  - mcp-architecture

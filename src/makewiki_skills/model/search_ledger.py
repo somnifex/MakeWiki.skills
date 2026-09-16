@@ -7,7 +7,7 @@ Acts as the auditable evidence handoff to the Main Agent for search loop evaluat
 from __future__ import annotations
 
 import re
-from typing import Any
+from typing import Any, Literal, cast
 
 from pydantic import BaseModel, Field
 
@@ -115,7 +115,7 @@ class SearchLedger(BaseModel):
                     id=scout.claim_id,
                     statement=scout.description,
                     semantic_key=scout.claim_id,
-                    confidence=scout.confidence,
+                    confidence=cast(Literal["high", "medium", "low"], scout.confidence),
                     visibility=["unknown"],
                     abstraction="unknown",
                     evidence=[

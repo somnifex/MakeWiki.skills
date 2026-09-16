@@ -1,0 +1,21 @@
+id: troubleshooting
+description: Organizes problems by observable symptom and routes each symptom to a diagnosis and remedy pair.
+suitable_when:
+  - Readers arrive with an error message or broken behavior rather than a task.
+  - Symptoms are enumerable and remedies differ between them.
+information_shape:
+  - symptom_index
+  - per_symptom_cause_diagnosis
+  - remedy_procedure
+  - escalation_path
+good_traits:
+  - Symptom-first organization.
+  - Remedies tested end to end.
+  - Escalation path stated per symptom.
+anti_patterns:
+  - Solutions presented before the symptom they match.
+  - Generic advice repeated per entry.
+  - Cause lists without bound conditions.
+source_examples:
+  - stripe-pagination-errors
+  - notion-version-history

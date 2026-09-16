@@ -86,6 +86,7 @@ claude --plugin-dir /path/to/MakeWiki.skills
 /makewiki-init                            # Generate makewiki.config.yaml with agent, site, delivery, quality options
 /makewiki-export                          # Compile Markdown into printable HTML & EPUB e-books (--format html|epub|all; rejects pdf)
 /makewiki-sync                            # Prepare Confluence Storage XML / Notion Block API sync bundles (bundle prep only; does NOT publish)
+/makewiki-benchmark                       # Curate the Benchmark Reference Library and issue per-page advisory ReferenceProfiles (selector subtask)
 ```
 
 The authoritative CLI commands (from the Python toolkit, mechanical only):
@@ -106,6 +107,10 @@ python scripts/run_toolkit.py export <wiki_dir> --format html|epub|all --lang <c
 python scripts/run_toolkit.py sync-bundle <wiki_dir> --target confluence|notion --lang <code>
 python scripts/run_toolkit.py rebattle-diff <claim_files...>
 python scripts/run_toolkit.py init-config <target>
+python scripts/run_toolkit.py benchmark-index <corpus>       # validate corpus + deterministic stage-1 index
+python scripts/run_toolkit.py benchmark-acquire <ids...>     # licensing-gated fetch into sources/
+python scripts/run_toolkit.py verify-reference-profile <profile.yaml>
+python scripts/run_toolkit.py benchmark-leakage <wiki_dir> --profile <profile.yaml>
 ```
 
 `export` rejects `--format pdf`. `sync-bundle` prepares bundles on disk
@@ -182,6 +187,29 @@ Markdown source is fixed and the artifact is rebuilt (`references/render_audit.m
 9. **Zero Pollution**: Skill-first; run Python tools in temporary isolated
 
    environments when needed, and clean up immediately.
+
+---
+
+## Benchmark Reference Layer
+
+An advisory layer of excellent external documentation examples ("benchmarks")
+that Writers and Reviewers may consult for information shape — never for
+facts. The corpus keeps four layers distinguishable on disk: `sources/` (raw
+fetched pages, local cache), `normalized/` (structural summaries),
+`patterns/` (distilled source-agnostic patterns), and `index/` (generated
+compact index). The registry defaults every entry to metadata-only;
+committing provider prose requires an explicit `acquire: full` entry plus a
+recorded license or usage note.
+
+Selection is a dedicated per-page subtask (`tasks/select-benchmarks.md`):
+stage 1 ranks `benchmarks/index/benchmark-index.json` metadata; stage 2
+loads details only for a 1–3 shortlist (4 maximum for complex pages),
+honoring `benchmark.max_examples_per_page` and
+`benchmark.max_reference_tokens`. The Selector emits one ReferenceProfile
+per `page_id` under `<output_dir>/.makewiki-artifacts/reference_profiles/`,
+gated by `verify-reference-profile`. `references: []` is a first-class
+outcome. Authority order: repository evidence > PageSpec > ReferenceProfile
+> benchmark examples. Full contract: `references/v3/BENCHMARK_LIBRARY.md`.
 
 ---
 

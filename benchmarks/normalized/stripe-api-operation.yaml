@@ -1,0 +1,41 @@
+id: stripe-api-operation
+source:
+  provider: stripe
+  title: Create a charge
+  url: https://docs.stripe.com/api/charges/create
+summary: "The page is a generated endpoint reference whose body stays purely definitional. A signature block with method and path sits directly under the title, followed by a runnable request example before any prose. Every request parameter gets an anchored definition row with type, optionality, and nested sub-parameters, and the response fields mirror the same table discipline. Error semantics, idempotency, and related endpoints are cross-linked from a short footer section instead of interrupting the tables."
+observed_archetypes:
+  - generated-api-reference
+  - endpoint-definition-page
+suitable_intents:
+  - implement-an-api-call
+  - look-up-parameter-semantics
+  - inspect-response-fields
+information_shape:
+  - signature_block
+  - runnable_example
+  - request_parameter_table
+  - response_field_table
+  - related_links_footer
+strong_traits:
+  - Example precedes prose.
+  - Anchored rows per parameter.
+  - Mirrored request and response documentation.
+  - Stable layout across endpoints.
+anti_patterns:
+  - Narrative paragraphs between parameters.
+  - Example code without a stated API version.
+useful_for:
+  - Modeling endpoint reference pages.
+  - Documenting nested parameters.
+  - Deciding what belongs in page footers.
+tags:
+  - api
+  - reference
+  - payments
+pattern_ids:
+  - api-operation
+  - api-resource-reference
+retrieved_at: null
+license_or_usage_note: "Structural summary only; page content is (c) the provider - do not redistribute prose."
+verification: unverified-structural-summary

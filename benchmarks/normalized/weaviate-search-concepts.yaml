@@ -1,0 +1,41 @@
+id: weaviate-search-concepts
+source:
+  provider: weaviate
+  title: Search
+  url: https://weaviate.io/developers/weaviate/concepts/search
+summary: "The page builds the search mental model in layers, introducing similarity-based vector search first, then keyword BM25, then hybrid fusion, with each concept defined before any client code appears. Every concept section closes with a short multi-language code block and a link to the corresponding how-to page, separating explanation from operation by design. Diagrams carry the intuition for distance and fusion while prose states the guarantees and caveats."
+observed_archetypes:
+  - layered-concept-guide
+  - mental-model-page
+suitable_intents:
+  - understand-search-mechanics
+  - decide-between-search-modes
+information_shape:
+  - capability_map
+  - vector_similarity_concept
+  - keyword_bm25_concept
+  - hybrid_fusion_concept
+  - per_concept_code_pointer
+  - howto_links
+strong_traits:
+  - Concept before code.
+  - Per-concept handoff to how-to pages.
+  - Consistent mode names throughout.
+  - Diagrams carrying the intuition load.
+anti_patterns:
+  - Client setup noise inside concept sections.
+  - Mode comparisons without prior definitions.
+useful_for:
+  - Writing concept pages.
+  - Structuring concept-to-howto handoffs.
+  - Introducing search modes in order.
+tags:
+  - concepts
+  - vector-search
+  - hybrid-search
+pattern_ids:
+  - concept-mental-model
+  - concept-strategy-selection
+retrieved_at: null
+license_or_usage_note: "Structural summary only; page content is (c) the provider - do not redistribute prose."
+verification: unverified-structural-summary

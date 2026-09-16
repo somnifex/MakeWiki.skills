@@ -1,0 +1,23 @@
+id: lifecycle-management
+description: Tracks how an artifact or process changes over its lifetime, covering creation, evolution, persistence, and retirement with the operations of each stage.
+suitable_when:
+  - Readers manage artifacts or workflows whose state changes across sessions or over time.
+  - Transitions between states carry side effects that need explicit documentation.
+information_shape:
+  - state_model_transitions
+  - per_stage_operations
+  - persistence_and_interruption
+  - retention_and_cleanup
+  - transition_failures
+  - lifecycle_diagram
+good_traits:
+  - States named and diagrammed.
+  - Side effects of each transition stated.
+  - Cleanup treated as a first-class stage.
+anti_patterns:
+  - An implicit state machine recoverable only from prose.
+  - Retirement omitted.
+  - Interruption behavior unspecified.
+source_examples:
+  - langgraph-agents
+  - confluence-page-history

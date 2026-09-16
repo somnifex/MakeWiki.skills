@@ -1,0 +1,41 @@
+id: mcp-tools
+source:
+  provider: mcp
+  title: Tools
+  url: https://modelcontextprotocol.io/docs/concepts/tools
+summary: "The page pairs a definition of what a tool is with the exact JSON schema exchanged to discover and invoke it, keeping abstraction and wire format side by side. A worked weather-service example runs through listing, describing, and calling a tool, and error handling gets its own short section with concrete failure payloads. Best-practice guidance is collected at the end rather than interrupting the mechanical flow."
+observed_archetypes:
+  - concept-howto-hybrid
+  - protocol-reference-page
+suitable_intents:
+  - expose-a-tool
+  - implement-tool-invocation
+  - understand-tool-discovery
+information_shape:
+  - tool_definition
+  - discovery_invocation_schema
+  - worked_server_example
+  - error_handling_notes
+  - best_practice_checklist
+strong_traits:
+  - Abstraction and wire format kept adjacent.
+  - One worked example carried through the page.
+  - Explicit error payloads.
+anti_patterns:
+  - Schema fields explained only in prose.
+  - Best practices scattered mid-flow.
+useful_for:
+  - Writing task-focused protocol guides.
+  - Documenting tool registration.
+  - Pairing concepts with schemas.
+tags:
+  - tools
+  - concepts
+  - howto
+  - protocol
+pattern_ids:
+  - task-how-to
+  - concept-mental-model
+retrieved_at: null
+license_or_usage_note: "Structural summary only; page content is (c) the provider - do not redistribute prose."
+verification: unverified-structural-summary

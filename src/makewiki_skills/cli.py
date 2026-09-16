@@ -253,7 +253,7 @@ def lint_drafts(
     any artifact context and clearly says the cross-artifact checks were not
     run. Never judges page quality and never changes the Quality Gate.
     """
-    import yaml as yaml_lib
+    import yaml as yaml_lib  # type: ignore[import-untyped]
 
     from makewiki_skills.model.documentation_model import DocumentationModel
     from makewiki_skills.model.documentation_plan import DocumentationPlan
@@ -514,8 +514,6 @@ def verify_html(
     Fix the Markdown SOURCE (never the HTML), rebuild, and re-run; the loop is
     bounded by ``agent.max_audit_rounds`` in the skill workflow.
     """
-    import json as json_lib
-
     from makewiki_skills.verification.render_audit import run_render_audit
 
     resolved = Path(makewiki_dir).resolve()
@@ -553,8 +551,8 @@ def verify_html(
             for finding in items[:3]:
                 location = f"{finding.language}/{finding.document_id}"
                 if finding.section_id:
-                    loc += f"#{finding.section_id}"
-                console.print(f"    {finding.message[:150]}")
+                    location += f"#{finding.section_id}"
+                console.print(f"    {location}: {finding.message[:150]}")
             if len(items) > 3:
                 console.print(f"    ... and {len(items) - 3} more")
         if result.blocking:
@@ -1996,3 +1994,293 @@ def sync_alias(
 ) -> None:
     """Deprecated alias for `sync-bundle`. Retained for backward compatibility."""
     sync_bundle(wiki_dir, target_platform, lang, space_key, parent_id, push=push)
+
+
+@app.command(name="benchmark-index")
+def benchmark_index(
+    corpus_dir: Path = typer.Argument(
+        Path("benchmarks"), help="Benchmark corpus directory"
+    ),
+    config_path: Path | None = typer.Option(None, "--config", "-c"),
+    output: Path | None = typer.Option(
+        None, "--output", help="Index output path (default: <corpus>/index/benchmark-index.json)"
+    ),
+    output_format: str = typer.Option(
+        "human", "--format", "-f", help="Output format: human | json"
+    ),
+) -> None:
+    """Validate the benchmark corpus and (re)generate the compact index.
+
+    Mechanical only: schema checks, cross-link checks, and deterministic
+    JSON generation. Selecting which benchmarks help a page is a cognitive
+    decision owned by the Benchmark Selector subagent.
+    """
+    from makewiki_skills.benchmarks.corpus import (
+        INDEX_DIRNAME,
+        INDEX_FILENAME,
+        build_index,
+        load_corpus,
+        validate_corpus,
+        write_index,
+    )
+
+    corpus_path = Path(corpus_dir).resolve()
+    if not corpus_path.is_dir():
+        console.print(f"[red]Error:[/red] Not a directory: {corpus_path}")
+        raise typer.Exit(1)
+
+    problems = validate_corpus(corpus_path)
+    if problems:
+        console.print("[red]Benchmark corpus validation failed:[/red]")
+        for problem in problems:
+            console.print(f"  - {problem}")
+        raise typer.Exit(1)
+
+    corpus = load_corpus(corpus_path)
+    index = build_index(corpus)
+    out_path = output if output is not None else corpus_path / INDEX_DIRNAME / INDEX_FILENAME
+    write_index(index, out_path)
+
+    if output_format == "json":
+        typer.echo(json_lib.dumps(index, indent=2, ensure_ascii=False))
+        return
+
+    console.print(f"[green]Benchmark index written:[/green] {out_path}")
+    table = Table(title="Benchmark Corpus")
+    table.add_column("Layer")
+    table.add_column("Count", justify="right")
+    table.add_row("benchmarks", str(index["counts"]["benchmarks"]))
+    table.add_row("patterns", str(index["counts"]["patterns"]))
+    console.print(table)
+    for entry in index["benchmarks"]:
+        console.print(
+            f"  [bold]{entry['id']}[/bold] — {entry['provider']} · "
+            f"{entry['est_tokens']} tokens · patterns: {', '.join(entry['pattern_ids']) or '—'}"
+        )
+
+
+@app.command(name="benchmark-acquire", hidden=False)
+def benchmark_acquire(
+    ids: list[str] = typer.Argument(..., help="Benchmark ids to fetch"),
+    corpus_dir: Path | None = typer.Option(
+        None, "--corpus", help="Benchmark corpus directory (default from config)"
+    ),
+    config_path: Path | None = typer.Option(None, "--config", "-c"),
+    force: bool = typer.Option(
+        False, "--force", help="Re-fetch even if the raw page already exists"
+    ),
+    timeout: float = typer.Option(30.0, "--timeout", help="Fetch timeout in seconds"),
+) -> None:
+    """Fetch benchmark source pages into sources/ (licensing-gated).
+
+    Entries the registry marks ``metadata-only`` are ALWAYS refused: full
+    fetch requires flipping the entry to ``acquire: full`` with a recorded
+    license or usage note — a curation decision that stays auditable in the
+    registry, never a CLI bypass.
+    """
+    from makewiki_skills.benchmarks.acquire import acquire_benchmarks
+
+    cfg = _load_config(config_path, Path(".").resolve())
+    corpus_path = Path(corpus_dir) if corpus_dir is not None else Path(cfg.benchmark.corpus_path)
+    results = acquire_benchmarks(
+        corpus_path, list(ids), timeout=timeout, force=force
+    )
+    table = Table(title="Benchmark Acquisition")
+    table.add_column("Benchmark")
+    table.add_column("Status")
+    table.add_column("Detail", overflow="fold")
+    exit_code = 0
+    for result in results:
+        color = {
+            "written": "green",
+            "exists": "cyan",
+            "refused-metadata-only": "yellow",
+            "error": "red",
+        }.get(result.status, "white")
+        table.add_row(result.benchmark_id, f"[{color}]{result.status}[/{color}]", result.detail)
+        if result.status in ("error", "refused-metadata-only"):
+            exit_code = 1
+    console.print(table)
+    if exit_code:
+        raise typer.Exit(exit_code)
+
+
+@app.command(name="verify-reference-profile")
+def verify_reference_profile(
+    profile: Path = typer.Argument(..., help="ReferenceProfile YAML path"),
+    corpus_dir: Path | None = typer.Option(
+        None, "--corpus", help="Benchmark corpus directory (default from config)"
+    ),
+    config_path: Path | None = typer.Option(None, "--config", "-c"),
+    render: Path | None = typer.Option(
+        None, "--render", help="Write the rendered advisory payload to this Markdown path"
+    ),
+    output_format: str = typer.Option(
+        "human", "--format", "-f", help="Output format: human | json"
+    ),
+) -> None:
+    """Mechanically validate a ReferenceProfile and optionally render it.
+
+    Exit code 1 marks a blocking defect: unknown benchmark id, duplicate
+    reference, or a payload that exceeds the configured token budget.
+    """
+    from makewiki_skills.benchmarks.corpus import load_corpus, validate_corpus
+    from makewiki_skills.benchmarks.profile import (
+        ProfileError,
+        load_reference_profile,
+        render_reference_profile,
+        validate_reference_profile,
+    )
+
+    cfg = _load_config(config_path, Path(".").resolve())
+    bench_cfg = cfg.benchmark
+    corpus_path = Path(corpus_dir) if corpus_dir is not None else Path(bench_cfg.corpus_path)
+
+    try:
+        prof = load_reference_profile(profile)
+    except ProfileError as exc:
+        console.print(f"[red]Error:[/red] {exc}")
+        raise typer.Exit(1)
+
+    problems: list[str] = []
+    corpus = None
+    if not corpus_path.is_dir():
+        problems.append(f"benchmark corpus directory not found: {corpus_path}")
+    else:
+        corpus_problems = validate_corpus(corpus_path)
+        if corpus_problems:
+            problems.extend(corpus_problems)
+        else:
+            corpus = load_corpus(corpus_path)
+            problems.extend(
+                validate_reference_profile(
+                    prof, corpus, max_examples_per_page=bench_cfg.max_examples_per_page
+                )
+            )
+
+    rendered = None
+    if corpus is not None:
+        rendered = render_reference_profile(
+            prof, corpus, max_reference_tokens=bench_cfg.max_reference_tokens
+        )
+        if not rendered.within_budget:
+            problems.append(
+                f"rendered ReferenceProfile uses ~{rendered.est_tokens} tokens, exceeding "
+                f"benchmark.max_reference_tokens={bench_cfg.max_reference_tokens}"
+            )
+
+    if output_format == "json":
+        typer.echo(
+            json_lib.dumps(
+                {
+                    "page_id": prof.page_id,
+                    "references": len(prof.references),
+                    "est_tokens": rendered.est_tokens if rendered else None,
+                    "within_budget": bool(rendered.within_budget) if rendered else False,
+                    "problems": problems,
+                },
+                indent=2,
+                ensure_ascii=False,
+            )
+        )
+    else:
+        if problems:
+            console.print("[red]ReferenceProfile validation failed:[/red]")
+            for problem in problems:
+                console.print(f"  - {problem}")
+        elif rendered is not None:
+            console.print(
+                f"[green]ReferenceProfile valid:[/green] {prof.page_id} "
+                f"({len(prof.references)} references, ~{rendered.est_tokens} tokens)"
+            )
+        if render is not None and rendered is not None:
+            render.write_text(rendered.markdown, encoding="utf-8")
+            console.print(f"[green]Rendered advisory payload written:[/green] {render}")
+
+    if problems:
+        raise typer.Exit(1)
+
+
+@app.command(name="benchmark-leakage")
+def benchmark_leakage(
+    wiki_dir: Path = typer.Argument(..., help="Generated wiki directory to scan"),
+    profiles: list[Path] = typer.Option(
+        ..., "--profile", help="ReferenceProfile YAML path (repeatable)"
+    ),
+    corpus_dir: Path | None = typer.Option(
+        None, "--corpus", help="Benchmark corpus directory (default from config)"
+    ),
+    config_path: Path | None = typer.Option(None, "--config", "-c"),
+    output_format: str = typer.Option(
+        "human", "--format", "-f", help="Output format: human | json"
+    ),
+) -> None:
+    """Mechanically scan generated docs for benchmark provider terms.
+
+    Output is a CANDIDATE list with locations — never a verdict. The Page
+    Reviewer and Final Semantic Auditor adjudicate whether a hit is factual
+    leakage (critical) or a legitimate mention of an integrated product.
+    """
+    from makewiki_skills.benchmarks.corpus import load_corpus, validate_corpus
+    from makewiki_skills.benchmarks.leakage import scan_leakage
+    from makewiki_skills.benchmarks.profile import (
+        ProfileError,
+        load_reference_profile,
+    )
+
+    cfg = _load_config(config_path, Path(".").resolve())
+    corpus_path = Path(corpus_dir) if corpus_dir is not None else Path(cfg.benchmark.corpus_path)
+
+    benchmark_ids: list[str] = []
+    for profile_path in profiles:
+        try:
+            prof = load_reference_profile(profile_path)
+        except ProfileError as exc:
+            console.print(f"[red]Error:[/red] {exc}")
+            raise typer.Exit(1)
+        benchmark_ids.extend(ref.benchmark_id for ref in prof.references)
+
+    if not Path(wiki_dir).is_dir():
+        console.print(f"[red]Error:[/red] Not a directory: {wiki_dir}")
+        raise typer.Exit(1)
+
+    hits = []
+    if not corpus_path.is_dir():
+        console.print(f"[red]Error:[/red] benchmark corpus not found: {corpus_path}")
+        raise typer.Exit(1)
+    corpus_problems = validate_corpus(corpus_path)
+    if corpus_problems:
+        console.print("[red]Benchmark corpus validation failed:[/red]")
+        for problem in corpus_problems:
+            console.print(f"  - {problem}")
+        raise typer.Exit(1)
+    corpus = load_corpus(corpus_path)
+    hits = scan_leakage(Path(wiki_dir), corpus, sorted(set(benchmark_ids)))
+
+    if output_format == "json":
+        typer.echo(
+            json_lib.dumps(
+                [
+                    {
+                        "file": hit.file,
+                        "line": hit.line,
+                        "term": hit.term,
+                        "benchmarks": list(hit.benchmarks),
+                        "excerpt": hit.excerpt,
+                    }
+                    for hit in hits
+                ],
+                indent=2,
+                ensure_ascii=False,
+            )
+        )
+        return
+
+    if not hits:
+        console.print("[green]No benchmark-leakage candidates found.[/green]")
+        return
+    console.print(
+        f"[yellow]{len(hits)} leakage candidate(s) — review required, not a verdict:[/yellow]"
+    )
+    for hit in hits:
+        console.print(f"  {hit.file}:{hit.line} — term '{hit.term}' ({hit.excerpt})")

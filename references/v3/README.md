@@ -20,6 +20,8 @@ V3 的核心定义：
 - `API_REFERENCE.md`：面向 operator/admin/developer 的接口文档规范。
 - `PAGE_SPEC.md`：PageSpec 与 writer contract。
 - `QUALITY_POLICY.md`：质量与 review 规则。
+- `BENCHMARK_LIBRARY.md`：advisory benchmark 参考层（语料分层、Selector
+  协议、ReferenceProfile 契约）。
 
 ## Contributor / historical（非运行时权威）
 

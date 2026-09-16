@@ -105,6 +105,30 @@ to guide authoring:
 
 ---
 
+## 3b. ReferenceProfile (advisory, optional)
+
+A Writer may receive a **ReferenceProfile** (from the Benchmark Selector,
+`tasks/select-benchmarks.md`) alongside its semantic slice. It is advisory
+only — never a fact source for the target project:
+
+- **Borrow** (per the profile's `borrow` list): information shape, section
+  sequencing, explanation strategy, progressive disclosure, example
+  placement, lookup experience.
+- **Never copy** (the profile's `do_not_copy` list is binding): benchmark
+  product facts, foreign terminology, API/config values, defaults, limits,
+  or any factual claim. Target-project claims stay grounded in target
+  evidence.
+- **Do not re-classify the page.** The `PageSpec` decides intent, audience,
+  and category; a benchmark's archetype never overrides it. Cross-category
+  inspiration is allowed when the transferable pattern genuinely helps.
+- **No mechanical imitation** — absorb the underlying documentation pattern,
+  then adapt it naturally to this page's slice; never copy reference
+  headings, structure, or example prose.
+- No profile, or `references: []`: write exactly as before — selection is
+  additive, never mandatory.
+
+---
+
 ## 4. Prohibitions & Strict Boundaries
 
 During a writing subtask the Writer **MUST NOT**:

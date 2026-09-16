@@ -1,0 +1,39 @@
+id: kubernetes-production-setup
+source:
+  provider: kubernetes
+  title: Production environment
+  url: https://kubernetes.io/docs/setup/production-environment/
+summary: "The page separates planning from execution, first listing the decision axes for a production cluster such as tooling, control-plane topology, and networking, and only then pointing to concrete setup routes. Each route (managed service, kubeadm, bootstrap tools) gets a short trade-off statement and links out instead of duplicating instructions. Requirements are presented as a compact checklist that operators can sweep before committing to a route."
+observed_archetypes:
+  - planning-guide
+  - route-selection-hub
+suitable_intents:
+  - plan-a-production-cluster
+  - choose-a-setup-tool
+information_shape:
+  - requirements_checklist
+  - tooling_comparison
+  - control_plane_options
+  - setup_route_links
+  - security_considerations
+strong_traits:
+  - Trade-offs before commands.
+  - Checklist-style requirements.
+  - Linking out instead of duplicating tool docs.
+anti_patterns:
+  - Tool-specific procedures duplicated per route.
+  - Missing hardware and scale ceilings.
+useful_for:
+  - Writing production planning pages.
+  - Structuring tool-selection sections.
+  - Composing requirement checklists.
+tags:
+  - kubernetes
+  - production
+  - cluster-setup
+pattern_ids:
+  - installation-guide
+  - operator-runbook
+retrieved_at: null
+license_or_usage_note: "Structural summary only; page content is (c) the provider - do not redistribute prose."
+verification: unverified-structural-summary

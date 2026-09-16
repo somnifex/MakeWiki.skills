@@ -1,0 +1,24 @@
+id: product-overview
+description: Orients a new reader in what a product is and why it exists, using the product's own vocabulary before any task work begins.
+suitable_when:
+  - The reader is evaluating or onboarding and has no prior exposure to the tool.
+  - The team needs a shared vocabulary page that every later guide can link to.
+  - An ecosystem or protocol needs its roles and actors positioned before specifics.
+information_shape:
+  - value_statement
+  - audience_and_prerequisites
+  - core_concept_map
+  - capability_tour
+  - ecosystem_roles
+  - entry_point_links
+good_traits:
+  - One name per concept from the first paragraph onward.
+  - Concepts before tasks.
+  - Links out to a first runnable step instead of embedding one.
+anti_patterns:
+  - Feature-marketing prose instead of orientation.
+  - Deep dives into a single feature in an overview page.
+  - Unexplained jargon in the opening paragraph.
+source_examples:
+  - docker-get-started
+  - mcp-architecture

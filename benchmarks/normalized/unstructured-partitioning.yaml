@@ -1,0 +1,40 @@
+id: unstructured-partitioning
+source:
+  provider: unstructured
+  title: Partitioning
+  url: https://docs.unstructured.io/open-source/core-functionality/partitioning
+summary: "The page treats partitioning as one stage of a larger pipeline and situates it with a brief stage map before diving into detail. Format support is front and center as a matrix that links per-format strategy notes, letting readers route themselves by input type. The remainder is a parameterized API walkthrough that names strategies, states their defaults, and shows a running example whose output makes the partitioned element stream visible."
+observed_archetypes:
+  - pipeline-stage-guide
+  - capability-reference
+suitable_intents:
+  - choose-a-partition-strategy
+  - configure-document-ingestion
+information_shape:
+  - pipeline_stage_context
+  - format_support_matrix
+  - strategy_overview
+  - api_parameter_reference
+  - worked_example_output
+  - downstream_links
+strong_traits:
+  - Format matrix for self-routing.
+  - Strategy names used consistently.
+  - Example output shown, not described.
+anti_patterns:
+  - Format caveats hidden in footnotes.
+  - Strategy comparisons scattered across pages.
+useful_for:
+  - Writing pipeline-stage introductions.
+  - Structuring format-support matrices.
+  - Shaping API parameter walkthroughs.
+tags:
+  - etl
+  - document-processing
+  - reference
+pattern_ids:
+  - pipeline-explanation
+  - configuration-reference
+retrieved_at: null
+license_or_usage_note: "Structural summary only; page content is (c) the provider - do not redistribute prose."
+verification: unverified-structural-summary

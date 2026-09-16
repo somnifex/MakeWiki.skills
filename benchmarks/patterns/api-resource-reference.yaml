@@ -1,0 +1,21 @@
+id: api-resource-reference
+description: Groups an API resource's object model with its operations so readers see the data shape and the actions on it together.
+suitable_when:
+  - One resource has several endpoints and a shared object schema.
+  - Readers need the object fields explained once rather than per endpoint.
+information_shape:
+  - resource_object_schema
+  - field_definitions
+  - endpoint_list
+  - shared_behavior
+  - cross_resource_relations
+good_traits:
+  - Object model documented exactly once.
+  - Per-field state semantics.
+  - Endpoints linked, not inlined.
+anti_patterns:
+  - Field definitions repeated on every endpoint page.
+  - A missing object model that lets endpoint docs disagree.
+  - Changelog fragments used as page structure.
+source_examples:
+  - stripe-api-operation

@@ -5,10 +5,29 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
-## [3.2.0] — 2026-09-15
+## [3.2.0] — 2026-09-16
 
 ### Added
 
+- **Benchmark Reference Layer (`/makewiki-benchmark`)**: an advisory library
+  of excellent external documentation examples that Writers and Reviewers may
+  consult for information shape — never for facts. Four separable corpus
+  layers under `benchmarks/` (`sources/` raw cache, `normalized/` structural
+  summaries, `patterns/` distilled patterns, `index/` generated compact
+  index), curated via `registry.yaml` with a licensing-safe
+  metadata-only default. Selection is a dedicated per-page subtask
+  (`tasks/select-benchmarks.md`) that ranks the compact stage-1 index and
+  emits a `ReferenceProfile` per page, gated mechanically by
+  `verify-reference-profile` (count ceiling `benchmark.max_examples_per_page`,
+  payload budget `benchmark.max_reference_tokens`). `references: []` is a
+  first-class outcome; authority order is repository evidence > PageSpec >
+  ReferenceProfile > benchmark examples. Mechanical support commands:
+  `benchmark-index` (validate + deterministic index), `benchmark-acquire`
+  (licensing-gated fetch), `benchmark-leakage` (candidate-only scan for
+  provider terms; adjudicated by the Reviewer and Final Semantic Auditor).
+- `benchmark.*` config section (`enabled`, `corpus_path`,
+  `max_examples_per_page`, `max_reference_tokens`, `prefer_pattern_cards`,
+  `allow_full_source`) with the two-plane consumer classification.
 - **Rendered-output audit (`verify-html`)**: the toolkit now answers for its
   GENERATED artifacts. The audit recovers the real shipped bodies (the SPA's
   embedded per-language documents, exported chapters, EPUB XHTML), re-pairs

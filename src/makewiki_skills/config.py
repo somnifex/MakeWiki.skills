@@ -289,6 +289,54 @@ class QualityConfig(BaseModel):
     _SHARED_CONSUMED_FIELDS: ClassVar[frozenset[str]] = frozenset()
 
 
+class BenchmarkConfig(BaseModel):
+    """Advisory benchmark-reference layer budgets and corpus location.
+
+    The benchmark layer injects a SMALL, explicitly advisory set of excellent
+    documentation examples into Writer/Reviewer context. It never supplies
+    target-project facts: every target factual claim stays grounded in
+    repository evidence (see ``references/v3/BENCHMARK_LIBRARY.md``).
+
+    Consumer split follows the two-plane contract:
+
+    * ``enabled`` — LLM-only. Python never checks it: whether the Selector
+      runs at all is a Skill-layer decision.
+    * ``corpus_path`` — SHARED. Python resolves it as the default corpus
+      directory for ``benchmark-index`` / ``verify-reference-profile``.
+    * ``max_examples_per_page`` / ``max_reference_tokens`` — SHARED.
+      Python enforces both mechanically in ``verify-reference-profile``;
+      the Selector reads them as ceilings when composing a profile.
+    * ``prefer_pattern_cards`` / ``allow_full_source`` — LLM-only loading
+      preferences; Python never reads them.
+    """
+
+    model_config = _STRICT_CONFIG
+
+    #: Master switch for the Benchmark Selector subtask (LLM-only: Python
+    #: never gates on this — selection is a cognitive decision).
+    enabled: bool = True
+    #: Directory of the four-layer benchmark corpus (SHARED: Python resolves
+    #: it as the default ``--corpus`` for mechanical commands).
+    corpus_path: str = "benchmarks"
+    #: Per-page reference-count ceiling (SHARED: mechanically enforced).
+    max_examples_per_page: int = Field(default=3, ge=0, le=10)
+    #: Token ceiling for the rendered ReferenceProfile payload (SHARED).
+    max_reference_tokens: int = Field(default=5000, ge=200)
+    #: LLM-only: prefer pattern cards over raw prose when loading references.
+    prefer_pattern_cards: bool = True
+    #: LLM-only: allow loading full source pages for exceptional pages.
+    allow_full_source: bool = False
+
+    _PYTHON_CONSUMED_FIELDS: ClassVar[frozenset[str]] = frozenset(
+        {"corpus_path", "max_examples_per_page", "max_reference_tokens"}
+    )
+    _LLM_CONSUMED_FIELDS: ClassVar[frozenset[str]] = frozenset(
+        {"enabled", "prefer_pattern_cards", "allow_full_source"}
+    )
+    _SHARED_CONSUMED_FIELDS: ClassVar[frozenset[str]] = frozenset()
+
+
+
 class MakeWikiConfig(BaseModel):
     """Root configuration for a makewiki run."""
 
@@ -306,6 +354,7 @@ class MakeWikiConfig(BaseModel):
     agent: AgentConfig = Field(default_factory=AgentConfig)
     delivery: DeliveryConfig = Field(default_factory=DeliveryConfig)
     quality: QualityConfig = Field(default_factory=QualityConfig)
+    benchmark: BenchmarkConfig = Field(default_factory=BenchmarkConfig)
     language_profiles: dict[str, LanguageProfileConfig] = Field(default_factory=dict)
 
     # ``target_dir`` is RUNTIME STATE, not a consumed config field. It is the
@@ -331,7 +380,7 @@ class MakeWikiConfig(BaseModel):
     _LLM_CONSUMED_FIELDS: ClassVar[frozenset[str]] = frozenset(
         {"agent", "delivery", "content_depth", "documentation_policy", "language_profiles"}
     )
-    _SHARED_CONSUMED_FIELDS: ClassVar[frozenset[str]] = frozenset()
+    _SHARED_CONSUMED_FIELDS: ClassVar[frozenset[str]] = frozenset({"benchmark"})
 
     @classmethod
     def load(cls, config_path: Path, target_dir: Path | None = None) -> MakeWikiConfig:
@@ -385,6 +434,7 @@ def iter_config_models() -> list[type[BaseModel]]:
         AgentConfig,
         DeliveryConfig,
         QualityConfig,
+        BenchmarkConfig,
     ]
 
 

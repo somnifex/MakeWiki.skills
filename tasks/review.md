@@ -69,6 +69,21 @@ verdicts and emits the bundle last so its digest matches the final markdown set.
 The Reviewer never fabricates a fix. A missing-evidence problem is reported as a
 finding (or surfaced as a `documentation_gap`), not "resolved" by inventing content.
 
+### 1b. Benchmark-aided review (advisory, optional)
+
+The Reviewer may receive freshly selected references — 1–2 benchmarks
+re-selected for the review pass (`tasks/select-benchmarks.md`), never the
+Writer's set by default. Judged qualities: information shape, task
+orientation, lookup efficiency, mental-model quality, progressive
+disclosure, example adequacy. Non-negotiables: PageSpec intent and evidence
+accuracy always outrank benchmark similarity; never penalize a draft for not
+resembling the benchmark; never force benchmark section structure onto the
+draft; never accept content that lacks target-project evidence. Mechanical
+leakage candidates from `benchmark-leakage` are findings to adjudicate —
+foreign-product terminology, unsupported facts, copied configuration/API
+semantics, category contamination, and mechanical imitation; factual
+leakage is critical, mechanical imitation minor.
+
 ---
 
 ## 2. Review modes

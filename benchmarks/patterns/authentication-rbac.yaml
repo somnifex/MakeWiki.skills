@@ -1,0 +1,21 @@
+id: authentication-rbac
+description: Documents credential types and permission models with a dedicated section per credential and failure checks placed close to the flow.
+suitable_when:
+  - Multiple credential kinds coexist and readers must pick one deliberately.
+  - Permission models are non-obvious and need explicit scope semantics.
+information_shape:
+  - credential_categories
+  - per_credential_setup
+  - request_attachment
+  - scope_semantics
+  - failure_and_rotation
+good_traits:
+  - One credential kind per section.
+  - Minimal authentic request examples.
+  - Failure modes listed next to the usage they affect.
+anti_patterns:
+  - Several credential kinds mixed in one example.
+  - Scope glossary deferred to an appendix.
+  - Security advice omitted entirely.
+source_examples:
+  - github-rest-auth

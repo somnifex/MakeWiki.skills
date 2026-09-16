@@ -1,0 +1,41 @@
+id: nginx-runtime-operations
+source:
+  provider: nginx
+  title: Controlling nginx
+  url: https://nginx.org/en/docs/control.html
+summary: "The page is organized around the control verbs an operator issues to a running instance, covering start, stop, reload, and log rotation, each with the exact command and its failure semantics. Configuration reload is explained as a two-phase change mechanism that tests the new configuration and then applies it while old workers finish in-flight requests, turning a common operational worry into an explicit guarantee. Upgrade behavior and log-rotation recipes close the page as repeatable procedures with copyable shell snippets."
+observed_archetypes:
+  - operator-runbook
+  - runtime-behavior-reference
+suitable_intents:
+  - reload-configuration-safely
+  - rotate-logs
+  - perform-live-upgrades
+information_shape:
+  - process_model_brief
+  - start_stop_signals
+  - reload_semantics
+  - log_rotation_procedure
+  - live_upgrade_procedure
+  - failure_notes
+strong_traits:
+  - One verb per section.
+  - Copyable commands with context.
+  - Reload guarantee stated explicitly.
+anti_patterns:
+  - Configuration tuning mixed with runtime control.
+  - Procedures without failure notes.
+useful_for:
+  - Writing operator runbooks.
+  - Documenting signal-based control.
+  - Separating runtime behavior from tuning.
+tags:
+  - operations
+  - runbook
+  - nginx
+pattern_ids:
+  - operator-runbook
+  - configuration-reference
+retrieved_at: null
+license_or_usage_note: "Structural summary only; page content is (c) the provider - do not redistribute prose."
+verification: unverified-structural-summary

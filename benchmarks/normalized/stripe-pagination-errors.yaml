@@ -1,0 +1,39 @@
+id: stripe-pagination-errors
+source:
+  provider: stripe
+  title: Pagination
+  url: https://docs.stripe.com/pagination
+summary: "The page presents cursor-based auto-pagination as the default behavior first, then documents the manual variant with its exact query parameters and invariants. Cross-language request examples sit in tabs so pagination behavior stays comparable between client libraries. Rate limits and error surfaces such as timeouts are treated as part of the pagination contract and referenced from the same page rather than isolated in a separate chapter."
+observed_archetypes:
+  - api-behavior-guide
+  - troubleshooting-adjacent-reference
+suitable_intents:
+  - consume-list-endpoints
+  - debug-truncated-result-sets
+information_shape:
+  - default_cursor_behavior
+  - auto_pagination_example
+  - manual_cursor_params
+  - client_library_variants
+  - limits_and_error_surfaces
+strong_traits:
+  - Default-first ordering.
+  - Tabbed language parity.
+  - Behavioral invariants stated explicitly.
+anti_patterns:
+  - Page-count mental models.
+  - Cursor semantics left implicit.
+useful_for:
+  - Documenting list endpoint behavior.
+  - Connecting behavior pages to troubleshooting.
+  - Handling client-library differences.
+tags:
+  - api
+  - pagination
+  - errors
+pattern_ids:
+  - api-operation
+  - troubleshooting
+retrieved_at: null
+license_or_usage_note: "Structural summary only; page content is (c) the provider - do not redistribute prose."
+verification: unverified-structural-summary

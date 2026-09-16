@@ -92,6 +92,7 @@ The CLI surface is designed around authoritative names with backward-compatible 
 | Quality Review                  | `/makewiki-review`                     | `semantic-review`   | Extract cross-language alignments + behavior evidence                |
 | Project Fact Census             | `/makewiki-scan`                       | —                   | Repo traits census + fact extraction (calls `census` & `evidence`)   |
 | Config Init                     | `/makewiki-init`                       | —                   | Generate default `makewiki.config.yaml`                              |
+| Benchmark Reference Layer       | `/makewiki-benchmark`                  | —                   | Curate the excellent-docs benchmark corpus and issue per-page advisory ReferenceProfiles (selector subtask) |
 | Toolkit: Fact Census            | `makewiki census <path>`               | `makewiki sizing`   | Raw verifiable repository traits census                              |
 | Toolkit: Evidence               | `makewiki evidence <path>`             | `makewiki scan`     | Fact JSON (no interpretation)                                        |
 | Toolkit: Coverage               | `makewiki coverage <path>`             | —                   | Mechanical coverage report: discovered vs scanned vs skipped vs ignored, uncovered categories, low-confidence facts |

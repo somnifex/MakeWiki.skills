@@ -1,0 +1,23 @@
+id: concept-mental-model
+description: Builds the reader's internal model of one concept, stating what it is, what it guarantees, and what it must not be confused with.
+suitable_when:
+  - A concept underlies several tasks and deserves a single canonical page.
+  - Misconceptions are common and need explicit contrast.
+information_shape:
+  - one_sentence_definition
+  - why_it_exists
+  - mechanics_intuition
+  - boundaries_and_misconceptions
+  - worked_micro_example
+  - links_to_task_guides
+good_traits:
+  - Definition before mechanics.
+  - Handoff links to how-to pages for every operation.
+  - Misconceptions named explicitly.
+anti_patterns:
+  - API details inside concept prose.
+  - Two concepts competing for the same name across pages.
+  - Vague metaphors without stated semantics.
+source_examples:
+  - weaviate-search-concepts
+  - mcp-tools

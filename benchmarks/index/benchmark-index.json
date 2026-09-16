@@ -1,0 +1,1488 @@
+{
+  "schema_version": 1,
+  "generator": "makewiki-skills benchmark-index v1",
+  "corpus_digest": "f71c83db808b87f2c25ef5f6d0f3ae8dc6acb2b8d65588dba2ffe9b003385419",
+  "counts": {
+    "benchmarks": 17,
+    "patterns": 18
+  },
+  "benchmarks": [
+    {
+      "id": "confluence-page-history",
+      "provider": "atlassian",
+      "title": "Page history",
+      "url": "https://support.atlassian.com/confluence/docs/view-page-history/",
+      "summary": "The page enumerates the lifecycle of a page's versions in operation order, covering how edits create versions, how to browse the history list, then how to compare, restore, and delete versions. Each capability gets a short section with a screenshot of the exact controls, keeping lookup shallow. The difference between restoring a version and deleting history is stated explicitly, which keeps the two operations from being confused during audits.",
+      "observed_archetypes": [
+        "feature-guide",
+        "versioning-reference"
+      ],
+      "suitable_intents": [
+        "audit-page-changes",
+        "restore-an-earlier-version",
+        "manage-version-clutter"
+      ],
+      "information_shape": [
+        "version_creation_model",
+        "history_list_navigation",
+        "version_comparison",
+        "restore_procedure",
+        "deletion_cleanup",
+        "permission_notes"
+      ],
+      "strong_traits": [
+        "Lifecycle-ordered capabilities.",
+        "Control-level screenshots.",
+        "Restore versus delete contrast."
+      ],
+      "anti_patterns": [
+        "Bulk and single-page steps mixed together.",
+        "Permission notes appended as an afterthought."
+      ],
+      "useful_for": [
+        "Documenting version lifecycles.",
+        "Structuring per-operation guides.",
+        "Pairing screenshots with controls."
+      ],
+      "tags": [
+        "version-history",
+        "lifecycle",
+        "collaboration"
+      ],
+      "pattern_ids": [
+        "lifecycle-management",
+        "version-history"
+      ],
+      "quality_notes": [
+        "Per-operation sections with control-level screenshots.",
+        "Cloud and server editions diverge in wording; note the edition when fetching."
+      ],
+      "normalized_path": "normalized/confluence-page-history.yaml",
+      "acquire": "metadata-only",
+      "verification": "unverified-structural-summary",
+      "est_tokens": 241
+    },
+    {
+      "id": "dify-knowledge-pipeline",
+      "provider": "dify",
+      "title": "Knowledge Base",
+      "url": "https://docs.dify.ai/en/guides/knowledge-base",
+      "summary": "The page walks the knowledge pipeline in ingestion order, moving from connecting a data source through chunking and cleaning to choosing an embedding and retrieval mode and finally binding the index to an application. Screenshots anchor each UI step while parameter explanations stay in surrounding prose, so interface navigation and concept learning alternate at a steady rhythm. Retrieval strategy trade-offs are summarized in comparison tables after the happy path, which keeps first-pass setup separate from tuning.",
+      "observed_archetypes": [
+        "pipeline-walkthrough",
+        "gui-product-guide"
+      ],
+      "suitable_intents": [
+        "set-up-a-rag-pipeline",
+        "configure-retrieval",
+        "integrate-a-data-source"
+      ],
+      "information_shape": [
+        "pipeline_stage_overview",
+        "data_source_connection",
+        "chunking_cleaning_settings",
+        "embedding_retrieval_selection",
+        "application_binding",
+        "tuning_comparisons"
+      ],
+      "strong_traits": [
+        "Stage order matches data flow.",
+        "Screenshot-anchored UI steps.",
+        "Tuning separated from setup."
+      ],
+      "anti_patterns": [
+        "UI states without concept names.",
+        "Retrieval modes described only in marketing terms."
+      ],
+      "useful_for": [
+        "Explaining multi-stage pipelines.",
+        "Blending UI steps with concepts.",
+        "Writing retrieval strategy comparisons."
+      ],
+      "tags": [
+        "rag",
+        "knowledge-base",
+        "pipeline",
+        "integration"
+      ],
+      "pattern_ids": [
+        "integration-guide",
+        "pipeline-explanation"
+      ],
+      "quality_notes": [
+        "UI-heavy walkthrough; screenshots age faster than the underlying concepts.",
+        "Retrieval-mode tables summarize tuning trade-offs compactly."
+      ],
+      "normalized_path": "normalized/dify-knowledge-pipeline.yaml",
+      "acquire": "metadata-only",
+      "verification": "unverified-structural-summary",
+      "est_tokens": 262
+    },
+    {
+      "id": "docker-engine-install",
+      "provider": "docker",
+      "title": "Install Docker Engine",
+      "url": "https://docs.docker.com/engine/install/",
+      "summary": "The page branches by platform first, so the reader reaches a single self-contained path for their OS before encountering any background material. Each platform path is a numbered command sequence with prerequisite checks up front and post-install verification at the end. Package-manager, convenience-script, and manual-binary routes appear as clearly ranked alternatives under one parent path per platform, with the support status of each route stated before the commands begin.",
+      "observed_archetypes": [
+        "installation-guide",
+        "platform-branched-reference"
+      ],
+      "suitable_intents": [
+        "install-the-software",
+        "verify-an-installation",
+        "plan-upgrades"
+      ],
+      "information_shape": [
+        "prereq_check",
+        "platform_selection",
+        "repo_setup",
+        "install_commands",
+        "post_install_verification",
+        "upgrade_path"
+      ],
+      "strong_traits": [
+        "Per-platform self-containment.",
+        "Numbered command sequences.",
+        "Upgrade and uninstall covered.",
+        "Support status stated up front."
+      ],
+      "anti_patterns": [
+        "Install steps buried in prose.",
+        "Convenience script promoted above managed packages."
+      ],
+      "useful_for": [
+        "Writing installation guides.",
+        "Structuring platform branches.",
+        "Placing verification steps."
+      ],
+      "tags": [
+        "installation",
+        "reference",
+        "docker-engine"
+      ],
+      "pattern_ids": [
+        "installation-guide"
+      ],
+      "quality_notes": [
+        "Per-platform branches are regenerated per release; keep fetches versioned.",
+        "Convenience script is shown but flagged for non-production use on the live page."
+      ],
+      "normalized_path": "normalized/docker-engine-install.yaml",
+      "acquire": "metadata-only",
+      "verification": "unverified-structural-summary",
+      "est_tokens": 249
+    },
+    {
+      "id": "docker-get-started",
+      "provider": "docker",
+      "title": "Get started",
+      "url": "https://docs.docker.com/get-started/",
+      "summary": "The page opens with a value statement and a one-command build-and-run experiment before any theory, so the reader confirms their installation works within the first screens. It then carries a single sample application through increasingly production-like steps, moving from building an image to persisting data with volumes, connecting containers through a network, and finally composing multi-service setups. Every part ends with a runnable command and its expected output, which keeps reader progress continuously verifiable. Conceptual vocabulary appears only in small asides when the running example needs it.",
+      "observed_archetypes": [
+        "quickstart",
+        "hands-on-walkthrough"
+      ],
+      "suitable_intents": [
+        "evaluate-the-tool",
+        "learn-by-doing",
+        "first-contact-onboarding"
+      ],
+      "information_shape": [
+        "prereq_check",
+        "first_command_experiment",
+        "single_container_build",
+        "add_persistence",
+        "connect_containers",
+        "compose_services",
+        "recap_and_next_steps"
+      ],
+      "strong_traits": [
+        "Runnable-first progression.",
+        "Expected output after every step.",
+        "Progressive complexity along one example.",
+        "Concepts deferred to targeted asides."
+      ],
+      "anti_patterns": [
+        "Front-loaded theory.",
+        "Example code without shown results."
+      ],
+      "useful_for": [
+        "Planning a quickstart page.",
+        "Ordering first-session steps.",
+        "Choosing verification points."
+      ],
+      "tags": [
+        "quickstart",
+        "tutorial",
+        "onboarding",
+        "containers"
+      ],
+      "pattern_ids": [
+        "product-overview",
+        "quickstart-happy-path"
+      ],
+      "quality_notes": [
+        "Canonical official quickstart; one sample app evolves across parts.",
+        "Docker Desktop screenshots change between releases; verify against the live page before fetching."
+      ],
+      "normalized_path": "normalized/docker-get-started.yaml",
+      "acquire": "metadata-only",
+      "verification": "unverified-structural-summary",
+      "est_tokens": 287
+    },
+    {
+      "id": "github-rest-auth",
+      "provider": "github",
+      "title": "Authenticating to the REST API",
+      "url": "https://docs.github.com/en/rest/authentication/authenticating-to-the-rest-api",
+      "summary": "The page states the credential categories up front and then devotes one section per credential type, keeping request examples short enough to copy verbatim. Failure modes such as expired tokens and missing scopes are folded into each credential section as brief numbered checks rather than pushed to a distant errors chapter. Environment-specific guidance, for example running inside CI, is scoped to clearly marked subsections so the base flow stays generic.",
+      "observed_archetypes": [
+        "authentication-guide",
+        "api-security-reference"
+      ],
+      "suitable_intents": [
+        "authenticate-api-requests",
+        "choose-a-credential-type",
+        "debug-auth-failures"
+      ],
+      "information_shape": [
+        "category_overview",
+        "token_creation",
+        "header_usage",
+        "failure_checks",
+        "environment_variants"
+      ],
+      "strong_traits": [
+        "One credential per section.",
+        "Minimal request examples.",
+        "Failure checks adjacent to usage."
+      ],
+      "anti_patterns": [
+        "Mixed credential examples.",
+        "Scope semantics deferred to an appendix."
+      ],
+      "useful_for": [
+        "Writing authentication sections.",
+        "Documenting credential lifecycles.",
+        "Placing security guidance in API docs."
+      ],
+      "tags": [
+        "authentication",
+        "api",
+        "security"
+      ],
+      "pattern_ids": [
+        "api-operation",
+        "authentication-rbac"
+      ],
+      "quality_notes": [
+        "Credential taxonomy is stable across docs versions.",
+        "URLs reshuffle between GitHub docs versions; pin a versioned path when fetching."
+      ],
+      "normalized_path": "normalized/github-rest-auth.yaml",
+      "acquire": "metadata-only",
+      "verification": "unverified-structural-summary",
+      "est_tokens": 231
+    },
+    {
+      "id": "kubernetes-kubectl-reference",
+      "provider": "kubernetes",
+      "title": "Command line tool (kubectl)",
+      "url": "https://kubernetes.io/docs/reference/kubectl/",
+      "summary": "The page is a lookup-oriented hub that opens with installation and configuration, then hands off to generated per-command reference pages through an organized command-overview table. Cross-cutting conventions such as verbosity flags and environment variables live on separate pages and are linked rather than inlined. The structure supports landing directly on one command rather than reading sequentially.",
+      "observed_archetypes": [
+        "cli-reference-hub",
+        "generated-reference-index"
+      ],
+      "suitable_intents": [
+        "look-up-a-command",
+        "learn-cli-conventions"
+      ],
+      "information_shape": [
+        "install_links",
+        "configuration_basics",
+        "command_overview_table",
+        "per_command_reference_links",
+        "global_flag_conventions"
+      ],
+      "strong_traits": [
+        "Table-driven command lookup.",
+        "Shallow nesting for random access.",
+        "Conventions separated from command pages."
+      ],
+      "anti_patterns": [
+        "Long narrative between command entries.",
+        "Flag lists that drift from the binary."
+      ],
+      "useful_for": [
+        "Structuring CLI reference hubs.",
+        "Linking generated reference material.",
+        "Separating conventions from commands."
+      ],
+      "tags": [
+        "cli",
+        "reference",
+        "kubectl"
+      ],
+      "pattern_ids": [
+        "cli-guide",
+        "operator-runbook"
+      ],
+      "quality_notes": [
+        "Mostly a hub into generated per-command pages; structure is more stable than flag lists.",
+        "The command overview table is regenerated from a source of truth per release."
+      ],
+      "normalized_path": "normalized/kubernetes-kubectl-reference.yaml",
+      "acquire": "metadata-only",
+      "verification": "unverified-structural-summary",
+      "est_tokens": 227
+    },
+    {
+      "id": "kubernetes-production-setup",
+      "provider": "kubernetes",
+      "title": "Production environment",
+      "url": "https://kubernetes.io/docs/setup/production-environment/",
+      "summary": "The page separates planning from execution, first listing the decision axes for a production cluster such as tooling, control-plane topology, and networking, and only then pointing to concrete setup routes. Each route (managed service, kubeadm, bootstrap tools) gets a short trade-off statement and links out instead of duplicating instructions. Requirements are presented as a compact checklist that operators can sweep before committing to a route.",
+      "observed_archetypes": [
+        "planning-guide",
+        "route-selection-hub"
+      ],
+      "suitable_intents": [
+        "plan-a-production-cluster",
+        "choose-a-setup-tool"
+      ],
+      "information_shape": [
+        "requirements_checklist",
+        "tooling_comparison",
+        "control_plane_options",
+        "setup_route_links",
+        "security_considerations"
+      ],
+      "strong_traits": [
+        "Trade-offs before commands.",
+        "Checklist-style requirements.",
+        "Linking out instead of duplicating tool docs."
+      ],
+      "anti_patterns": [
+        "Tool-specific procedures duplicated per route.",
+        "Missing hardware and scale ceilings."
+      ],
+      "useful_for": [
+        "Writing production planning pages.",
+        "Structuring tool-selection sections.",
+        "Composing requirement checklists."
+      ],
+      "tags": [
+        "kubernetes",
+        "production",
+        "cluster-setup"
+      ],
+      "pattern_ids": [
+        "installation-guide",
+        "operator-runbook"
+      ],
+      "quality_notes": [
+        "Setup routes shift as bootstrap tools evolve; link targets need revalidation.",
+        "The requirements checklist is normative and stable."
+      ],
+      "normalized_path": "normalized/kubernetes-production-setup.yaml",
+      "acquire": "metadata-only",
+      "verification": "unverified-structural-summary",
+      "est_tokens": 238
+    },
+    {
+      "id": "langgraph-agents",
+      "provider": "langchain",
+      "title": "Agents",
+      "url": "https://langchain-ai.github.io/langgraph/concepts/agents/",
+      "summary": "The page defines an agent as a system-plus-tools composition and then decomposes the idea into graph primitives such as nodes, edges, and state, keeping the abstractions reusable beyond any single framework. Single-agent and multi-agent topologies are contrasted with small diagrams before any API or runtime details appear. Lifecycle concerns such as persistence, human-in-the-loop interruption, and memory appear as dedicated follow-on concepts, linked at the exact points where they become relevant.",
+      "observed_archetypes": [
+        "concept-guide",
+        "topology-survey"
+      ],
+      "suitable_intents": [
+        "understand-agent-abstractions",
+        "plan-a-multi-agent-graph"
+      ],
+      "information_shape": [
+        "agent_definition",
+        "primitive_decomposition",
+        "topology_comparison",
+        "state_and_runtime_concepts",
+        "persistence_interruption_pointers",
+        "deeper_concept_links"
+      ],
+      "strong_traits": [
+        "Diagram-first topology contrast.",
+        "Primitives named once and reused.",
+        "Lifecycle topics linked rather than inlined."
+      ],
+      "anti_patterns": [
+        "Framework API calls mixed into concept prose.",
+        "One monolithic agent example carrying the whole page."
+      ],
+      "useful_for": [
+        "Explaining abstraction layers.",
+        "Connecting concepts to lifecycle management.",
+        "Contrasting system topologies."
+      ],
+      "tags": [
+        "agents",
+        "concepts",
+        "orchestration"
+      ],
+      "pattern_ids": [
+        "concept-mental-model",
+        "lifecycle-management"
+      ],
+      "quality_notes": [
+        "Topology diagrams are the reusable part, not the framework API mentions.",
+        "The docs site migrates between hosts; verify the canonical URL before fetching."
+      ],
+      "normalized_path": "normalized/langgraph-agents.yaml",
+      "acquire": "metadata-only",
+      "verification": "unverified-structural-summary",
+      "est_tokens": 262
+    },
+    {
+      "id": "mcp-architecture",
+      "provider": "mcp",
+      "title": "Architecture",
+      "url": "https://modelcontextprotocol.io/docs/concepts/architecture",
+      "summary": "The page fixes terminology first, defining hosts, clients, and servers, and then presents the one-to-many client-server topology in a single diagram that the rest of the document leans on. Protocol mechanics are layered, with message types, connection lifecycle, and capability negotiation each getting a short section that ends in the concrete JSON-RPC shape. The body stays provider-neutral, delegating integration examples to linked client and server pages.",
+      "observed_archetypes": [
+        "architecture-overview",
+        "protocol-concept-page"
+      ],
+      "suitable_intents": [
+        "understand-protocol-structure",
+        "position-a-new-integration"
+      ],
+      "information_shape": [
+        "actor_glossary",
+        "topology_diagram",
+        "message_layer_concepts",
+        "lifecycle_negotiation",
+        "design_principles",
+        "integration_pointers"
+      ],
+      "strong_traits": [
+        "Glossary before diagram.",
+        "One diagram reused as the anchor.",
+        "Provider-neutral body text.",
+        "Lifecycle covered explicitly."
+      ],
+      "anti_patterns": [
+        "Vendor-specific digressions.",
+        "Transport details mixed into the topology story."
+      ],
+      "useful_for": [
+        "Writing architecture overviews.",
+        "Establishing shared vocabulary.",
+        "Introducing ecosystem roles."
+      ],
+      "tags": [
+        "architecture",
+        "protocol",
+        "concepts"
+      ],
+      "pattern_ids": [
+        "architecture-overview",
+        "integration-guide",
+        "product-overview"
+      ],
+      "quality_notes": [
+        "Short, high-signal page; the glossary and diagram transfer well to protocol docs.",
+        "Spec revisions rename roles occasionally; recheck terminology before reuse."
+      ],
+      "normalized_path": "normalized/mcp-architecture.yaml",
+      "acquire": "metadata-only",
+      "verification": "unverified-structural-summary",
+      "est_tokens": 241
+    },
+    {
+      "id": "mcp-tools",
+      "provider": "mcp",
+      "title": "Tools",
+      "url": "https://modelcontextprotocol.io/docs/concepts/tools",
+      "summary": "The page pairs a definition of what a tool is with the exact JSON schema exchanged to discover and invoke it, keeping abstraction and wire format side by side. A worked weather-service example runs through listing, describing, and calling a tool, and error handling gets its own short section with concrete failure payloads. Best-practice guidance is collected at the end rather than interrupting the mechanical flow.",
+      "observed_archetypes": [
+        "concept-howto-hybrid",
+        "protocol-reference-page"
+      ],
+      "suitable_intents": [
+        "expose-a-tool",
+        "implement-tool-invocation",
+        "understand-tool-discovery"
+      ],
+      "information_shape": [
+        "tool_definition",
+        "discovery_invocation_schema",
+        "worked_server_example",
+        "error_handling_notes",
+        "best_practice_checklist"
+      ],
+      "strong_traits": [
+        "Abstraction and wire format kept adjacent.",
+        "One worked example carried through the page.",
+        "Explicit error payloads."
+      ],
+      "anti_patterns": [
+        "Schema fields explained only in prose.",
+        "Best practices scattered mid-flow."
+      ],
+      "useful_for": [
+        "Writing task-focused protocol guides.",
+        "Documenting tool registration.",
+        "Pairing concepts with schemas."
+      ],
+      "tags": [
+        "tools",
+        "concepts",
+        "howto",
+        "protocol"
+      ],
+      "pattern_ids": [
+        "concept-mental-model",
+        "task-how-to"
+      ],
+      "quality_notes": [
+        "Hybrid concept-plus-howto page with a single carried-through example.",
+        "JSON schema snippets track the spec version; keep quotes versioned."
+      ],
+      "normalized_path": "normalized/mcp-tools.yaml",
+      "acquire": "metadata-only",
+      "verification": "unverified-structural-summary",
+      "est_tokens": 225
+    },
+    {
+      "id": "nginx-runtime-operations",
+      "provider": "nginx",
+      "title": "Controlling nginx",
+      "url": "https://nginx.org/en/docs/control.html",
+      "summary": "The page is organized around the control verbs an operator issues to a running instance, covering start, stop, reload, and log rotation, each with the exact command and its failure semantics. Configuration reload is explained as a two-phase change mechanism that tests the new configuration and then applies it while old workers finish in-flight requests, turning a common operational worry into an explicit guarantee. Upgrade behavior and log-rotation recipes close the page as repeatable procedures with copyable shell snippets.",
+      "observed_archetypes": [
+        "operator-runbook",
+        "runtime-behavior-reference"
+      ],
+      "suitable_intents": [
+        "reload-configuration-safely",
+        "rotate-logs",
+        "perform-live-upgrades"
+      ],
+      "information_shape": [
+        "process_model_brief",
+        "start_stop_signals",
+        "reload_semantics",
+        "log_rotation_procedure",
+        "live_upgrade_procedure",
+        "failure_notes"
+      ],
+      "strong_traits": [
+        "One verb per section.",
+        "Copyable commands with context.",
+        "Reload guarantee stated explicitly."
+      ],
+      "anti_patterns": [
+        "Configuration tuning mixed with runtime control.",
+        "Procedures without failure notes."
+      ],
+      "useful_for": [
+        "Writing operator runbooks.",
+        "Documenting signal-based control.",
+        "Separating runtime behavior from tuning."
+      ],
+      "tags": [
+        "operations",
+        "runbook",
+        "nginx"
+      ],
+      "pattern_ids": [
+        "configuration-reference",
+        "operator-runbook"
+      ],
+      "quality_notes": [
+        "Compact runbook exemplar; stable across nginx releases.",
+        "Signal semantics text rarely changes; low maintenance risk."
+      ],
+      "normalized_path": "normalized/nginx-runtime-operations.yaml",
+      "acquire": "metadata-only",
+      "verification": "unverified-structural-summary",
+      "est_tokens": 258
+    },
+    {
+      "id": "notion-version-history",
+      "provider": "notion",
+      "title": "Page history",
+      "url": "https://www.notion.com/help/page-history",
+      "summary": "The page is a short support article that answers access and recovery in the first screens, showing where the history menu lives, what the timeline displays, and how to restore a version. Plan-dependent retention windows are stated in a compact table so expectations are visible without further reading. Troubleshooting stays bounded to a handful of named scenarios and points to the workspace owner or support when restore is unavailable.",
+      "observed_archetypes": [
+        "support-article",
+        "feature-guide"
+      ],
+      "suitable_intents": [
+        "recover-a-previous-version",
+        "check-retention-limits"
+      ],
+      "information_shape": [
+        "access_entry_point",
+        "timeline_navigation",
+        "restore_procedure",
+        "plan_limits_table",
+        "troubleshooting_scenarios",
+        "support_escalation"
+      ],
+      "strong_traits": [
+        "Recovery goal first.",
+        "Retention table for plan limits.",
+        "Bounded troubleshooting scope."
+      ],
+      "anti_patterns": [
+        "Version theory before the menu path.",
+        "Support links standing in for content."
+      ],
+      "useful_for": [
+        "Writing version-history pages.",
+        "Structuring support articles.",
+        "Documenting plan-based limits."
+      ],
+      "tags": [
+        "version-history",
+        "support",
+        "collaboration"
+      ],
+      "pattern_ids": [
+        "troubleshooting",
+        "version-history"
+      ],
+      "quality_notes": [
+        "Support-article structure exemplifies recovery-goal-first ordering.",
+        "The plan-tier retention table changes with pricing; revalidate numbers on fetch."
+      ],
+      "normalized_path": "normalized/notion-version-history.yaml",
+      "acquire": "metadata-only",
+      "verification": "unverified-structural-summary",
+      "est_tokens": 229
+    },
+    {
+      "id": "stripe-api-operation",
+      "provider": "stripe",
+      "title": "Create a charge",
+      "url": "https://docs.stripe.com/api/charges/create",
+      "summary": "The page is a generated endpoint reference whose body stays purely definitional. A signature block with method and path sits directly under the title, followed by a runnable request example before any prose. Every request parameter gets an anchored definition row with type, optionality, and nested sub-parameters, and the response fields mirror the same table discipline. Error semantics, idempotency, and related endpoints are cross-linked from a short footer section instead of interrupting the tables.",
+      "observed_archetypes": [
+        "generated-api-reference",
+        "endpoint-definition-page"
+      ],
+      "suitable_intents": [
+        "implement-an-api-call",
+        "look-up-parameter-semantics",
+        "inspect-response-fields"
+      ],
+      "information_shape": [
+        "signature_block",
+        "runnable_example",
+        "request_parameter_table",
+        "response_field_table",
+        "related_links_footer"
+      ],
+      "strong_traits": [
+        "Example precedes prose.",
+        "Anchored rows per parameter.",
+        "Mirrored request and response documentation.",
+        "Stable layout across endpoints."
+      ],
+      "anti_patterns": [
+        "Narrative paragraphs between parameters.",
+        "Example code without a stated API version."
+      ],
+      "useful_for": [
+        "Modeling endpoint reference pages.",
+        "Documenting nested parameters.",
+        "Deciding what belongs in page footers."
+      ],
+      "tags": [
+        "api",
+        "reference",
+        "payments"
+      ],
+      "pattern_ids": [
+        "api-operation",
+        "api-resource-reference"
+      ],
+      "quality_notes": [
+        "Generated per-endpoint layout is the exemplar of stable API operation reference.",
+        "Parameter sets evolve; re-check the live page before quoting fields."
+      ],
+      "normalized_path": "normalized/stripe-api-operation.yaml",
+      "acquire": "metadata-only",
+      "verification": "unverified-structural-summary",
+      "est_tokens": 259
+    },
+    {
+      "id": "stripe-pagination-errors",
+      "provider": "stripe",
+      "title": "Pagination",
+      "url": "https://docs.stripe.com/pagination",
+      "summary": "The page presents cursor-based auto-pagination as the default behavior first, then documents the manual variant with its exact query parameters and invariants. Cross-language request examples sit in tabs so pagination behavior stays comparable between client libraries. Rate limits and error surfaces such as timeouts are treated as part of the pagination contract and referenced from the same page rather than isolated in a separate chapter.",
+      "observed_archetypes": [
+        "api-behavior-guide",
+        "troubleshooting-adjacent-reference"
+      ],
+      "suitable_intents": [
+        "consume-list-endpoints",
+        "debug-truncated-result-sets"
+      ],
+      "information_shape": [
+        "default_cursor_behavior",
+        "auto_pagination_example",
+        "manual_cursor_params",
+        "client_library_variants",
+        "limits_and_error_surfaces"
+      ],
+      "strong_traits": [
+        "Default-first ordering.",
+        "Tabbed language parity.",
+        "Behavioral invariants stated explicitly."
+      ],
+      "anti_patterns": [
+        "Page-count mental models.",
+        "Cursor semantics left implicit."
+      ],
+      "useful_for": [
+        "Documenting list endpoint behavior.",
+        "Connecting behavior pages to troubleshooting.",
+        "Handling client-library differences."
+      ],
+      "tags": [
+        "api",
+        "pagination",
+        "errors"
+      ],
+      "pattern_ids": [
+        "api-operation",
+        "troubleshooting"
+      ],
+      "quality_notes": [
+        "Behavioral page that pairs with the error-handling page when analyzing API troubleshooting.",
+        "Client-library tabs change as SDKs are added."
+      ],
+      "normalized_path": "normalized/stripe-pagination-errors.yaml",
+      "acquire": "metadata-only",
+      "verification": "unverified-structural-summary",
+      "est_tokens": 225
+    },
+    {
+      "id": "unstructured-chunking",
+      "provider": "unstructured",
+      "title": "Chunking",
+      "url": "https://docs.unstructured.io/open-source/core-functionality/chunking",
+      "summary": "The page frames chunking as a decision before it is a configuration: it names the strategies, states when each preserves or reorganizes document structure, and only then lists parameters. Each strategy section carries a compact code snippet whose parameters mirror the prose claims, plus notes on titles-based versus fixed-size behavior. Links to the partitioning settings keep the two pipeline stages discoverable from either direction.",
+      "observed_archetypes": [
+        "strategy-selection-guide",
+        "parameterized-concept-page"
+      ],
+      "suitable_intents": [
+        "choose-a-chunking-strategy",
+        "tune-chunk-size"
+      ],
+      "information_shape": [
+        "chunking_purpose",
+        "strategy_catalog",
+        "per_strategy_behavior",
+        "parameter_reference",
+        "comparison_snippets",
+        "related_stage_links"
+      ],
+      "strong_traits": [
+        "Decision-first structure.",
+        "Strategy names reused across prose and snippets.",
+        "Trade-off notes per strategy."
+      ],
+      "anti_patterns": [
+        "Parameter dumps without selection guidance.",
+        "Strategy names renamed between prose and code."
+      ],
+      "useful_for": [
+        "Writing strategy-selection pages.",
+        "Structuring parameter references after decisions.",
+        "Keeping concept and configuration layers apart."
+      ],
+      "tags": [
+        "chunking",
+        "rag",
+        "configuration"
+      ],
+      "pattern_ids": [
+        "concept-strategy-selection",
+        "configuration-reference"
+      ],
+      "quality_notes": [
+        "Strategy-first ordering is the exemplar for decision-oriented pages.",
+        "Parameters mirror the library API closely; verify defaults before quoting."
+      ],
+      "normalized_path": "normalized/unstructured-chunking.yaml",
+      "acquire": "metadata-only",
+      "verification": "unverified-structural-summary",
+      "est_tokens": 235
+    },
+    {
+      "id": "unstructured-partitioning",
+      "provider": "unstructured",
+      "title": "Partitioning",
+      "url": "https://docs.unstructured.io/open-source/core-functionality/partitioning",
+      "summary": "The page treats partitioning as one stage of a larger pipeline and situates it with a brief stage map before diving into detail. Format support is front and center as a matrix that links per-format strategy notes, letting readers route themselves by input type. The remainder is a parameterized API walkthrough that names strategies, states their defaults, and shows a running example whose output makes the partitioned element stream visible.",
+      "observed_archetypes": [
+        "pipeline-stage-guide",
+        "capability-reference"
+      ],
+      "suitable_intents": [
+        "choose-a-partition-strategy",
+        "configure-document-ingestion"
+      ],
+      "information_shape": [
+        "pipeline_stage_context",
+        "format_support_matrix",
+        "strategy_overview",
+        "api_parameter_reference",
+        "worked_example_output",
+        "downstream_links"
+      ],
+      "strong_traits": [
+        "Format matrix for self-routing.",
+        "Strategy names used consistently.",
+        "Example output shown, not described."
+      ],
+      "anti_patterns": [
+        "Format caveats hidden in footnotes.",
+        "Strategy comparisons scattered across pages."
+      ],
+      "useful_for": [
+        "Writing pipeline-stage introductions.",
+        "Structuring format-support matrices.",
+        "Shaping API parameter walkthroughs."
+      ],
+      "tags": [
+        "etl",
+        "document-processing",
+        "reference"
+      ],
+      "pattern_ids": [
+        "configuration-reference",
+        "pipeline-explanation"
+      ],
+      "quality_notes": [
+        "The format-support matrix is the fastest-moving part; revalidate before reuse.",
+        "Strategy names are shared with the chunking page, keeping cross-links stable."
+      ],
+      "normalized_path": "normalized/unstructured-partitioning.yaml",
+      "acquire": "metadata-only",
+      "verification": "unverified-structural-summary",
+      "est_tokens": 241
+    },
+    {
+      "id": "weaviate-search-concepts",
+      "provider": "weaviate",
+      "title": "Search",
+      "url": "https://weaviate.io/developers/weaviate/concepts/search",
+      "summary": "The page builds the search mental model in layers, introducing similarity-based vector search first, then keyword BM25, then hybrid fusion, with each concept defined before any client code appears. Every concept section closes with a short multi-language code block and a link to the corresponding how-to page, separating explanation from operation by design. Diagrams carry the intuition for distance and fusion while prose states the guarantees and caveats.",
+      "observed_archetypes": [
+        "layered-concept-guide",
+        "mental-model-page"
+      ],
+      "suitable_intents": [
+        "understand-search-mechanics",
+        "decide-between-search-modes"
+      ],
+      "information_shape": [
+        "capability_map",
+        "vector_similarity_concept",
+        "keyword_bm25_concept",
+        "hybrid_fusion_concept",
+        "per_concept_code_pointer",
+        "howto_links"
+      ],
+      "strong_traits": [
+        "Concept before code.",
+        "Per-concept handoff to how-to pages.",
+        "Consistent mode names throughout.",
+        "Diagrams carrying the intuition load."
+      ],
+      "anti_patterns": [
+        "Client setup noise inside concept sections.",
+        "Mode comparisons without prior definitions."
+      ],
+      "useful_for": [
+        "Writing concept pages.",
+        "Structuring concept-to-howto handoffs.",
+        "Introducing search modes in order."
+      ],
+      "tags": [
+        "concepts",
+        "vector-search",
+        "hybrid-search"
+      ],
+      "pattern_ids": [
+        "concept-mental-model",
+        "concept-strategy-selection"
+      ],
+      "quality_notes": [
+        "Concept-to-howto handoff links are the exemplar of layered documentation.",
+        "Fusion math stays conceptual on this page by design."
+      ],
+      "normalized_path": "normalized/weaviate-search-concepts.yaml",
+      "acquire": "metadata-only",
+      "verification": "unverified-structural-summary",
+      "est_tokens": 250
+    }
+  ],
+  "patterns": [
+    {
+      "id": "api-operation",
+      "description": "Documents one endpoint in a stable generated layout that moves from signature to runnable example to exhaustive parameter and response tables.",
+      "suitable_when": [
+        "The page must support exact lookup of one operation while coding.",
+        "Parameters nest and each level needs anchored definitions."
+      ],
+      "information_shape": [
+        "method_path_signature",
+        "runnable_example",
+        "request_parameters",
+        "response_schema",
+        "error_and_rate_limits",
+        "related_operations"
+      ],
+      "good_traits": [
+        "Example precedes prose.",
+        "Anchored rows per parameter.",
+        "Response documented with the same discipline as the request.",
+        "Layout identical across endpoints."
+      ],
+      "anti_patterns": [
+        "Tutorial narrative inside reference pages.",
+        "Nested fields left undocumented.",
+        "Examples drifted from the current schema."
+      ],
+      "source_examples": [
+        "stripe-api-operation",
+        "github-rest-auth"
+      ],
+      "est_tokens": 185
+    },
+    {
+      "id": "api-resource-reference",
+      "description": "Groups an API resource's object model with its operations so readers see the data shape and the actions on it together.",
+      "suitable_when": [
+        "One resource has several endpoints and a shared object schema.",
+        "Readers need the object fields explained once rather than per endpoint."
+      ],
+      "information_shape": [
+        "resource_object_schema",
+        "field_definitions",
+        "endpoint_list",
+        "shared_behavior",
+        "cross_resource_relations"
+      ],
+      "good_traits": [
+        "Object model documented exactly once.",
+        "Per-field state semantics.",
+        "Endpoints linked, not inlined."
+      ],
+      "anti_patterns": [
+        "Field definitions repeated on every endpoint page.",
+        "A missing object model that lets endpoint docs disagree.",
+        "Changelog fragments used as page structure."
+      ],
+      "source_examples": [
+        "stripe-api-operation"
+      ],
+      "est_tokens": 173
+    },
+    {
+      "id": "architecture-overview",
+      "description": "Positions the moving parts of a system and their responsibilities so readers can reason about the whole before studying any part.",
+      "suitable_when": [
+        "A protocol, product, or system has named actors whose relationships need a canonical statement.",
+        "Downstream pages will assume vocabulary established here."
+      ],
+      "information_shape": [
+        "actor_glossary",
+        "topology_diagram",
+        "responsibility_boundaries",
+        "interaction_sequences",
+        "design_principles",
+        "pointers_to_details"
+      ],
+      "good_traits": [
+        "One diagram reused as an anchor across pages.",
+        "One consistent term per actor.",
+        "Explicit non-goals and boundaries."
+      ],
+      "anti_patterns": [
+        "A repository tour standing in for concepts.",
+        "Per-component marketing claims.",
+        "A diagram inconsistent with the prose."
+      ],
+      "source_examples": [
+        "mcp-architecture"
+      ],
+      "est_tokens": 181
+    },
+    {
+      "id": "authentication-rbac",
+      "description": "Documents credential types and permission models with a dedicated section per credential and failure checks placed close to the flow.",
+      "suitable_when": [
+        "Multiple credential kinds coexist and readers must pick one deliberately.",
+        "Permission models are non-obvious and need explicit scope semantics."
+      ],
+      "information_shape": [
+        "credential_categories",
+        "per_credential_setup",
+        "request_attachment",
+        "scope_semantics",
+        "failure_and_rotation"
+      ],
+      "good_traits": [
+        "One credential kind per section.",
+        "Minimal authentic request examples.",
+        "Failure modes listed next to the usage they affect."
+      ],
+      "anti_patterns": [
+        "Several credential kinds mixed in one example.",
+        "Scope glossary deferred to an appendix.",
+        "Security advice omitted entirely."
+      ],
+      "source_examples": [
+        "github-rest-auth"
+      ],
+      "est_tokens": 177
+    },
+    {
+      "id": "cli-guide",
+      "description": "Supports random-access lookup of command-line tools through stable per-command pages and a navigable command overview.",
+      "suitable_when": [
+        "The tool has many commands with generated reference pages.",
+        "Readers look up one command mid-task instead of reading linearly."
+      ],
+      "information_shape": [
+        "install_configure_entry",
+        "command_overview_table",
+        "per_command_reference",
+        "global_flag_conventions",
+        "output_and_exit_codes"
+      ],
+      "good_traits": [
+        "Overview table tuned for lookup.",
+        "One consistent template per command page.",
+        "Conventions documented once on their own page."
+      ],
+      "anti_patterns": [
+        "Narrative walkthroughs inside reference pages.",
+        "Flag lists drifted from the shipped binary.",
+        "Global flags buried in per-command pages."
+      ],
+      "source_examples": [
+        "kubernetes-kubectl-reference"
+      ],
+      "est_tokens": 174
+    },
+    {
+      "id": "concept-mental-model",
+      "description": "Builds the reader's internal model of one concept, stating what it is, what it guarantees, and what it must not be confused with.",
+      "suitable_when": [
+        "A concept underlies several tasks and deserves a single canonical page.",
+        "Misconceptions are common and need explicit contrast."
+      ],
+      "information_shape": [
+        "one_sentence_definition",
+        "why_it_exists",
+        "mechanics_intuition",
+        "boundaries_and_misconceptions",
+        "worked_micro_example",
+        "links_to_task_guides"
+      ],
+      "good_traits": [
+        "Definition before mechanics.",
+        "Handoff links to how-to pages for every operation.",
+        "Misconceptions named explicitly."
+      ],
+      "anti_patterns": [
+        "API details inside concept prose.",
+        "Two concepts competing for the same name across pages.",
+        "Vague metaphors without stated semantics."
+      ],
+      "source_examples": [
+        "weaviate-search-concepts",
+        "mcp-tools"
+      ],
+      "est_tokens": 181
+    },
+    {
+      "id": "concept-strategy-selection",
+      "description": "Helps readers choose between named alternatives by defining each option first, then stating the trade-offs that discriminate them.",
+      "suitable_when": [
+        "Several legitimate strategies exist and the right one depends on context.",
+        "The page must support a decision, not only a lookup."
+      ],
+      "information_shape": [
+        "decision_question",
+        "option_catalog",
+        "per_option_trade_offs",
+        "context_based_guidance",
+        "comparison_summary",
+        "parameter_pointers"
+      ],
+      "good_traits": [
+        "Options defined before they are compared.",
+        "Trade-offs stated per option.",
+        "Recommendations conditioned on reader context."
+      ],
+      "anti_patterns": [
+        "A comparison table without prior definitions.",
+        "One option privileged by omission of the others' strengths.",
+        "Deciding for the reader without stating the conditions."
+      ],
+      "source_examples": [
+        "unstructured-chunking",
+        "weaviate-search-concepts"
+      ],
+      "est_tokens": 189
+    },
+    {
+      "id": "configuration-reference",
+      "description": "Documents every configurable knob in a stable, scannable layout so readers can find one setting and its exact semantics.",
+      "suitable_when": [
+        "Parameters have types, defaults, and side effects that must be stated precisely.",
+        "Readers look up a single option instead of reading linearly."
+      ],
+      "information_shape": [
+        "config_scope_overview",
+        "entry_per_setting",
+        "type_and_default",
+        "valid_values_and_constraints",
+        "interaction_notes",
+        "example_per_group"
+      ],
+      "good_traits": [
+        "Stable one-entry-per-parameter layout.",
+        "Exact defaults with units.",
+        "Cross-references between related settings."
+      ],
+      "anti_patterns": [
+        "Narrative paragraphs per option.",
+        "Stale defaults.",
+        "Settings entries that are actually concepts without configurable surface."
+      ],
+      "source_examples": [
+        "unstructured-partitioning",
+        "nginx-runtime-operations"
+      ],
+      "est_tokens": 179
+    },
+    {
+      "id": "installation-guide",
+      "description": "Delivers a complete, verifiable route from prerequisites to a running installation for one platform at a time.",
+      "suitable_when": [
+        "Installation differs by operating system, platform, or environment.",
+        "Readers arrive ready to act and need checkable command sequences."
+      ],
+      "information_shape": [
+        "prerequisites_and_compat",
+        "platform_or_route_selection",
+        "numbered_install_steps",
+        "post_install_verification",
+        "upgrade_and_rollback_path"
+      ],
+      "good_traits": [
+        "Each platform path is self-contained.",
+        "Verification placed at the end of every path.",
+        "Support status of each install route stated up front."
+      ],
+      "anti_patterns": [
+        "Command steps buried inside paragraphs.",
+        "One page forcing all platforms through a single narrative.",
+        "Upgrade or uninstall paths left undocumented."
+      ],
+      "source_examples": [
+        "docker-engine-install",
+        "kubernetes-production-setup"
+      ],
+      "est_tokens": 187
+    },
+    {
+      "id": "integration-guide",
+      "description": "Connects two systems through a single end-to-end setup path while keeping each side's native concepts intact.",
+      "suitable_when": [
+        "A reader must make an external tool, service, or protocol work with a host product.",
+        "Both sides' terminology appears and must stay distinguishable."
+      ],
+      "information_shape": [
+        "goal_and_topology",
+        "prerequisites_both_sides",
+        "connection_setup",
+        "flow_verification",
+        "common_failures",
+        "advanced_pointers"
+      ],
+      "good_traits": [
+        "Topology stated before steps.",
+        "Prerequisites separated per side.",
+        "End-to-end verification as an explicit step."
+      ],
+      "anti_patterns": [
+        "Credentials assumed present in snippets.",
+        "Only the happy path with no failure notes.",
+        "The two systems' names used interchangeably."
+      ],
+      "source_examples": [
+        "dify-knowledge-pipeline",
+        "mcp-architecture"
+      ],
+      "est_tokens": 175
+    },
+    {
+      "id": "lifecycle-management",
+      "description": "Tracks how an artifact or process changes over its lifetime, covering creation, evolution, persistence, and retirement with the operations of each stage.",
+      "suitable_when": [
+        "Readers manage artifacts or workflows whose state changes across sessions or over time.",
+        "Transitions between states carry side effects that need explicit documentation."
+      ],
+      "information_shape": [
+        "state_model_transitions",
+        "per_stage_operations",
+        "persistence_and_interruption",
+        "retention_and_cleanup",
+        "transition_failures",
+        "lifecycle_diagram"
+      ],
+      "good_traits": [
+        "States named and diagrammed.",
+        "Side effects of each transition stated.",
+        "Cleanup treated as a first-class stage."
+      ],
+      "anti_patterns": [
+        "An implicit state machine recoverable only from prose.",
+        "Retirement omitted.",
+        "Interruption behavior unspecified."
+      ],
+      "source_examples": [
+        "langgraph-agents",
+        "confluence-page-history"
+      ],
+      "est_tokens": 193
+    },
+    {
+      "id": "operator-runbook",
+      "description": "Gives operators imperative, copyable procedures for runtime control with failure semantics stated next to every action.",
+      "suitable_when": [
+        "Readers operate a live system under time pressure.",
+        "Each procedure must be executable without reading surrounding prose."
+      ],
+      "information_shape": [
+        "run_context_prereqs",
+        "procedure_per_verb",
+        "verification_steps",
+        "failure_semantics_rollback",
+        "escalation_pointers"
+      ],
+      "good_traits": [
+        "One control verb per section.",
+        "Commands copyable with their context.",
+        "Guarantees and rollback stated explicitly."
+      ],
+      "anti_patterns": [
+        "Configuration tuning mixed with runtime procedures.",
+        "Procedures without failure notes.",
+        "Narrative history standing in for steps."
+      ],
+      "source_examples": [
+        "kubernetes-production-setup",
+        "nginx-runtime-operations"
+      ],
+      "est_tokens": 168
+    },
+    {
+      "id": "pipeline-explanation",
+      "description": "Explains a multi-stage processing flow by following data through each stage, so the page structure mirrors execution order.",
+      "suitable_when": [
+        "Data is transformed across several stages and readers must reason about the whole flow.",
+        "Stage parameters belong to reference pages and must not be duplicated here."
+      ],
+      "information_shape": [
+        "pipeline_overview_diagram",
+        "stage_definitions",
+        "per_stage_inputs_outputs",
+        "end_to_end_example",
+        "tuning_pointers"
+      ],
+      "good_traits": [
+        "Stage order equals data order.",
+        "Input and output contracts stated per stage.",
+        "Links to reference pages instead of copying parameters."
+      ],
+      "anti_patterns": [
+        "Stages named in an order the data does not follow.",
+        "Parameters copied from reference pages.",
+        "An example that only covers the first stage."
+      ],
+      "source_examples": [
+        "dify-knowledge-pipeline",
+        "unstructured-partitioning"
+      ],
+      "est_tokens": 188
+    },
+    {
+      "id": "product-overview",
+      "description": "Orients a new reader in what a product is and why it exists, using the product's own vocabulary before any task work begins.",
+      "suitable_when": [
+        "The reader is evaluating or onboarding and has no prior exposure to the tool.",
+        "The team needs a shared vocabulary page that every later guide can link to.",
+        "An ecosystem or protocol needs its roles and actors positioned before specifics."
+      ],
+      "information_shape": [
+        "value_statement",
+        "audience_and_prerequisites",
+        "core_concept_map",
+        "capability_tour",
+        "ecosystem_roles",
+        "entry_point_links"
+      ],
+      "good_traits": [
+        "One name per concept from the first paragraph onward.",
+        "Concepts before tasks.",
+        "Links out to a first runnable step instead of embedding one."
+      ],
+      "anti_patterns": [
+        "Feature-marketing prose instead of orientation.",
+        "Deep dives into a single feature in an overview page.",
+        "Unexplained jargon in the opening paragraph."
+      ],
+      "source_examples": [
+        "docker-get-started",
+        "mcp-architecture"
+      ],
+      "est_tokens": 212
+    },
+    {
+      "id": "quickstart-happy-path",
+      "description": "Gets a first-time user to a visible, verifiable success in the shortest sequence of runnable steps.",
+      "suitable_when": [
+        "The product can produce a working result within minutes.",
+        "Onboarding bounce risk is high and success must be verifiable without interpretation."
+      ],
+      "information_shape": [
+        "prereq_check",
+        "setup_access",
+        "first_working_command",
+        "verify_expected_output",
+        "extend_one_step",
+        "next_steps_pointers"
+      ],
+      "good_traits": [
+        "Expected output shown after every step.",
+        "No branching in the happy path.",
+        "Time to first success kept minimal."
+      ],
+      "anti_patterns": [
+        "Theory before the first command.",
+        "Optional configuration folded into the happy path.",
+        "Example code that was never executed."
+      ],
+      "source_examples": [
+        "docker-get-started"
+      ],
+      "est_tokens": 169
+    },
+    {
+      "id": "task-how-to",
+      "description": "Walks an experienced reader through one concrete goal, handling decision points explicitly and relegating background to links.",
+      "suitable_when": [
+        "The reader knows the concepts and wants to accomplish one specific thing.",
+        "Branching by environment or variant is unavoidable and needs explicit handling."
+      ],
+      "information_shape": [
+        "goal_statement",
+        "prerequisites_check",
+        "core_procedure",
+        "variant_handling",
+        "result_verification",
+        "troubleshooting_pointers"
+      ],
+      "good_traits": [
+        "Goal verb in the title.",
+        "Steps imperative and ordered.",
+        "Branches labeled with the conditions that trigger them."
+      ],
+      "anti_patterns": [
+        "Concepts re-explained in the middle of a procedure.",
+        "One goal split across several pages.",
+        "A final state that was never verified."
+      ],
+      "source_examples": [
+        "mcp-tools"
+      ],
+      "est_tokens": 179
+    },
+    {
+      "id": "troubleshooting",
+      "description": "Organizes problems by observable symptom and routes each symptom to a diagnosis and remedy pair.",
+      "suitable_when": [
+        "Readers arrive with an error message or broken behavior rather than a task.",
+        "Symptoms are enumerable and remedies differ between them."
+      ],
+      "information_shape": [
+        "symptom_index",
+        "per_symptom_cause_diagnosis",
+        "remedy_procedure",
+        "escalation_path"
+      ],
+      "good_traits": [
+        "Symptom-first organization.",
+        "Remedies tested end to end.",
+        "Escalation path stated per symptom."
+      ],
+      "anti_patterns": [
+        "Solutions presented before the symptom they match.",
+        "Generic advice repeated per entry.",
+        "Cause lists without bound conditions."
+      ],
+      "source_examples": [
+        "stripe-pagination-errors",
+        "notion-version-history"
+      ],
+      "est_tokens": 152
+    },
+    {
+      "id": "version-history",
+      "description": "Explains how a system records versions and how to navigate, compare, and restore them from one entry point.",
+      "suitable_when": [
+        "Users need to recover or audit earlier states of an artifact.",
+        "Retention or plan-based limits must be visible without hunting."
+      ],
+      "information_shape": [
+        "version_recording_model",
+        "history_entry_point",
+        "navigation_and_comparison",
+        "restore_procedure",
+        "retention_limits",
+        "escalation_admin_notes"
+      ],
+      "good_traits": [
+        "Recovery goal stated first.",
+        "Limits presented in one compact table.",
+        "Restore and delete kept clearly distinct."
+      ],
+      "anti_patterns": [
+        "Version concepts explained before the menu path.",
+        "Retention limits left implicit.",
+        "Audit needs ignored."
+      ],
+      "source_examples": [
+        "notion-version-history",
+        "confluence-page-history"
+      ],
+      "est_tokens": 166
+    }
+  ]
+}

@@ -1,0 +1,41 @@
+id: docker-engine-install
+source:
+  provider: docker
+  title: Install Docker Engine
+  url: https://docs.docker.com/engine/install/
+summary: "The page branches by platform first, so the reader reaches a single self-contained path for their OS before encountering any background material. Each platform path is a numbered command sequence with prerequisite checks up front and post-install verification at the end. Package-manager, convenience-script, and manual-binary routes appear as clearly ranked alternatives under one parent path per platform, with the support status of each route stated before the commands begin."
+observed_archetypes:
+  - installation-guide
+  - platform-branched-reference
+suitable_intents:
+  - install-the-software
+  - verify-an-installation
+  - plan-upgrades
+information_shape:
+  - prereq_check
+  - platform_selection
+  - repo_setup
+  - install_commands
+  - post_install_verification
+  - upgrade_path
+strong_traits:
+  - Per-platform self-containment.
+  - Numbered command sequences.
+  - Upgrade and uninstall covered.
+  - Support status stated up front.
+anti_patterns:
+  - Install steps buried in prose.
+  - Convenience script promoted above managed packages.
+useful_for:
+  - Writing installation guides.
+  - Structuring platform branches.
+  - Placing verification steps.
+tags:
+  - installation
+  - reference
+  - docker-engine
+pattern_ids:
+  - installation-guide
+retrieved_at: null
+license_or_usage_note: "Structural summary only; page content is (c) the provider - do not redistribute prose."
+verification: unverified-structural-summary

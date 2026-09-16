@@ -1,0 +1,21 @@
+id: cli-guide
+description: Supports random-access lookup of command-line tools through stable per-command pages and a navigable command overview.
+suitable_when:
+  - The tool has many commands with generated reference pages.
+  - Readers look up one command mid-task instead of reading linearly.
+information_shape:
+  - install_configure_entry
+  - command_overview_table
+  - per_command_reference
+  - global_flag_conventions
+  - output_and_exit_codes
+good_traits:
+  - Overview table tuned for lookup.
+  - One consistent template per command page.
+  - Conventions documented once on their own page.
+anti_patterns:
+  - Narrative walkthroughs inside reference pages.
+  - Flag lists drifted from the shipped binary.
+  - Global flags buried in per-command pages.
+source_examples:
+  - kubernetes-kubectl-reference

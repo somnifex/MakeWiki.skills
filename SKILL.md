@@ -78,6 +78,7 @@ Repository Orientation
 → Semantic Synthesis                     (canonical SemanticModel)
 → Documentation Modeling                 (DocumentationModel)
 → Documentation Planning                 (DocumentationPlan + PageSpec[])  [Phase 5/6]
+→ Benchmark Selection                    (optional ReferenceProfile)   [Phase 5b]
 → Writing Subtasks                       (drafts)
 → Independent Review Subtasks            (ReviewFindings)
 → Revision Subtasks (when needed)        (re-review)
@@ -222,6 +223,7 @@ on a solo host the Main Agent assumes each role in sequence.
 | Recovery (mechanical-tool failure)            | `tasks/scan.md` §2                           | `ClaimBundle` via direct inspection |
 | Blind coverage (complex / large repos)        | `tasks/scan.md` §3                           | independent re-exploration |
 | Debater (hard-conflict escalation only)       | `tasks/rebattle.md`                          | adjudicated dispute → Semantic Synthesis |
+| Benchmark Selector (per page, optional)       | `tasks/select-benchmarks.md`                 | `ReferenceProfile` (advisory) |
 | Language Writer (one page × one language)       | `tasks/write.md`, `tasks/write-page.md`    | native draft page (stable `[[id:...]]` + section markers) |
 | Reviewer (read-only)                          | `tasks/review.md`, `tasks/revise.md`         | `ReviewFindings` → revised draft → re-review |
 | Final Semantic Auditor (L3 / L4b / L5)        | §4, `tasks/review.md`                        | `semantic_audit.json` |
@@ -346,6 +348,16 @@ is a cognitive rubric, never a mandatory filename list.
 
 ### 6. Writing
 
+0. **Benchmark selection (optional, advisory).** When `benchmark.enabled` is
+   true, the orchestrator first runs one Benchmark Selector subtask per page
+   (`tasks/select-benchmarks.md`): stage 1 ranks the compact
+   `benchmarks/index/benchmark-index.json`, stage 2 loads details only for a
+   shortlist of 1–3 (4 maximum), honoring `benchmark.max_examples_per_page`
+   and `benchmark.max_reference_tokens`. The resulting `ReferenceProfile` is
+   advisory only — benchmark categories describe the reference document,
+   never the target page — and a page with `references: []` or no profile
+   writes exactly as before. Every profile passes
+   `verify-reference-profile` before dispatch.
 1. Dispatch parallel Writer subtasks; each writes exactly **one page (`page_id`) ×
    one `language`** from the shared language-neutral `PageSpec` (`tasks/write.md`,
    `tasks/write-page.md`). A single canonical PageSpec produces every language's
@@ -461,6 +473,10 @@ returns `UNKNOWN`; none produce narrative content.
 | `sync-bundle <wiki_dir>` | `sync`       | Prepare Confluence / Notion bundles; **does NOT publish**    |
 | `init-config <target>`   | —            | Generate default `makewiki.config.yaml`                      |
 | `rebattle-diff <files>`  | —            | Deterministic dispute organizer over multiple ClaimSets      |
+| `benchmark-index <corpus>` | —            | Validate the benchmark corpus and generate the compact stage-1 index |
+| `benchmark-acquire <ids>` | —            | Licensing-gated fetch of benchmark source pages into `sources/` |
+| `verify-reference-profile <profile>` | —            | Mechanical ReferenceProfile validation (exit 1 = blocking defect) |
+| `benchmark-leakage <wiki_dir>` | —            | Mechanical candidate scan for benchmark provider terms (review input) |
 
 Backward-compat aliases (`scan`, `verify`, `sync`, `sizing`) remain so existing
 scripts keep working. `sizing` is the deprecated alias of `census`. The
@@ -473,18 +489,21 @@ Every field in `makewiki.config.yaml` maps to exactly one consumer category —
 Python-only, LLM-only, or Shared. `tests/contracts/test_config_consumption_contract.py`
 enforces that no field is dead or ambiguous:
 
-- **Shared** (Python + LLM): none currently — the former shared prose-judgment
-  fields (`documentation_policy.forbid_unfounded_praise`,
-  `documentation_policy.banned_descriptors`) are **LLM-only** once the
-  mechanical prose checker left the renderer (prose quality is cognitive).
+- **Shared** (Python + LLM): `benchmark.corpus_path`,
+  `benchmark.max_examples_per_page`, `benchmark.max_reference_tokens` —
+  Python resolves the corpus default and mechanically enforces both budgets
+  in `verify-reference-profile`.
 - **LLM-only** (referenced by the Skill layer / writers, not Python):
   `agent.*` (`max_subagents`, `max_parallelism`, `max_total_agent_calls`,
   `cost_budget`, `max_audit_rounds`, `safety_max_rounds`); `delivery.*`;
-  `content_depth.*`; `language_profiles.*`; and all `documentation_policy.*`
+  `content_depth.*`; `language_profiles.*`; all `documentation_policy.*`
   (`audience`, `structure_strategy`, `prefer_task_oriented_sections`,
   `include_architecture_analysis`, `include_directory_overview`,
   `include_source_walkthroughs`, `include_operator_persona`,
-  `include_api_reference`, `forbid_unfounded_praise`, `banned_descriptors`).
+  `include_api_reference`, `forbid_unfounded_praise`, `banned_descriptors`);
+  and `benchmark.*` (`enabled`, `prefer_pattern_cards`, `allow_full_source`) —
+  whether the Benchmark Selector runs is a Skill-layer decision; Python
+  never gates on `benchmark.enabled`.
   `documentation_policy.audience` and `delivery.audience` are **seed hints**, not
   gates; `include_operator_persona` / `include_api_reference` are additive seed
   probes that never manufacture a page or prose without evidence.

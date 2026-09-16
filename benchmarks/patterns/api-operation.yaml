@@ -1,0 +1,24 @@
+id: api-operation
+description: Documents one endpoint in a stable generated layout that moves from signature to runnable example to exhaustive parameter and response tables.
+suitable_when:
+  - The page must support exact lookup of one operation while coding.
+  - Parameters nest and each level needs anchored definitions.
+information_shape:
+  - method_path_signature
+  - runnable_example
+  - request_parameters
+  - response_schema
+  - error_and_rate_limits
+  - related_operations
+good_traits:
+  - Example precedes prose.
+  - Anchored rows per parameter.
+  - Response documented with the same discipline as the request.
+  - Layout identical across endpoints.
+anti_patterns:
+  - Tutorial narrative inside reference pages.
+  - Nested fields left undocumented.
+  - Examples drifted from the current schema.
+source_examples:
+  - stripe-api-operation
+  - github-rest-auth

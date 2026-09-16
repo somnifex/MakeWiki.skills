@@ -23,6 +23,7 @@ import pytest
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 
 SUBSKILLS = (
+    "benchmark",
     "export",
     "init",
     "review",

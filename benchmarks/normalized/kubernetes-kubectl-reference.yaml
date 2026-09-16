@@ -1,0 +1,39 @@
+id: kubernetes-kubectl-reference
+source:
+  provider: kubernetes
+  title: Command line tool (kubectl)
+  url: https://kubernetes.io/docs/reference/kubectl/
+summary: "The page is a lookup-oriented hub that opens with installation and configuration, then hands off to generated per-command reference pages through an organized command-overview table. Cross-cutting conventions such as verbosity flags and environment variables live on separate pages and are linked rather than inlined. The structure supports landing directly on one command rather than reading sequentially."
+observed_archetypes:
+  - cli-reference-hub
+  - generated-reference-index
+suitable_intents:
+  - look-up-a-command
+  - learn-cli-conventions
+information_shape:
+  - install_links
+  - configuration_basics
+  - command_overview_table
+  - per_command_reference_links
+  - global_flag_conventions
+strong_traits:
+  - Table-driven command lookup.
+  - Shallow nesting for random access.
+  - Conventions separated from command pages.
+anti_patterns:
+  - Long narrative between command entries.
+  - Flag lists that drift from the binary.
+useful_for:
+  - Structuring CLI reference hubs.
+  - Linking generated reference material.
+  - Separating conventions from commands.
+tags:
+  - cli
+  - reference
+  - kubectl
+pattern_ids:
+  - cli-guide
+  - operator-runbook
+retrieved_at: null
+license_or_usage_note: "Structural summary only; page content is (c) the provider - do not redistribute prose."
+verification: unverified-structural-summary

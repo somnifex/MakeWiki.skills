@@ -82,5 +82,15 @@ quality:
   allow_pending_llm_layers: true        # Python-consumed (QualityGate; exit policy only)
   min_grounding_score: 1.0              # Python-consumed (QualityGate; sole gate threshold)
 
+# Advisory benchmark-reference layer (excellent-doc examples for Writers and
+# Reviewers; never a fact source — see references/v3/BENCHMARK_LIBRARY.md).
+benchmark:  # SHARED (Python enforces budgets; LLM consumes enabled/preferences)
+  enabled: true                         # LLM-consumed (Selector runs when true; Python never gates)
+  corpus_path: benchmarks               # SHARED (Python default --corpus for mechanical commands)
+  max_examples_per_page: 3              # SHARED (mechanically enforced per-page ceiling)
+  max_reference_tokens: 5000            # SHARED (mechanically enforced payload budget)
+  prefer_pattern_cards: true            # LLM-consumed (prefer pattern cards over raw prose)
+  allow_full_source: false              # LLM-consumed (full source pages only when justified)
+
 # LLM-consumed: per-language writer tone overrides.
 language_profiles: {}                   # LLM-consumed (LanguageProfileConfig.tone)

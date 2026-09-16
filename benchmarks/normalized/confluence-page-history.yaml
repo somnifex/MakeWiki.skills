@@ -1,0 +1,41 @@
+id: confluence-page-history
+source:
+  provider: atlassian
+  title: Page history
+  url: https://support.atlassian.com/confluence/docs/view-page-history/
+summary: "The page enumerates the lifecycle of a page's versions in operation order, covering how edits create versions, how to browse the history list, then how to compare, restore, and delete versions. Each capability gets a short section with a screenshot of the exact controls, keeping lookup shallow. The difference between restoring a version and deleting history is stated explicitly, which keeps the two operations from being confused during audits."
+observed_archetypes:
+  - feature-guide
+  - versioning-reference
+suitable_intents:
+  - audit-page-changes
+  - restore-an-earlier-version
+  - manage-version-clutter
+information_shape:
+  - version_creation_model
+  - history_list_navigation
+  - version_comparison
+  - restore_procedure
+  - deletion_cleanup
+  - permission_notes
+strong_traits:
+  - Lifecycle-ordered capabilities.
+  - Control-level screenshots.
+  - Restore versus delete contrast.
+anti_patterns:
+  - Bulk and single-page steps mixed together.
+  - Permission notes appended as an afterthought.
+useful_for:
+  - Documenting version lifecycles.
+  - Structuring per-operation guides.
+  - Pairing screenshots with controls.
+tags:
+  - version-history
+  - lifecycle
+  - collaboration
+pattern_ids:
+  - version-history
+  - lifecycle-management
+retrieved_at: null
+license_or_usage_note: "Structural summary only; page content is (c) the provider - do not redistribute prose."
+verification: unverified-structural-summary

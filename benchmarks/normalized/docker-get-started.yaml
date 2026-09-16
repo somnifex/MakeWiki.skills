@@ -1,0 +1,44 @@
+id: docker-get-started
+source:
+  provider: docker
+  title: Get started
+  url: https://docs.docker.com/get-started/
+summary: "The page opens with a value statement and a one-command build-and-run experiment before any theory, so the reader confirms their installation works within the first screens. It then carries a single sample application through increasingly production-like steps, moving from building an image to persisting data with volumes, connecting containers through a network, and finally composing multi-service setups. Every part ends with a runnable command and its expected output, which keeps reader progress continuously verifiable. Conceptual vocabulary appears only in small asides when the running example needs it."
+observed_archetypes:
+  - quickstart
+  - hands-on-walkthrough
+suitable_intents:
+  - evaluate-the-tool
+  - learn-by-doing
+  - first-contact-onboarding
+information_shape:
+  - prereq_check
+  - first_command_experiment
+  - single_container_build
+  - add_persistence
+  - connect_containers
+  - compose_services
+  - recap_and_next_steps
+strong_traits:
+  - Runnable-first progression.
+  - Expected output after every step.
+  - Progressive complexity along one example.
+  - Concepts deferred to targeted asides.
+anti_patterns:
+  - Front-loaded theory.
+  - Example code without shown results.
+useful_for:
+  - Planning a quickstart page.
+  - Ordering first-session steps.
+  - Choosing verification points.
+tags:
+  - quickstart
+  - tutorial
+  - onboarding
+  - containers
+pattern_ids:
+  - quickstart-happy-path
+  - product-overview
+retrieved_at: null
+license_or_usage_note: "Structural summary only; page content is (c) the provider - do not redistribute prose."
+verification: unverified-structural-summary

@@ -223,8 +223,8 @@ def _build_parser(*, xhtml: bool) -> MarkdownIt:
         # stays well-formed XML.
         parser.options.update({"xhtmlOut": True})
     rules = cast(RendererHTML, parser.renderer).rules
-    rules["heading_open"] = _heading_open
-    rules["link_open"] = _link_open
+    rules["heading_open"] = cast(Any, _heading_open)
+    rules["link_open"] = cast(Any, _link_open)
     return parser
 
 

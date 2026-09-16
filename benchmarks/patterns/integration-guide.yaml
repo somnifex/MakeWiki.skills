@@ -1,0 +1,23 @@
+id: integration-guide
+description: Connects two systems through a single end-to-end setup path while keeping each side's native concepts intact.
+suitable_when:
+  - A reader must make an external tool, service, or protocol work with a host product.
+  - Both sides' terminology appears and must stay distinguishable.
+information_shape:
+  - goal_and_topology
+  - prerequisites_both_sides
+  - connection_setup
+  - flow_verification
+  - common_failures
+  - advanced_pointers
+good_traits:
+  - Topology stated before steps.
+  - Prerequisites separated per side.
+  - End-to-end verification as an explicit step.
+anti_patterns:
+  - Credentials assumed present in snippets.
+  - Only the happy path with no failure notes.
+  - The two systems' names used interchangeably.
+source_examples:
+  - dify-knowledge-pipeline
+  - mcp-architecture

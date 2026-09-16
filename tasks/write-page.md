@@ -58,6 +58,16 @@ per the shared style guide `references/anti_ai_cliche.md`:
 - facts stated at their true strength — no inflation, no uplifting closing;
 - no fabrication of runtime values, UI specifics, or unproven behavior.
 
+### 2b. ReferenceProfile (advisory, optional)
+
+The subtask may receive a ReferenceProfile (see `tasks/select-benchmarks.md`)
+alongside the PageSpec slice. It is an advisory writing reference, never a
+fact source: borrow its `borrow` list as presentation guidance, treat its
+`do_not_copy` list as binding, and never let a benchmark's archetype change
+the page's intent, audience, or category. Target-project claims stay grounded
+in the target-project evidence slice. With no profile attached, write exactly
+as before.
+
 ---
 
 ## 3. Preserve stable identity (block ID / section ID)

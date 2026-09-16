@@ -1,0 +1,23 @@
+id: concept-strategy-selection
+description: Helps readers choose between named alternatives by defining each option first, then stating the trade-offs that discriminate them.
+suitable_when:
+  - Several legitimate strategies exist and the right one depends on context.
+  - The page must support a decision, not only a lookup.
+information_shape:
+  - decision_question
+  - option_catalog
+  - per_option_trade_offs
+  - context_based_guidance
+  - comparison_summary
+  - parameter_pointers
+good_traits:
+  - Options defined before they are compared.
+  - Trade-offs stated per option.
+  - Recommendations conditioned on reader context.
+anti_patterns:
+  - A comparison table without prior definitions.
+  - One option privileged by omission of the others' strengths.
+  - Deciding for the reader without stating the conditions.
+source_examples:
+  - unstructured-chunking
+  - weaviate-search-concepts

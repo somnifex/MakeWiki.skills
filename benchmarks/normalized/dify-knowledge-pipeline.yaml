@@ -1,0 +1,42 @@
+id: dify-knowledge-pipeline
+source:
+  provider: dify
+  title: Knowledge Base
+  url: https://docs.dify.ai/en/guides/knowledge-base
+summary: "The page walks the knowledge pipeline in ingestion order, moving from connecting a data source through chunking and cleaning to choosing an embedding and retrieval mode and finally binding the index to an application. Screenshots anchor each UI step while parameter explanations stay in surrounding prose, so interface navigation and concept learning alternate at a steady rhythm. Retrieval strategy trade-offs are summarized in comparison tables after the happy path, which keeps first-pass setup separate from tuning."
+observed_archetypes:
+  - pipeline-walkthrough
+  - gui-product-guide
+suitable_intents:
+  - set-up-a-rag-pipeline
+  - configure-retrieval
+  - integrate-a-data-source
+information_shape:
+  - pipeline_stage_overview
+  - data_source_connection
+  - chunking_cleaning_settings
+  - embedding_retrieval_selection
+  - application_binding
+  - tuning_comparisons
+strong_traits:
+  - Stage order matches data flow.
+  - Screenshot-anchored UI steps.
+  - Tuning separated from setup.
+anti_patterns:
+  - UI states without concept names.
+  - Retrieval modes described only in marketing terms.
+useful_for:
+  - Explaining multi-stage pipelines.
+  - Blending UI steps with concepts.
+  - Writing retrieval strategy comparisons.
+tags:
+  - rag
+  - knowledge-base
+  - pipeline
+  - integration
+pattern_ids:
+  - pipeline-explanation
+  - integration-guide
+retrieved_at: null
+license_or_usage_note: "Structural summary only; page content is (c) the provider - do not redistribute prose."
+verification: unverified-structural-summary

@@ -31,18 +31,17 @@ import re
 import zipfile
 from html.parser import HTMLParser
 from pathlib import Path
-from typing import Iterator
+from typing import TYPE_CHECKING, Any
 
 from pydantic import BaseModel, Field
 
-from makewiki_skills.renderer.exporter import (
-    collect_ordered_chapters,
-    parse_export_chapters,
-)
 from makewiki_skills.renderer.site_compiler import (
     extract_docs_content,
     iter_plan_documents,
 )
+
+if TYPE_CHECKING:
+    from makewiki_skills.model.site_presentation import SitePresentationPlan
 from makewiki_skills.review.section_parser import SECTION_MARKER_LINE, section_ids
 
 __all__ = [
@@ -148,7 +147,7 @@ class RenderAuditResult(BaseModel):
     segments_audited: int = 0
 
     @property
-    def blocking(self) -> list["RenderFinding"]:
+    def blocking(self) -> list[RenderFinding]:
         return [f for f in self.findings if f.severity in ("critical", "major")]
 
 
@@ -182,12 +181,12 @@ class _SegmentTextCollector(HTMLParser):
         self.tag_counts: dict[str, int] = {}
         self._pre_depth = 0
 
-    def handle_starttag(self, tag: str, attrs) -> None:  # noqa: ARG002
+    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:  # noqa: ARG002
         self.tag_counts[tag] = self.tag_counts.get(tag, 0) + 1
         if tag == "pre":
             self._pre_depth += 1
 
-    def handle_startendtag(self, tag: str, attrs) -> None:  # noqa: ARG002
+    def handle_startendtag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:  # noqa: ARG002
         self.tag_counts[tag] = self.tag_counts.get(tag, 0) + 1
 
     def handle_endtag(self, tag: str) -> None:
@@ -286,7 +285,7 @@ def segment_rendered_document(body_html: str) -> list[dict[str, str]]:
     return segments
 
 
-def _source_body_facts(body: str) -> dict:
+def _source_body_facts(body: str) -> dict[str, Any]:
     """Mechanical facts of one source segment: fence pairs, table structure,
     callout count, and the prose lines the coverage check compares."""
     fence: str | None = None
@@ -428,13 +427,12 @@ def _check_segment_pair(
     *,
     language: str,
     document_id: str,
-    source: dict,
-    rendered: dict,
+    source: dict[str, Any],
+    rendered: dict[str, Any],
     index: int,
 ) -> None:
     """Run every mechanical check over one (source, rendered) segment pair."""
     sid = str(source["section_id"])
-    loc = sid or (str(source["heading"])[:40] if source["heading"] else f"segment-{index}")
     seg_html = rendered["body"]
     all_text, prose_text = _segment_texts(seg_html)
     target_key = _alphanumeric_key(all_text)
@@ -647,7 +645,6 @@ def audit_markdown_pair(
             )
 
     return findings, len(source_segments)
-     
 
 
 # ---------------------------------------------------------------------------
@@ -655,7 +652,7 @@ def audit_markdown_pair(
 # ---------------------------------------------------------------------------
 
 
-def _load_site_plan(makewiki_dir: Path):
+def _load_site_plan(makewiki_dir: Path) -> SitePresentationPlan | None:
     """Load the LLM-authored SitePresentationPlan, or ``None`` when absent."""
     from makewiki_skills.model.site_presentation import load_site_presentation
 
@@ -680,7 +677,7 @@ def _resolve_default_language(makewiki_dir: Path) -> str:
             try:
                 from makewiki_skills.config import MakeWikiConfig
 
-                return MakeWikiConfig.load(probe, makewiki_dir).default_language
+                return str(MakeWikiConfig.load(probe, makewiki_dir).default_language)
             except Exception:  # noqa: BLE001 - corrupt config: next authority
                 break
     return "en"
@@ -690,7 +687,7 @@ def _audit_site_artifact(
     makewiki_dir: Path,
     *,
     langs: list[str] | None,
-    plan,
+    plan: SitePresentationPlan | None,
 ) -> tuple[list[str], list[RenderFinding], int, int]:
     """Audit ``site/index.html`` against the plan's Markdown sources."""
     artifacts: list[str] = []
