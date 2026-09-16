@@ -1,7 +1,7 @@
 ---
 name: makewiki
 description: "Generate evidence-backed multilingual wiki documentation and an offline static website for a software project using autonomous collaborative LLM subagents. Use when: user asks to generate wiki, docs, documentation, enterprise delivery manuals, or multilingual docs for a project."
-version: "3.2.0"
+version: "3.3.1"
 license: MIT
 ---
 # MakeWiki v3 - LLM-First, Evidence-Backed Documentation Compiler
@@ -11,7 +11,7 @@ The LLM (Skill layer) decides what the repository means; Python (toolkit layer)
 proves what can be mechanically proven. Documentation is evidence-backed with
 layered automated verification (L0 - L5) and a single Quality Gate.
 
-This file binds skill `3.2.0` to toolkit `3.2.0`. The bootstrap script pins
+This file binds skill `3.3.1` to toolkit `3.3.1`. The bootstrap script pins
 the matching tag via `MAKEWIKI_TOOLKIT_VERSION`, the Git identity via
 `MAKEWIKI_TOOLKIT_COMMIT` (Git install) and the archive integrity checksum via
 `MAKEWIKI_TOOLKIT_ARCHIVE_SHA256` (Archive install).
@@ -537,5 +537,5 @@ See `tests/contracts/test_config_consumption_contract.py`.
   translation.
 - **100% code-block parity** across languages.
 - **Ephemeral execution**: clean up temporary artifacts after each phase.
-- **Version binding**: skill version (`3.2.0`) ↔ toolkit version (`3.2.0`) via
+- **Version binding**: skill version (`3.3.1`) ↔ toolkit version (`3.3.1`) via
   the bootstrap script.

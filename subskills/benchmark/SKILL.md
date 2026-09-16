@@ -1,7 +1,7 @@
 ---
 name: makewiki-benchmark
 description: "Curate the Benchmark Reference Library and issue per-page advisory ReferenceProfiles for MakeWiki runs. Use when: maintaining the excellent-docs benchmark corpus (registry, normalized summaries, patterns, index), acquiring source pages under licensing rules, or selecting advisory writing references for a page. Mechanical commands only; selection judgment is LLM-owned."
-version: "3.2.0"
+version: "3.3.1"
 argument-hint: "[index|acquire <ids...>|verify <profile>]"
 license: MIT
 allowed-tools: Bash(python */scripts/bootstrap_toolkit.py) Bash(python */scripts/run_toolkit.py *) Read Glob Grep

@@ -182,101 +182,151 @@ class DocExporter:
   <title>{self._title} - Printable PDF Guide</title>
   <style>
     :root {{
-      --font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-      --text-color: #1e293b;
+      --font-family: -apple-system, BlinkMacSystemFont, "Segoe UI Variable Text", "Segoe UI", Roboto, "Helvetica Neue", Arial, "PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif;
+      --font-mono: "Cascadia Code", "JetBrains Mono", ui-monospace, SFMono-Regular, Consolas, Menlo, monospace;
+      --text-color: #334155;
       --heading-color: #0f172a;
-      --border-color: #cbd5e1;
+      --muted-color: #64748b;
+      --faint-color: #94a3b8;
+      --border-color: #e2e8f0;
+      --border-strong: #cbd5e1;
+      --surface: #f8fafc;
       --code-bg: #f1f5f9;
+      --accent: #2563eb;
+      --accent-hover: #1d4ed8;
+      --accent-subtle: #eff6ff;
+      --callout-note-bg: #eff6ff;
+      --callout-note-border: #3b82f6;
+      --callout-warn-bg: #fffbeb;
+      --callout-warn-border: #f59e0b;
+      --callout-tip-bg: #f0fdf4;
+      --callout-tip-border: #22c55e;
+      --callout-danger-bg: #fef2f2;
+      --callout-danger-border: #ef4444;
     }}
     * {{ box-sizing: border-box; margin: 0; padding: 0; }}
     body {{
       font-family: var(--font-family);
       color: var(--text-color);
-      line-height: 1.6;
+      line-height: 1.65;
       padding: 2rem;
       background: #ffffff;
+      -webkit-font-smoothing: antialiased;
+      text-rendering: optimizeLegibility;
     }}
     .print-controls {{
       margin-bottom: 2rem;
-      padding: 1rem;
-      background: #eff6ff;
+      padding: 1rem 1.25rem;
+      background: var(--accent-subtle);
       border: 1px solid #bfdbfe;
-      border-radius: 8px;
+      border-radius: 10px;
       display: flex;
       justify-content: space-between;
       align-items: center;
+      gap: 1rem;
     }}
     .print-btn {{
-      background: #2563eb;
+      background: var(--accent);
       color: #ffffff;
       border: none;
-      padding: 0.6rem 1.2rem;
-      border-radius: 6px;
+      padding: 0.6rem 1.4rem;
+      border-radius: 8px;
       font-weight: 600;
       cursor: pointer;
       font-size: 0.95rem;
+      font-family: inherit;
+      transition: background 0.18s ease, box-shadow 0.18s ease;
     }}
-    .print-btn:hover {{ background: #1d4ed8; }}
+    .print-btn:hover {{ background: var(--accent-hover); }}
+    .print-btn:focus-visible {{ outline: 2px solid var(--accent-hover); outline-offset: 2px; }}
     .cover-page {{
       text-align: center;
       padding: 6rem 2rem;
       margin-bottom: 4rem;
-      border-bottom: 2px solid var(--border-color);
+      border-bottom: 1px solid var(--border-color);
       page-break-after: always;
       break-after: page;
     }}
     .cover-page h1 {{
       font-size: 2.75rem;
       color: var(--heading-color);
-      margin-bottom: 1rem;
+      letter-spacing: -0.02em;
+      line-height: 1.2;
+      margin-bottom: 1.25rem;
+    }}
+    .cover-page .accent-rule {{
+      width: 56px;
+      height: 3px;
+      border: 0;
+      border-radius: 9999px;
+      background: var(--accent);
+      margin: 0 auto 1.5rem;
     }}
     .cover-page .subtitle {{
-      font-size: 1.25rem;
-      color: #64748b;
-      margin-bottom: 2rem;
+      font-size: 1.2rem;
+      color: var(--muted-color);
+      margin-bottom: 2.5rem;
+      font-weight: 500;
     }}
     .cover-page .meta {{
-      font-size: 0.9rem;
-      color: #94a3b8;
+      font-size: 0.85rem;
+      color: var(--faint-color);
+      letter-spacing: 0.02em;
     }}
     .toc-section {{
       margin: 3rem 0;
-      padding: 1.5rem;
-      background: #f8fafc;
+      padding: 1.75rem 2rem;
+      background: var(--surface);
       border: 1px solid var(--border-color);
-      border-radius: 8px;
+      border-radius: 10px;
       page-break-after: always;
       break-after: page;
     }}
-    .toc-section h2 {{ margin-bottom: 1rem; color: var(--heading-color); }}
-    .toc-section ul {{ list-style-type: decimal; padding-left: 2rem; }}
-    .toc-section li {{ margin-bottom: 0.5rem; }}
-    .toc-section a {{ color: #2563eb; text-decoration: none; }}
-    .toc-section a:hover {{ text-decoration: underline; }}
+    .toc-section h2 {{
+      margin-bottom: 1.25rem;
+      color: var(--heading-color);
+      font-size: 1.15rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }}
+    .toc-section ul {{ list-style-type: decimal; padding-left: 1.75rem; }}
+    .toc-section li {{ margin-bottom: 0.6rem; }}
+    .toc-section li::marker {{ color: var(--faint-color); font-variant-numeric: tabular-nums; }}
+    .toc-section a {{ color: var(--accent); text-decoration: none; border-bottom: 1px solid transparent; transition: border-color 0.15s ease, color 0.15s ease; }}
+    .toc-section a:hover {{ text-decoration: none; color: var(--accent-hover); border-bottom-color: var(--accent-hover); }}
     .chapter {{
       margin-bottom: 4rem;
       padding-top: 1rem;
       page-break-before: always;
       break-before: page;
     }}
-    h1, h2, h3, h4 {{ color: var(--heading-color); margin-top: 1.5rem; margin-bottom: 0.75rem; }}
+    h1, h2, h3, h4 {{ color: var(--heading-color); margin-top: 1.5rem; margin-bottom: 0.75rem; letter-spacing: -0.015em; line-height: 1.3; }}
     h1 {{ font-size: 2rem; border-bottom: 1px solid var(--border-color); padding-bottom: 0.5rem; }}
-    h2 {{ font-size: 1.5rem; }}
-    h3 {{ font-size: 1.2rem; }}
+    h2 {{ font-size: 1.5rem; margin-top: 2rem; }}
+    h3 {{ font-size: 1.2rem; margin-top: 1.5rem; }}
     p, ul, ol, table, pre {{ margin-bottom: 1.2rem; }}
     ul, ol {{ padding-left: 1.5rem; }}
-    li {{ margin-bottom: 0.3rem; }}
-    table {{ width: 100%; border-collapse: collapse; margin: 1.5rem 0; font-size: 0.9rem; }}
-    th, td {{ border: 1px solid var(--border-color); padding: 0.6rem 0.8rem; text-align: left; }}
-    th {{ background: #f8fafc; font-weight: 600; }}
+    li {{ margin-bottom: 0.35rem; }}
+    li::marker {{ color: var(--faint-color); }}
+    table {{
+      width: 100%;
+      border-collapse: collapse;
+      margin: 1.5rem 0;
+      font-size: 0.9rem;
+      font-variant-numeric: tabular-nums;
+    }}
+    th, td {{ border: 1px solid var(--border-color); padding: 0.6rem 0.8rem; text-align: left; vertical-align: top; }}
+    th {{ background: var(--surface); font-weight: 600; }}
     pre {{
       background: var(--code-bg);
       border: 1px solid var(--border-color);
-      border-radius: 6px;
+      border-radius: 8px;
       padding: 1rem;
       overflow-x: auto;
+      font-family: var(--font-mono, ui-monospace);
       font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
       font-size: 0.85rem;
+      line-height: 1.6;
       page-break-inside: avoid;
       break-inside: avoid;
     }}
@@ -284,34 +334,46 @@ class DocExporter:
       font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
       font-size: 0.875em;
       background: var(--code-bg);
-      padding: 0.2em 0.4em;
+      border: 1px solid var(--border-color);
+      padding: 0.1em 0.35em;
       border-radius: 4px;
     }}
+    pre code {{ background: transparent; border: none; padding: 0; }}
     blockquote {{
-      border-left: 4px solid #3b82f6;
-      background: #eff6ff;
+      border-left: 4px solid var(--callout-note-border, #3b82f6);
+      background: var(--callout-note-bg, #eff6ff);
       padding: 0.8rem 1.2rem;
-      margin: 1rem 0;
-      border-radius: 0 6px 6px 0;
+      margin: 1.25rem 0;
+      border-radius: 0 8px 8px 0;
+      color: var(--text-color);
     }}
-    .callout {{
-      border-left: 4px solid #2563eb;
-    }}
+    .callout {{ border-left-width: 4px; font-style: normal; }}
+    .callout.note {{ border-left-color: var(--callout-note-border, #3b82f6); background: var(--callout-note-bg, #eff6ff); }}
+    .callout.tip {{ border-left-color: var(--callout-tip-border, #22c55e); background: var(--callout-tip-bg, #f0fdf4); }}
+    .callout.warning {{ border-left-color: var(--callout-warn-border, #f59e0b); background: var(--callout-warn-bg, #fffbeb); }}
+    .callout.danger {{ border-left-color: var(--callout-danger-border, #ef4444); background: var(--callout-danger-bg, #fef2f2); }}
     .callout-label {{
       font-weight: 700;
       text-transform: uppercase;
-      font-size: 0.8em;
-      letter-spacing: 0.04em;
+      font-size: 0.75em;
+      letter-spacing: 0.05em;
       margin-right: 0.4em;
     }}
+    .callout.note .callout-label {{ color: #1d4ed8; }}
+    .callout.tip .callout-label {{ color: #15803d; }}
+    .callout.warning .callout-label {{ color: #b45309; }}
+    .callout.danger .callout-label {{ color: #b91c1c; }}
+    img {{ max-width: 100%; height: auto; border-radius: 8px; border: 1px solid var(--border-color); }}
+    hr {{ border: 0; border-top: 1px solid var(--border-color); margin: 2rem 0; }}
     @media print {{
       body {{ padding: 0; font-size: 11pt; }}
       .print-controls {{ display: none; }}
+      .cover-page {{ padding-top: 4rem; }}
       .chapter {{ page-break-before: always; break-before: page; }}
       pre, table, blockquote {{ page-break-inside: avoid; break-inside: avoid; }}
       a {{ color: inherit; text-decoration: none; }}
+      th {{ background: #f1f5f9 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }}
     }}
-  </style>
 </head>
 <body>
   <div class="print-controls">

@@ -5,6 +5,34 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [3.3.1] — 2026-09-16
+
+### Changed
+
+- **Renderer front-end polish (site + printable export)**: the offline SPA
+  and the PDF-ready export shell were restyled as a refined Minimalism /
+  Swiss-style documentation system — no prose, IA, or behavior changes.
+- SPA (`site_compiler.py`): full design-token layer on `:root` /
+  `[data-theme="dark"]` (colors, radii, shadows, z-index, gutter) with a
+  JS-derived accent hover; frosted sticky header; active-item nav indicator
+  with 150–250ms transitions; refined type scale with negative heading
+  tracking and `html[lang="zh-CN"]` CJK rules; code slabs with a language
+  header and per-block copy button; zebra tables with tabular numerals;
+  typed callouts (`[!NOTE|TIP|WARNING|DANGER]`) with colored label dots;
+  `dialog-in` search dialog and mobile drawer with an eased cubic-bezier;
+  `doc-enter` page-reveal on document switch; `scroll-padding-top` anchor
+  fix; `prefers-reduced-motion: reduce` guard; dark-theme contrast pass.
+- Printable export (`exporter.py`): matching token set (blue accent, typed
+  callout backgrounds and borders aligned with the shared renderer's
+  `callout {kind}` classes), rounded code blocks with `break-inside: avoid`,
+  TOC card with decimal markers, cover typography with tracking, `@media
+  print` pagination rules and `print-color-adjust: exact` on table headers.
+  All test-pinned strings and audit anchors (`Print to PDF`,
+  `Table of Contents`, `documentation.html`, `<section class="chapter"
+  id="...">`) unchanged.
+
+---
+
 ## [3.2.0] — 2026-09-16
 
 ### Added
