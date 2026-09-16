@@ -47,7 +47,7 @@ Reference: `src/makewiki_skills/config.py`.
 
 | Field                                                | Default          | Vocabulary  | Category    |
 | ---------------------------------------------------- | ---------------- | ----------- | ----------- |
-| `delivery.audience`                                  | `"dual"`         | `dual \     | end-user \  | enterprise` | LLM_ONLY |
+| `delivery.audience`                                  | `"dual"`         | `dual \|end-user \|enterprise` | LLM_ONLY |
 | `delivery.include_deployment_runbook`                | `true`           | bool        | LLM_ONLY    |
 | `delivery.include_compatibility_matrix`              | `true`           | bool        | LLM_ONLY    |
 | `delivery.include_health_checks`                     | `true`           | bool        | LLM_ONLY    |

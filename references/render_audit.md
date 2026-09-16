@@ -28,13 +28,13 @@ cross-language alignment by `section_id` stays with L4 / L4b, which pair by
 
 | Check | Severity | What it proves |
 | :--- | :--- | :--- |
-| `marker_leak` | critical | `[[id:...]]`, `[[parity:ignore ...]]`, `<!-- makewiki:section=... -->` (raw or escaped), internal artifact paths (`.makewiki-artifacts/`, `12-drafts/`, `14-revision-results/`), writer frontmatter echo keys, or visible callout markers never reach a reader |
+| `marker_leak` | critical | `[[id:...]]`, `[[parity:ignore ...]]`, the `makewiki:section` HTML comment marker (raw or escaped), internal artifact paths (`.makewiki-artifacts/`, `12-drafts/`, `14-revision-results/`), writer frontmatter echo keys, or visible callout markers never reach a reader |
 | `heading_parity` | major | every source section heading survives at the same level; segment counts match; the source H1 exists as a rendered `<h1>` |
 | `prose_coverage` | major | every substantive source prose line (normalized to case-folded alphanumerics; images, link labels, callout tokens and list markers normalized) appears in the rendered segment's visible text — catches content loss and escaping bugs |
 | `code_block_parity` | major | source fenced-block count equals rendered `<pre>` count per segment |
 | `table_integrity` | major | source rows/cells match rendered `<tr>`/`<td>`+`<th>` counts, and every source table maps to one `<table>` element (catches per-row table shells) |
 | `link_residue` | major | no unrendered markdown link syntax (`](`) in rendered prose |
-| `fence_residue` | major | no unrendered ``` fence marker outside code blocks |
+| `fence_residue` | major | no unrendered triple-backtick fence marker outside code blocks |
 | `callout_fidelity` | minor | source `> [!TYPE]` count matches rendered `blockquote.callout` count; recorded but does not block |
 | `artifact_completeness` | major | every exported chapter has a matching source chapter, and vice versa |
 | `artifact_missing` | critical | an artifact the requested target covers does not exist (fails closed, never a silent pass) |
